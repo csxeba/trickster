@@ -1,6 +1,5 @@
 import numpy as np
 from keras.models import Model
-from keras import backend as K
 
 from ..abstract import AgentBase
 from trickster.experience.experience import Experience
@@ -9,89 +8,56 @@ from trickster.experience.experience import Experience
 class DQN(AgentBase):
 
     def __init__(self, model: Model, actions, memory: Experience, reward_discount_factor=0.99,
-                 epsilon=0.99, epsilon_decay=0.99, epsilon_min=0.1):
-        super().__init__(actions, memory, reward_discount_factor)
+                 epsilon=0.99, epsilon_decay=1., epsilon_min=0.1, state_preprocessor=None):
+        super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
         self.model = model
         self.output_dim = model.output_shape[1]
         self.action_indices = np.arange(self.output_dim)
-        self.Q = []
         self.gamma = reward_discount_factor
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
-        self.train_function = self._make_train_fn()
         self.eye = np.eye(self.output_dim)
+        self.Q = []
 
-    def _make_train_fn(self):
-        q_predicted = self.model.output
-
-        action_onehots = K.placeholder([None, self.output_dim], name="action_onehots")
-        td_targets = K.placeholder([None], name="td_targets")
-
-        q_values = K.sum(action_onehots * q_predicted, axis=1)
-        loss = K.mean(K.square(td_targets - q_values))
-
-        updates = self.model.optimizer.get_updates(loss, self.model.trainable_weights)
-
-        train_fn = K.function(inputs=[self.model.input,
-                                      action_onehots,
-                                      td_targets],
-                              outputs=[loss],
-                              updates=updates)
-        return train_fn
+    def _maybe_decay_epsilon(self):
+        if self.epsilon_decay < 1:
+            if self.epsilon < self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
+            else:
+                self.epsilon = self.epsilon_min
 
     def sample(self, state, reward):
         self.states.append(state)
         self.rewards.append(reward)
         Q = self.model.predict(self.preprocess(state)[None, ...])[0]
         action = np.argmax(Q) if np.random.random() > self.epsilon else np.random.randint(0, len(Q))
+        self._maybe_decay_epsilon()
         self.Q.append(Q)
         self.actions.append(action)
         return action
+
+    def push_experience(self, final_state, final_reward, done=True):
+        A = np.array(self.actions)  # 0..t
+        R = np.array(self.rewards[1:] + [final_reward])  # 1..t+1
+        Q = np.array(self.Q)  # 0..t
+        S = np.array(self.states)  # 0..t
+
+        self.Q = []
+        self.states = []
+        self.actions = []
+        self.rewards = []
+
+        Y = Q.copy()
+        Y[range(len(Y)-1), A[:-1]] = Q[1:].max(axis=1) * self.gamma + R[:-1]
+        if done:
+            Y[-1, A[-1]] = final_reward
+
+        self.memory.remember(S, Y)
 
     def fit(self, batch_size=32, verbose=1):
         S, Y = self.memory.sample(batch_size)
         loss = self.model.train_on_batch(S, Y)
         if verbose:
             print("Loss: {:.4f}".format(loss))
-        return loss
-
-
-if __name__ == '__main__':
-    import gym
-    from keras.models import Sequential
-    from keras.layers import Dense
-    from matplotlib import pyplot as plt
-
-    EPISODES = 2000
-
-    env = gym.make("CartPole-v1")
-    ann = Sequential([Dense(24, activation="relu", input_shape=env.observation_space.shape,
-                            kernel_initializer="he_uniform"),
-                      Dense(24, activation="relu", kernel_initializer="he_uniform"),
-                      Dense(2, activation="linear", kernel_initializer="he_uniform")])
-    ann.compile("adam", "mse")
-    dqn = DQN(ann, [0, 1], Experience(max_length=2000), reward_discount_factor=0.99, epsilon=1.,
-              epsilon_decay=0.999, epsilon_min=0.01)
-    rewards = []
-    losses = []
-    loss = 0
-    reward_sum = 0
-    for i in range(1, EPISODES+1):
-        print("\rEpisode {:>4} eps: {:>7.2%}, loss: {:.4f}, rwd: {}".format(i, dqn.epsilon, loss, reward_sum),
-              end="")
-        reward_sum = dqn.rollout(max_steps=140, verbose=0)
-        rewards.append(reward_sum)
-        if i >= 10:
-            loss = dqn.fit(batch_size=32, verbose=0)
-            losses.append(loss)
-    print()
-    fig, (tax, bax) = plt.subplots(2, 1, figsize=(5, 6))
-    tax.plot(range(1, len(rewards)+1), rewards)
-    bax.plot(range(10, len(losses)+10), losses)
-    tax.set_title("rewards")
-    bax.set_title("losses")
-    tax.grid()
-    bax.grid()
-    plt.tight_layout()
-    plt.show()
+        return {"loss": loss}

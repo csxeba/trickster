@@ -26,5 +26,5 @@ class AgentBase:
     def push_experience(self, final_state, final_reward, done=True):
         raise NotImplementedError
 
-    def fit(self, batch_size=32):
+    def fit(self, batch_size=32, verbose=1):
         raise NotImplementedError

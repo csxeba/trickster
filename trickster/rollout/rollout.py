@@ -1,3 +1,6 @@
+from ..abstract import AgentBase
+
+
 class RolloutConfig:
 
     def __init__(self,
@@ -15,7 +18,7 @@ class RolloutConfig:
 
 class Rollout:
 
-    def __init__(self, env, agent, config: RolloutConfig=None):
+    def __init__(self, agent: AgentBase, env, config: RolloutConfig=None):
         self.env = env
         self.agent = agent
         self.cfg = config or RolloutConfig()
@@ -41,7 +44,7 @@ class Rollout:
             if self.cfg.screen is not None:
                 self.cfg.screen.blit(state)
 
-    def roll(self, steps, verbose=0):
+    def roll(self, steps, verbose=0, learning_batch_size=32):
         """Roll the agent inside the environment for <steps> steps for eg. TD-learning"""
         reward_sum = 0.
         state = None
@@ -58,12 +61,17 @@ class Rollout:
             if self.finished:
                 break
 
+        history = {"reward_sum": reward_sum}
+
         if self.cfg.learning:
             self.agent.push_experience(state, reward)
+            if learning_batch_size:
+                result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
+                history.update(result)
 
-        return reward_sum
+        return history
 
-    def rollout(self, verbose=1):
+    def rollout(self, verbose=1, learning_batch_size=0):
         """Generate a complete trajectory for eg. MCMC learning"""
         state = self.env.reset()
         reward = 0.
@@ -89,6 +97,8 @@ class Rollout:
             print()
         if self.cfg.learning:
             self.agent.push_experience(state, reward, done)
+            if learning_batch_size:
+                self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
         return cumulative_reward
 
     def reset(self):

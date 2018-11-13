@@ -15,7 +15,7 @@ env = Reskiv(rcfg)
 actor = load_model("../models/reskiv2/reinforce_latest.h5")
 agent = Policy(actor, actions=MOVES)
 screen = CV2Screen(scale=2)
-rollout = Rollout(env, agent, RolloutConfig(learning=False, screen=screen))
+rollout = Rollout(agent, env, RolloutConfig(learning=False, screen=screen))
 
 while 1:
     rollout.reset()

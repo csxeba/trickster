@@ -88,7 +88,7 @@ while 1:
 
     if episode >= 100 and episode % 100 == 0 and TRAIN:
         print(" Model dumplings...")
-        model_path_template_pfx = "../models/reskiv2/a2c_"
+        model_path_template_pfx = "../models/reskiv/a2c_"
         if np.mean(reward_memory) > 3:
             model_path_template_sfx = "_{}_r{:.2f}.h5".format(episode, np.mean(reward_memory))
         else:

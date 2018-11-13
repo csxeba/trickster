@@ -7,7 +7,6 @@ from keras.layers import GlobalAveragePooling2D
 from keras.optimizers import Adam
 
 from trickster import REINFORCE, Experience, MultiRollout, RolloutConfig
-from trickster.utility.symbolic import SoftMax2
 
 from grund.reskiv import ReskivConfig, Reskiv
 from grund.util.movement import get_movement_vectors
@@ -73,7 +72,7 @@ while 1:
 
     if episode >= 100 and episode % 100 == 0 and TRAIN:
         print(" Model dumplings...")
-        model_path_template_pfx = "../models/reskiv2/reinforce_"
+        model_path_template_pfx = "../models/reskiv/reinforce_"
         if np.mean(reward_memory) > 3:
             model_path_template_sfx = "{}_r{:.2f}.h5".format(episode, np.mean(reward_memory))
         else:
