@@ -12,12 +12,12 @@ env = gym.make("CartPole-v1")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-policy = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                     Dense(16, activation="relu"),
+policy = Sequential([Dense(24, activation="relu", input_shape=input_shape),
+                     Dense(24, activation="relu"),
                      Dense(num_actions, activation="linear")])
-policy.compile(loss="mse", optimizer=Adam(1e-3))
+policy.compile(loss="mse", optimizer=Adam(1e-2))
 
-agent = DQN(policy, actions=2, memory=Experience(max_length=10000), epsilon=1., reward_discount_factor=0.98)
+agent = DoubleDQN(policy, actions=2, memory=Experience(max_length=10000), epsilon=1., reward_discount_factor=0.98)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
 
@@ -39,9 +39,12 @@ for episode in range(1, 501):
     rewards.append(sum(episode_rewards))
     losses.append(sum(episode_losses) / len(episode_losses))
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
-        episode, rewards[-1], losses[-1], agent.epsilon))
+        episode, rewards[-1], losses[-1], agent.epsilon), end="")
     agent.epsilon *= 0.995
     agent.epsilon = max(agent.epsilon, 0.01)
+    if episode % 5 == 0:
+        print("\nPushed weights!")
+        agent.push_weights(mix_in_ratio=1)
 
 fig, (tax, bax) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
 tax.plot(losses)

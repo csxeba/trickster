@@ -64,7 +64,7 @@ class Rollout:
         history = {"reward_sum": reward_sum}
 
         if self.cfg.learning:
-            self.agent.push_experience(state, reward)
+            self.agent.push_experience(state, reward, done=self.done)
             if learning_batch_size:
                 result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
                 history.update(result)

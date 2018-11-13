@@ -19,49 +19,36 @@ class A2C(AgentBase):
         super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
         self.actor = actor
         self.critic = critic
-        self.action_indices = np.arange(len(actions))
-        self.possible_actions_onehot = np.eye(len(actions))
-        self.values = []
+        self.action_indices = np.arange(len(self.possible_actions))
+        self.possible_actions_onehot = np.eye(len(self.possible_actions))
 
     def sample(self, state, reward):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.actor.predict(preprocessed_state)[0]
         action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
-        value = np.squeeze(self.critic.predict(preprocessed_state)[0])
 
         if self.learning:
             self.states.append(state)
             self.rewards.append(reward)
             self.actions.append(action)
-            self.values.append(value)
         return action
 
     def push_experience(self, final_state, final_reward, done=True):
+        S = np.array(self.states)
         A = np.array(self.actions)
-        self.actions = []
-
         R = np.array(self.rewards[1:] + [final_reward])
+        dR = discount_reward(R, self.gamma)
+        F = np.zeros(len(S), dtype=bool)
+        F[-1] = done
+
+        self.states = []
+        self.actions = []
         self.rewards = []
 
-        V = np.array(self.values)
-        self.values = []
+        self.memory.remember(S, A, R, dR, F)
 
-        S = np.array(self.states)
-        self.states = []
-
-        Y = V[1:] * self.gamma + R[:-1]
-        if done:
-            Y = np.append(Y, final_reward)
-        else:
-            Y = np.append(Y, R[-1])
-
-        advantages = discount_reward(R, self.gamma) - V
-        advantage_weighted_policy_targets = advantages[..., None] * self.possible_actions_onehot[A]
-
-        self.memory.remember(S, Y, advantage_weighted_policy_targets)
-
-    def _fit_critic(self, S, Y, verbose=0):
-        loss = self.critic.train_on_batch(S, Y)
+    def _fit_critic(self, S, critic_targets, verbose=0):
+        loss = self.critic.train_on_batch(S, critic_targets)
         if verbose:
             print("Critic loss: {:.4f}".format(loss))
         return loss
@@ -73,13 +60,21 @@ class A2C(AgentBase):
         return loss
 
     def fit(self, batch_size=32, verbose=1, reset_memory=True):
-        S, Y, policy_tragets = self.memory.sample(batch_size)
+        S, S_, A, R, dR, F = self.memory.sample(batch_size)
         assert len(S)
 
         S = self.preprocess(S)
+        S_ = self.preprocess(S_)
 
-        critic_loss = self._fit_critic(S, Y, verbose)
-        actor_loss = self._fit_actor(S, policy_tragets, verbose)
+        critic_targets = np.squeeze(self.critic.predict(S_)) * self.gamma + R
+        critic_targets[F] = R[F]
+
+        values = np.squeeze(self.critic.predict(S))
+        advantages = dR - values
+        policy_targets = self.possible_actions_onehot[A] * advantages[..., None]
+
+        critic_loss = self._fit_critic(S, critic_targets, verbose)
+        actor_loss = self._fit_actor(S, policy_targets, verbose)
 
         if reset_memory:
             self.memory.reset()

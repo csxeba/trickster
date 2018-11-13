@@ -14,26 +14,17 @@ class DoubleDQN(DQN):
                          epsilon, epsilon_decay, epsilon_min,
                          state_preprocessor)
         self.double = model_from_json(model.to_json())  # type: Model
+        self.push_weights(mix_in_ratio=1)
 
-    def push_experience(self, final_state, final_reward, done=True):
-        A = np.array(self.actions)  # 0..t
-        R = np.array(self.rewards[1:] + [final_reward])  # 1..t+1
-        Q = np.array(self.Q)  # 0..t
-        S = np.array(self.states)  # 0..t
-
-        dQ = self.double.predict(S, batch_size=8, verbose=0)
-
-        self.Q = []
-        self.states = []
-        self.actions = []
-        self.rewards = []
-
-        Y = Q.copy()
-        Y[range(len(Y)-1), A[:-1]] = dQ[range(len(Y)-1), A[:-1]] * self.gamma + R[:-1]
-        if done:
-            Y[-1, A[-1]] = final_reward
-
-        self.memory.remember(S, Y)
+    def fit(self, batch_size=32, verbose=1):
+        S, S_, A, R, F = self.memory.sample(batch_size)
+        Y = self.model.predict(S)
+        Y[range(len(Y)), A] = self.double.predict(S_).max(axis=1) * self.gamma + R
+        Y[F, A[F]] = R[F]
+        loss = self.model.train_on_batch(S, Y)
+        if verbose:
+            print("Loss: {:.4f}".format(loss))
+        return {"loss": loss}
 
     def push_weights(self, mix_in_ratio=1.):
         """
@@ -53,4 +44,5 @@ class DoubleDQN(DQN):
             diff += (np.linalg.norm(old - w) / old.size)
             W.append(w)
         self.model.set_weights(W)
+        self.double.set_weights(W)
         return diff / len(W)

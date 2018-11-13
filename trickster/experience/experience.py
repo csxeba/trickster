@@ -42,7 +42,9 @@ class Experience:
         idx = np.random.randint(0, self.N-1, size=size)
         states = self.memoirs[0][idx]
         states_ = self.memoirs[0][idx+1]
-        return [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
+        result = [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
+        assert len(result) == len(self.memoirs) + 1
+        return result
 
     def stream(self, size=32, infinite=False):
         N = len(self.memoirs[0])
