@@ -9,7 +9,7 @@ from ..utility.numeric import discount_reward
 
 class REINFORCE(AgentBase):
 
-    def __init__(self, model: Model, actions, memory: Experience, reward_discount_factor=0.99,
+    def __init__(self, model: Model, actions, memory: Experience=None, reward_discount_factor=0.99,
                  state_preprocessor=None):
         super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
         self.model = model
@@ -42,9 +42,10 @@ class REINFORCE(AgentBase):
 
         self.memory.remember(S, A*R[..., None])
 
-    def fit(self, batch_size=32, verbose=1):
+    def fit(self, batch_size=32, verbose=1, reset_memory=True):
         S, Y = self.memory.sample(batch_size)
         loss = self.model.train_on_batch(S, Y)  # works because of the definition of categorical XEnt
         if verbose:
             print("Loss: {:.4f}".format(loss))
+        self.memory.reset()
         return {"loss": loss}

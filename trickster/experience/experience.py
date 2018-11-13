@@ -27,7 +27,8 @@ class Experience:
         new = np.concatenate((self.memoirs[i][-self.max_length:], arg))
         self.memoirs[i] = new
 
-    def remember(self, *args):
+    def remember(self, states, *args):
+        args = (states,) + args
         self.sanitize(args)
         if self.memoirs is None:
             self.reset(len(args))
@@ -38,17 +39,21 @@ class Experience:
         if not self.N:
             return [[]] * len(self.memoirs)
         size = min(size, self.N)
-        idx = np.random.randint(0, self.N, size=size)
-        return [mem[idx] for mem in self.memoirs]
+        idx = np.random.randint(0, self.N-1, size=size)
+        states = self.memoirs[0][idx]
+        states_ = self.memoirs[0][idx+1]
+        return [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
 
     def stream(self, size=32, infinite=False):
         N = len(self.memoirs[0])
-        arg = np.arange(N)
+        arg = np.arange(0, N-1)
         while 1:
             np.random.shuffle(arg)
             for start in range(0, len(arg), size):
                 idx = arg[start:start+size]
-                yield [mem[idx] for mem in self.memoirs]
+                states = self.memoirs[0][idx]
+                states_ = self.memoirs[0][idx+1]
+                yield [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
             if not infinite:
                 break
 

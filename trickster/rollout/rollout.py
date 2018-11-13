@@ -52,7 +52,7 @@ class Rollout:
 
         for i, (state, reward, info) in enumerate(self.rolling, start=1):
             if verbose:
-                print("\rStep {} rwd: {:.4f}".format(self.step, reward), end="")
+                print("Step {} rwd: {:.4f}".format(self.step, reward))
 
             reward_sum += reward
 
@@ -95,11 +95,13 @@ class Rollout:
                     break
         if verbose:
             print()
+        history = {"reward_sum": cumulative_reward}
         if self.cfg.learning:
             self.agent.push_experience(state, reward, done)
             if learning_batch_size:
-                self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
-        return cumulative_reward
+                result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
+                history.update(result)
+        return history
 
     def reset(self):
         self.rolling = self._environment_coroutine()

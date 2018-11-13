@@ -1,9 +1,16 @@
-from trickster.experience.experience import Experience
+import numpy as np
+
+from .experience import Experience
 
 
 class AgentBase:
 
-    def __init__(self, actions, memory: Experience, reward_discount_factor=0.99, state_preprocessor=None):
+    def __init__(self, actions, memory: Experience=None, reward_discount_factor=0.99, state_preprocessor=None):
+        if memory is None:
+            memory = Experience(max_length=1000)
+        if isinstance(actions, int):
+            actions = np.arange(actions)
+
         self.memory = memory
         self.possible_actions = actions
         self.states = []
