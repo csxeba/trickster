@@ -23,7 +23,8 @@ env = Reskiv(rcfg)
 
 canvas_shape, action_shape = env.neurons_required
 
-common_input = Input(shape=[64, 64, 3])
+actor_input = Input(shape=[64, 64, 3], name="actor_input")
+critic_input = Input(shape=[64, 64, 3], name="critic_input")
 
 # critic_stream = Conv2D(16, (3, 3), dilation_rate=(2, 2), padding="same")(common_input)  # 32
 # critic_stream = BatchNormalization()(LeakyReLU()(critic_stream))
@@ -34,14 +35,14 @@ common_input = Input(shape=[64, 64, 3])
 # critic_stream = Conv2D(NUM_MOVES, (1, 1), padding="valid")(critic_stream)
 # value_estimate = GlobalAveragePooling2D()(critic_stream)
 
-critic_stream = Flatten()(common_input)
+critic_stream = Flatten()(critic_input)
 critic_stream = Dense(64, activation="tanh")(critic_stream)
 critic_stream = BatchNormalization()(critic_stream)
 critic_stream = Dense(32, activation="tanh")(critic_stream)
 critic_stream = BatchNormalization()(critic_stream)
 value_estimate = Dense(NUM_MOVES, activation="softmax")(critic_stream)
 
-critic = Model(common_input, value_estimate, name="Critic")
+critic = Model(critic_input, value_estimate, name="Critic")
 critic.compile(Adam(5e-4), "mse")
 
 agent = DQN(critic, actions=MOVES, memory=Experience(max_length=10000), reward_discount_factor=0.99, epsilon=0.7,

@@ -20,8 +20,8 @@ class REINFORCE(AgentBase):
     def sample(self, state, reward):
         self.states.append(state)
         self.rewards.append(reward)
-        probabilities = self.model.predict(self.preprocess(state)[None, ...])[0]
-        action = np.random.choice(self.action_indices, p=probabilities, size=1)[0]
+        probabilities = np.squeeze(self.model.predict(self.preprocess(state)[None, ...]))
+        action = np.squeeze(np.random.choice(self.action_indices, p=probabilities))
         self.actions.append(action)
         return action
 
@@ -43,9 +43,10 @@ class REINFORCE(AgentBase):
         self.memory.remember(S, A*R[..., None])
 
     def fit(self, batch_size=32, verbose=1, reset_memory=True):
-        S, Y = self.memory.sample(batch_size)
+        S, _, Y = self.memory.sample(batch_size)
         loss = self.model.train_on_batch(S, Y)  # works because of the definition of categorical XEnt
         if verbose:
             print("Loss: {:.4f}".format(loss))
-        self.memory.reset()
+        if reset_memory:
+            self.memory.reset()
         return {"loss": loss}

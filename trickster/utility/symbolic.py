@@ -1,4 +1,5 @@
 from keras import backend as K
+from keras import metrics
 
 
 class SoftMax2:
@@ -10,3 +11,14 @@ class SoftMax2:
 
     def __call__(self, tensor):
         return K.softmax(tensor / self.temperature)
+
+
+def value_bellman_mean_squared_error(bellman_targets, value_predictions):
+    return metrics.mean_squared_error(bellman_targets, value_predictions)
+
+
+def policy_loss(probabilities, advantages, entropy_penalty_coef=0.):
+    log_probabilities = K.log(probabilities)
+    entropy = K.sum(log_probabilities) * entropy_penalty_coef
+    policy_gradient = K.mean(log_probabilities * advantages)
+    return policy_gradient + entropy

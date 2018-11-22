@@ -12,7 +12,7 @@ MOVES = get_movement_vectors(num_directions=NUM_MOVES)
 rcfg = ReskivConfig(canvas_shape=[64, 64, 3], player_radius=3, target_size=3)
 env = Reskiv(rcfg)
 
-actor = load_model("../models/reskiv2/reinforce_latest.h5")
+actor = load_model("../models/reskiv/reinforce_latest.h5")
 agent = Policy(actor, actions=MOVES)
 screen = CV2Screen(scale=2)
 rollout = Rollout(agent, env, RolloutConfig(learning=False, screen=screen))
