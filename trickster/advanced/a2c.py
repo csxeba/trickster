@@ -79,15 +79,15 @@ class A2C(AgentBase):
         S, S_, A, R, dR, F = self.memory.sample(batch_size)
         assert len(S)
 
-        S = self.preprocess(S)
-        action_onehot = self.possible_actions_onehot[A]
-        actor_utility, actor_entropy = self.actor_train_function([S, S, action_onehot, dR])
-
         S_ = self.preprocess(S_)
         value_next = np.squeeze(self.critic.predict(S_))
         bellman_target = value_next * self.gamma + R
         bellman_target[F] = R[F]
         mean_bellman_error = self.critic.train_on_batch(S, bellman_target)
+
+        S = self.preprocess(S)
+        action_onehot = self.possible_actions_onehot[A]
+        actor_utility, actor_entropy = self.actor_train_function([S, S, action_onehot, dR])
 
         if reset_memory:
             self.memory.reset()

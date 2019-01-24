@@ -14,7 +14,7 @@ num_actions = env.action_space.n
 
 policy = Sequential([Dense(16, activation="tanh", input_shape=input_shape),
                      Dense(num_actions, activation="softmax")])
-policy.compile(loss="categorical_crossentropy", optimizer=Adam(1e-2))
+policy.compile(loss="categorical_crossentropy", optimizer=Adam(5e-3))
 
 agent = REINFORCE(policy, actions=2)
 
@@ -26,7 +26,7 @@ losses = []
 for episode in range(1, 301):
     print("\nEpisode", episode)
     rollout_history = rollout.rollout(verbose=1, learning_batch_size=0)
-    agent_history = agent.fit(batch_size=32, verbose=1, reset_memory=False)
+    agent_history = agent.fit(batch_size=64, verbose=1, reset_memory=False)
     rewards.append(rollout_history["reward_sum"])
     losses.append(agent_history["loss"])
 

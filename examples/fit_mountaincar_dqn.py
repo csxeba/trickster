@@ -8,18 +8,17 @@ from keras.optimizers import Adam
 
 from trickster import DQN, Rollout, RolloutConfig, Experience
 
-env = gym.make("CartPole-v1")
+env = gym.make("MountainCar-v0")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-policy = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                     Dense(16, activation="relu"),
+policy = Sequential([Dense(20, activation="relu", input_shape=input_shape),
                      Dense(num_actions, activation="linear")])
-policy.compile(loss="mse", optimizer=Adam(1e-3))
+policy.compile(loss="mse", optimizer=Adam(1e-4))
 
-agent = DQN(policy, actions=2, memory=Experience(max_length=10000), epsilon=1., reward_discount_factor=0.98)
+agent = DQN(policy, actions=num_actions, memory=Experience(max_length=10000), epsilon=1., reward_discount_factor=0.9)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+rollout = Rollout(agent, env, RolloutConfig(max_steps=200))
 
 rewards = []
 losses = []
