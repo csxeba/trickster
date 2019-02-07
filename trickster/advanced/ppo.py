@@ -1,15 +1,22 @@
 import numpy as np
 
 from ..abstract import AgentBase
+from ..experience import Experience
 
 
 class PPO(AgentBase):
 
-    def __init__(self, actor, critic, actions, memory, reward_discount_factor, state_preprocessor):
-        super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
+    def __init__(self,
+                 actor,
+                 critic,
+                 actions,
+                 memory: Experience,
+                 reward_discount_factor_gamma=0.99,
+                 gae_factor_lambda=0.95,
+                 state_preprocessor=None):
+        super().__init__(actions, memory, reward_discount_factor_gamma, state_preprocessor)
         self.actor = actor
         self.critic = critic
-        self.possible_actions_onehot = np.eye(len(self.possible_actions))
 
     def sample(self, state, reward):
         preprocessed_state = self.preprocess(state)[None, ...]
@@ -20,6 +27,7 @@ class PPO(AgentBase):
             self.states.append(state)
             self.rewards.append(reward)
             self.actions.append(action)
+
         return action
 
     def push_experience(self, final_state, final_reward, done=True):
