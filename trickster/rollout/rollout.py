@@ -1,7 +1,5 @@
 from ..abstract import AgentBase
 
-import gym
-
 
 class RolloutConfig:
 

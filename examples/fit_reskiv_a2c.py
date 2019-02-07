@@ -57,50 +57,36 @@ agent = A2C(actor, critic, actions=MOVES, memory=Experience(max_length=10000), r
             state_preprocessor=lambda state: state / 255.)
 
 screen = CV2Screen(scale=2)
-episode = 0
-reward_memory = deque(maxlen=100)
-critic_losses = deque(maxlen=100)
-actor_losses = deque(maxlen=100)
-entropies = deque(maxlen=100)
+episode = 1
+reward_memory = deque(maxlen=10)
+critic_losses = deque(maxlen=10)
+actor_losses = deque(maxlen=10)
 
 rollout = MultiRollout(agent, envs, warmup_episodes=WARMUP, rollout_configs=RolloutConfig(max_steps=512))
-history = {"episode": 0}
 
 while 1:
     rollout.reset()
     episode_actor_losses = []
     episode_entropy = []
     episode_critic_losses = []
-    while not rollout.finished:
-        history = rollout.roll(steps=4, verbose=0, learning_batch_size=32)
-        reward_memory.append(history["reward_sum"])
-        if "actor_utility" in history:
-            episode_actor_losses.append(history["actor_utility"])
-        if "actor_entropy" in history:
-            episode_entropy.append(history["actor_entropy"])
-        if "critic_loss" in history:
-            episode_critic_losses.append(history["critic_loss"])
+    while 1:
+        rollout_history = rollout.roll(steps=2, verbose=0, learning_batch_size=0)
+        if rollout.finished:
+            break
+        agent_history = agent.fit(batch_size=-1, verbose=0, reset_memory=True)
+        reward_memory.append(rollout_history["reward_sum"])
+        episode_actor_losses.append(agent_history["actor_utility"])
+        episode_critic_losses.append(agent_history["critic_loss"])
 
-    episode = history["episode"]
+    actor_losses.append(np.mean(episode_actor_losses))
+    critic_losses.append(np.mean(episode_critic_losses))
+    print("\rEPISODE {} RRWD: {:.2f} ACTR {:.4f} CRIT {:.4f}".format(
+        episode,
+        np.mean(reward_memory),
+        np.mean(actor_losses),
+        np.mean(critic_losses)), end="")
 
-    if episode_actor_losses and episode_critic_losses:
-        actor_losses.append(np.mean(episode_actor_losses))
-        critic_losses.append(np.mean(episode_critic_losses))
-        print("\rEPISODE {} RRWD: {:.2f} ACTR {:.4f} ENTR: {:.4f} CRIT {:.4f}".format(
-            episode, np.mean(reward_memory),
-            np.mean(actor_losses), np.mean(entropies),
-            np.mean(critic_losses)), end="")
-    else:
-        print("EPISODE {}: WARMING UP...".format(episode))
-
-    if episode >= 100 and episode % 100 == 0 and TRAIN:
-        print(" Model dumplings...")
-        model_path_template_pfx = "../models/reskiv/a2c_"
-        if np.mean(reward_memory) > 3:
-            model_path_template_sfx = "_{}_r{:.2f}.h5".format(episode, np.mean(reward_memory))
-        else:
-            model_path_template_sfx = "_latest.h5"
-        actor.save(model_path_template_pfx + "actor" + model_path_template_sfx)
-        critic.save(model_path_template_pfx + "critic" + model_path_template_sfx)
+    if episode % 10 == 0:
+        print()
 
     episode += 1

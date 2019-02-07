@@ -3,7 +3,6 @@ from keras.models import Model
 
 from ..abstract import AgentBase
 from ..experience import Experience
-from ..utility.numeric import discount_reward
 
 
 class A2C(AgentBase):
