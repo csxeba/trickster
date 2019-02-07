@@ -11,8 +11,8 @@ def discount_reward(R, gamma):
     return discounted[::-1]
 
 
-def compute_gae(R, V, gamma, lmbda):
-    delta = R + gamma * V[1:] - V[:-1]
+def compute_gae(R, V, V_next, gamma, lmbda):
+    delta = R + gamma * V_next - V
     delta[-1] = R[-1] - V[-2]
     advantage_estimation = np.empty_like(delta)
     gae = 0.

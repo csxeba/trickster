@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import gym
 
 from keras.models import Sequential
@@ -7,6 +6,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 from trickster import DQN, MultiRollout, RolloutConfig, Experience
+from trickster.utility import visual
 
 envs = [gym.make("CartPole-v1") for _ in range(4)]
 input_shape = envs[0].observation_space.shape
@@ -53,16 +53,4 @@ for episode in range(1, 501):
         print(" Pushed weights to target net!")
 
 
-fig, (ax0, ax1) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
-
-ax0.plot(losses, "r-", alpha=0.5)
-ax0.plot(np.convolve(losses, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax0.set_title("Critic Loss")
-ax0.grid()
-
-ax1.plot(rewards, "r-", alpha=0.5)
-ax1.plot(np.convolve(rewards, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax1.set_title("Rewards")
-ax1.grid()
-
-plt.show()
+visual.plot_vectors([rewards, losses], ["Reward", "Loss"], window_size=10)

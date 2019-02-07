@@ -5,14 +5,12 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import A2C, Rollout, RolloutConfig, Experience
+from trickster import A2C, MultiRollout, RolloutConfig, Experience
 from trickster.utility import visual
 
-np.random.seed(1337)
-
-env = gym.make("CartPole-v1")
-input_shape = env.observation_space.shape
-num_actions = env.action_space.n
+envs = [gym.make("CartPole-v1") for _ in range(4)]
+input_shape = envs[0].observation_space.shape
+num_actions = envs[0].action_space.n
 
 actor = Sequential([Dense(16, activation="relu", input_shape=input_shape),
                     Dense(16, activation="relu"),
@@ -20,8 +18,8 @@ actor = Sequential([Dense(16, activation="relu", input_shape=input_shape),
 actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 
 critic = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                     Dense(16, activation="relu"),
-                     Dense(1, activation="linear")])
+                    Dense(16, activation="tanh"),
+                    Dense(1, activation="linear")])
 critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = A2C(actor,
@@ -31,14 +29,17 @@ agent = A2C(actor,
             reward_discount_factor=0.98,
             entropy_penalty_coef=0.)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 
 rewards = []
 actor_losses = []
 actor_entropy = []
 critic_losses = []
 
-for episode in range(1, 2001):
+for warmup in range(1, 33):
+    rollout.rollout(verbose=0, learning_batch_size=0)
+
+for episode in range(1, 1001):
     rollout.reset()
     episode_rewards = []
     episode_a_losses = []

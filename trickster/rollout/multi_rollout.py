@@ -38,7 +38,7 @@ class MultiRollout:
         assert self.agent.memory.N
         self.steps += steps
 
-        if self.episodes >= self.warmup and self.learning:
+        if self.episodes >= self.warmup and self.learning and learning_batch_size:
             assert self.agent.memory.N
             result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
             for key in result:
