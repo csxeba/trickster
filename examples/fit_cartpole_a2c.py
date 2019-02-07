@@ -8,8 +8,6 @@ from keras.optimizers import Adam
 from trickster import A2C, Rollout, RolloutConfig, Experience
 from trickster.utility import visual
 
-np.random.seed(1337)
-
 env = gym.make("CartPole-v1")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n

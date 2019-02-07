@@ -27,22 +27,22 @@ canvas_shape, action_shape = envs[0].neurons_required
 actor_input = Input(shape=[64, 64, 3], name="actor_input")
 critic_input = Input(shape=[64, 64, 3], name="critic_input")
 
-actor_stream = Conv2D(16, (3, 3), strides=(2, 2), padding="same")(actor_input)  # 32
+actor_stream = Conv2D(16, (4, 4), strides=(2, 2), padding="same")(actor_input)  # 32
 actor_stream = LeakyReLU()(actor_stream)
-actor_stream = Conv2D(32, (3, 3), strides=(2, 2), padding="same")(actor_stream)  # 16
+actor_stream = Conv2D(32, (4, 4), strides=(2, 2), padding="same")(actor_stream)  # 16
 actor_stream = LeakyReLU()(actor_stream)
-actor_stream = Conv2D(64, (3, 3), strides=(2, 2), padding="same")(actor_stream)  # 8
+actor_stream = Conv2D(64, (4, 4), strides=(2, 2), padding="same")(actor_stream)  # 8
 actor_stream = LeakyReLU()(actor_stream)
 actor_stream = Conv2D(NUM_MOVES, (1, 1))(actor_stream)
 actor_stream = GlobalAveragePooling2D()(actor_stream)
 # actor_stream = Flatten()(actor_stream)
 action_probs = Activation("softmax")(actor_stream)
 
-critic_stream = Conv2D(16, (3, 3), strides=(2, 2), padding="same")(critic_input)  # 32
+critic_stream = Conv2D(16, (4, 4), strides=(2, 2), padding="same")(critic_input)  # 32
 critic_stream = LeakyReLU()(critic_stream)
-critic_stream = Conv2D(32, (3, 3), strides=(2, 2), padding="same")(critic_stream)  # 16
+critic_stream = Conv2D(32, (4, 4), strides=(2, 2), padding="same")(critic_stream)  # 16
 critic_stream = LeakyReLU()(critic_stream)
-critic_stream = Conv2D(64, (3, 3), strides=(2, 2), padding="same")(critic_stream)  # 8
+critic_stream = Conv2D(64, (4, 4), strides=(2, 2), padding="same")(critic_stream)  # 8
 critic_stream = LeakyReLU()(critic_stream)
 critic_stream = Conv2D(1, (1, 1), padding="valid")(critic_stream)
 value_estimate = GlobalAveragePooling2D()(critic_stream)
