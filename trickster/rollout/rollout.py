@@ -1,5 +1,7 @@
 from ..abstract import AgentBase
 
+import gym
+
 
 class RolloutConfig:
 
@@ -81,6 +83,7 @@ class Rollout:
         action = None  # IDE bullies me heavily
 
         while not done:
+            # self.env.render()
             if self.cfg.screen is not None:
                 self.cfg.screen.blit(state)
             if verbose:

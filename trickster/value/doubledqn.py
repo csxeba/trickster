@@ -7,42 +7,36 @@ from . import DQN
 
 class DoubleDQN(DQN):
 
-    def __init__(self, model: Model, actions, memory: Experience, reward_discount_factor=0.99,
-                 epsilon=0.99, epsilon_decay=1., epsilon_min=0.1, state_preprocessor=None):
-        super().__init__(model, actions, memory,
-                         reward_discount_factor,
-                         epsilon, epsilon_decay, epsilon_min,
-                         state_preprocessor)
-        self.double = model_from_json(model.to_json())  # type: Model
-        self.push_weights(mix_in_ratio=1)
+    def __init__(self,
+                 model: Model,
+                 actions,
+                 memory: Experience,
+                 reward_discount_factor=0.99,
+                 epsilon=0.99,
+                 epsilon_decay=1.,
+                 epsilon_min=0.1,
+                 state_preprocessor=None):
 
-    def fit(self, batch_size=32, verbose=1):
+        super().__init__(model=model,
+                         actions=actions,
+                         memory=memory,
+                         reward_discount_factor=reward_discount_factor,
+                         epsilon=epsilon,
+                         epsilon_decay=epsilon_decay,
+                         epsilon_min=epsilon_min,
+                         state_preprocessor=state_preprocessor,
+                         use_target_network=True)
+
+    def fit(self, batch_size=32, verbose=1, update_target=False):
         S, S_, A, R, F = self.memory.sample(batch_size)
-        Y = self.model.predict(S)
-        Y[range(len(Y)), A] = self.double.predict(S_).max(axis=1) * self.gamma + R
-        Y[F, A[F]] = R[F]
-        loss = self.model.train_on_batch(S, Y)
+        bellman_target = self.target_network.predict(S_)
+        next_state_actions = self.model.predict(S_).argmax(axis=1)
+
+        Q = self.model.predict(S)
+        x_index = np.arange(len(Q))
+        Q[x_index, A] = bellman_target[x_index, next_state_actions] * self.gamma + R
+        Q[F, A[F]] = R[F]
+        loss = self.model.train_on_batch(S, Q)
         if verbose:
             print("Loss: {:.4f}".format(loss))
         return {"loss": loss}
-
-    def push_weights(self, mix_in_ratio=1.):
-        """
-        :param mix_in_ratio: mix_in_ratio * new_weights + (1. - mix_in_ratio) * old_weights
-        :return:
-        """
-
-        if mix_in_ratio >= 1.:
-            self.double.set_weights(self.model.get_weights())
-            return
-
-        W = []
-        diff = 0.
-        mix_in_inverse = 1. - mix_in_ratio
-        for old, new in zip(self.double.get_weights(), self.model.get_weights()):
-            w = mix_in_inverse*old + mix_in_ratio*new
-            diff += (np.linalg.norm(old - w) / old.size)
-            W.append(w)
-        self.model.set_weights(W)
-        self.double.set_weights(W)
-        return diff / len(W)

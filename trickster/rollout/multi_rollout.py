@@ -34,10 +34,11 @@ class MultiRollout:
                 continue
             rollout_history = rollout.roll(steps=steps, verbose=verbose, learning_batch_size=0)
             rewards[i] += rollout_history["reward_sum"]
+
         assert self.agent.memory.N
         self.steps += steps
 
-        if self.episodes >= self.warmup and self.learning and not self.finished:
+        if self.episodes >= self.warmup and self.learning:
             assert self.agent.memory.N
             result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
             for key in result:
@@ -46,6 +47,25 @@ class MultiRollout:
         history["reward_sum"] = np.mean(rewards)
         history["step"] = max(rollout.step for rollout in self.rollouts)
         history["episode"] = self.episodes
+        return history
+
+    def rollout(self, verbose=1, learning_batch_size=0):
+        reward_sum = 0.
+
+        for i, rollout in enumerate(self.rollouts):
+            rollout.reset()
+            if verbose:
+                print(f"Rolling environment #{i}")
+            history = rollout.rollout(verbose=0, learning_batch_size=0)
+            reward_sum += history["reward_sum"]
+
+        reward_sum /= self.num_rollouts
+        history = {"reward_sum": reward_sum}
+
+        if learning_batch_size != 0:
+            agent_history = self.agent.fit(learning_batch_size, verbose=verbose)
+            history.update(agent_history)
+
         return history
 
     def reset(self):

@@ -7,11 +7,11 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import REINFORCE, Rollout, RolloutConfig
+from trickster import REINFORCE, MultiRollout, RolloutConfig
 
-env = gym.make("CartPole-v1")
-input_shape = env.observation_space.shape
-num_actions = env.action_space.n
+envs = [gym.make("CartPole-v1") for _ in range(8)]
+input_shape = envs[0].observation_space.shape
+num_actions = envs[0].action_space.n
 
 policy = Sequential([Dense(16, activation="relu", input_shape=input_shape),
                      Dense(16, activation="relu"),
@@ -20,7 +20,7 @@ policy.compile(loss="categorical_crossentropy", optimizer=Adam(5e-3))
 
 agent = REINFORCE(policy, actions=num_actions)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 
 rewards = []
 losses = []

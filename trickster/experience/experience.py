@@ -39,6 +39,8 @@ class Experience:
         if not self.N:
             return [[]] * len(self.memoirs)
         size = min(size, self.N)
+        if size < 0:
+            size = self.N-1
         idx = np.random.randint(0, self.N-1, size=size)
         states = self.memoirs[0][idx]
         states_ = self.memoirs[0][idx+1]

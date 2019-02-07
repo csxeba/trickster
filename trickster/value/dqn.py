@@ -2,13 +2,23 @@ import numpy as np
 from keras.models import Model
 
 from ..abstract import AgentBase
-from trickster.experience.experience import Experience
+from ..experience import Experience
+from ..utility.kerasic import copy_model
 
 
 class DQN(AgentBase):
 
-    def __init__(self, model: Model, actions, memory: Experience=None, reward_discount_factor=0.99,
-                 epsilon=0.99, epsilon_decay=1., epsilon_min=0.1, state_preprocessor=None):
+    def __init__(self,
+                 model: Model,
+                 actions,
+                 memory: Experience=None,
+                 reward_discount_factor=0.99,
+                 epsilon=0.99,
+                 epsilon_decay=1.,
+                 epsilon_min=0.1,
+                 state_preprocessor=None,
+                 use_target_network=True):
+
         super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
         self.model = model
         self.output_dim = model.output_shape[1]
@@ -17,7 +27,10 @@ class DQN(AgentBase):
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.eye = np.eye(self.output_dim)
-        self.Q = []
+        if use_target_network:
+            self.target_network = copy_model(self.model)
+        else:
+            self.target_network = self.model
 
     def _maybe_decay_epsilon(self):
         if self.epsilon_decay < 1:
@@ -29,10 +42,12 @@ class DQN(AgentBase):
     def sample(self, state, reward):
         self.states.append(state)
         self.rewards.append(reward)
-        Q = self.model.predict(self.preprocess(state)[None, ...])[0]
-        action = np.argmax(Q) if np.random.random() > self.epsilon else np.random.randint(0, len(Q))
+        if np.random.random() < self.epsilon:
+            action = np.random.choice(self.possible_actions)
+        else:
+            Q = self.model.predict(self.preprocess(state)[None, ...])[0]
+            action = np.argmax(Q)
         self._maybe_decay_epsilon()
-        self.Q.append(Q)
         self.actions.append(action)
         return action
 
@@ -51,10 +66,34 @@ class DQN(AgentBase):
 
     def fit(self, batch_size=32, verbose=1):
         S, S_, A, R, F = self.memory.sample(batch_size)
-        Y = self.model.predict(S)
-        Y[range(len(Y)), A] = self.model.predict(S_).max(axis=1) * self.gamma + R
-        Y[F, A[F]] = R[F]
-        loss = self.model.train_on_batch(S, Y)
+        bellman_targets = self.target_network.predict(S_).max(axis=1)
+
+        Q = self.model.predict(S)
+        Q[range(len(Q)), A] = bellman_targets * self.gamma + R
+        Q[F, A[F]] = R[F]
+
+        loss = self.model.train_on_batch(S, Q)
         if verbose:
             print("Loss: {:.4f}".format(loss))
         return {"loss": loss}
+
+    def push_weights(self):
+        self.target_network.set_weights(self.model.get_weights())
+
+    def meld_weights(self, mix_in_ratio=1.):
+        """
+        :param mix_in_ratio: mix_in_ratio * new_weights + (1. - mix_in_ratio) * old_weights
+        :return:
+        """
+
+        if mix_in_ratio == 1.:
+            self.push_weights()
+            return
+
+        W = []
+        mix_in_inverse = 1. - mix_in_ratio
+        for old, new in zip(self.target_network.get_weights(), self.model.get_weights()):
+            w = mix_in_inverse*old + mix_in_ratio*new
+            W.append(w)
+        self.model.set_weights(W)
+        self.target_network.set_weights(W)

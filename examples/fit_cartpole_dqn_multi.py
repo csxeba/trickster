@@ -1,31 +1,30 @@
 import numpy as np
 from matplotlib import pyplot as plt
-
 import gym
 
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import DQN, Rollout, RolloutConfig, Experience
+from trickster import DQN, MultiRollout, RolloutConfig, Experience
 
-env = gym.make("CartPole-v1")
-input_shape = env.observation_space.shape
-num_actions = env.action_space.n
+envs = [gym.make("CartPole-v1") for _ in range(4)]
+input_shape = envs[0].observation_space.shape
+num_actions = envs[0].action_space.n
 
-ann = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                  Dense(16, activation="relu"),
-                  Dense(num_actions, activation="linear")])
-ann.compile(loss="mse", optimizer=Adam(1e-3))
+qnet = Sequential([Dense(16, activation="relu", input_shape=input_shape),
+                   Dense(16, activation="relu"),
+                   Dense(num_actions, activation="linear")])
+qnet.compile(loss="mse", optimizer=Adam(1e-3))
 
-agent = DQN(ann,
+agent = DQN(qnet,
             actions=2,
             memory=Experience(max_length=10000),
             epsilon=1.,
             reward_discount_factor=0.98,
             use_target_network=True)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 
 rewards = []
 losses = []
@@ -44,14 +43,15 @@ for episode in range(1, 501):
 
     rewards.append(sum(episode_rewards))
     losses.append(sum(episode_losses) / len(episode_losses))
-    print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
-        episode, rewards[-1], losses[-1], agent.epsilon), end="")
+    print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:.2%}".format(
+        episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")
 
     agent.epsilon *= 0.992
     agent.epsilon = max(agent.epsilon, 0.01)
     if episode % 5 == 0:
         agent.push_weights()
         print(" Pushed weights to target net!")
+
 
 fig, (ax0, ax1) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
 

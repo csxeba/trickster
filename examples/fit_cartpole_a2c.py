@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib import pyplot as plt
 
 import gym
@@ -12,17 +13,18 @@ envs = [gym.make("CartPole-v1") for _ in range(8)]
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 
-actor = Sequential([Dense(24, activation="relu", input_shape=input_shape, kernel_initializer="he_uniform"),
+actor = Sequential([Dense(24, activation="tanh", input_shape=input_shape, kernel_initializer="he_uniform"),
+                    Dense(24, activation="tanh", kernel_initializer="he_uniform"),
                     Dense(num_actions, activation="softmax", kernel_initializer="he_uniform")])
 actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 
-critic = Sequential([Dense(24, activation="relu", input_shape=input_shape, kernel_initializer="he_uniform"),
-                     Dense(24, activation="relu", kernel_initializer="he_uniform"),
+critic = Sequential([Dense(24, activation="tanh", input_shape=input_shape, kernel_initializer="he_uniform"),
+                     Dense(24, activation="tanh", kernel_initializer="he_uniform"),
                      Dense(1, activation="linear", kernel_initializer="he_uniform")])
-critic.compile(loss="mse", optimizer=Adam(1e-4))
+critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = A2C(actor, critic, actions=2, memory=Experience(max_length=10000),
-            reward_discount_factor=0.99, entropy_penalty_coef=0.)
+            reward_discount_factor=0.98, entropy_penalty_coef=0.)
 
 rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=200))
 
@@ -31,26 +33,27 @@ actor_losses = []
 actor_entropy = []
 critic_losses = []
 
-for episode in range(1, 501):
+for episode in range(1, 1001):
     rollout.reset()
     episode_rewards = []
     episode_a_losses = []
     episode_a_entropy = []
     episode_c_losses = []
     while not rollout.finished:
-        roll_history = rollout.roll(steps=4, verbose=0, learning_batch_size=32)
+        roll_history = rollout.roll(steps=4, verbose=0, learning_batch_size=64)
         episode_rewards.append(roll_history["reward_sum"])
+        agent.memory.reset()
         if "actor_utility" in roll_history and "critic_loss" in roll_history:
             episode_a_losses.append(roll_history["actor_utility"])
-            episode_a_entropy.append(roll_history["actor_entropy"])
             episode_c_losses.append(roll_history["critic_loss"])
 
     rewards.append(sum(episode_rewards))
     actor_losses.append(sum(episode_a_losses) / len(episode_a_losses))
-    actor_entropy.append(sum(episode_a_entropy) / len(episode_a_entropy))
     critic_losses.append(sum(episode_c_losses) / len(episode_c_losses))
-    print("\rEpisode {:>4} RWD {:>3.0f} ACTR {:.4f} ENTR: {:.4f} CRIT {:.4f}".format(
-        episode, rewards[-1], actor_losses[-1], actor_entropy[-1], critic_losses[-1]), end="")
+    print("\rEpisode {:>4} RWD {:>3.0f} ACTR {:.4f} CRIT {:.4f}".format(
+        episode, np.mean(rewards[-10:]), actor_losses[-1], np.mean(critic_losses[-10:])), end="")
+    if episode % 10 == 0:
+        print()
 
 fig, (ax0, ax1, ax2, ax3) = plt.subplots(4, 1, sharex="all", figsize=(6, 5))
 

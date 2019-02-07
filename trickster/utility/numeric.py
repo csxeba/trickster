@@ -9,3 +9,16 @@ def discount_reward(R, gamma):
         cumulative_sum += r
         discounted[i] = cumulative_sum
     return discounted[::-1]
+
+
+def compute_gae(R, V, gamma, lmbda):
+    delta = R + gamma * V[1:] - V[:-1]
+    delta[-1] = R[-1] - V[-2]
+    advantage_estimation = np.empty_like(delta)
+    gae = 0.
+    gl = gamma * lmbda
+    for i, d in enumerate(delta[::-1]):
+        gae = d + gl * gae
+        advantage_estimation[i] = gae
+    advantage_estimation[0] = delta[0]
+    return advantage_estimation[::-1]

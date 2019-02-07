@@ -31,7 +31,7 @@ class REINFORCE(AgentBase):
         R = discount_reward(R, self.gamma)
 
         rstd = R.std()
-        if R.std() > 0:
+        if rstd > 0:
             R = (R - R.mean()) / rstd
 
         A = self.possible_actions_onehot[self.actions]
@@ -42,8 +42,8 @@ class REINFORCE(AgentBase):
 
         self.memory.remember(S, A*R[..., None])
 
-    def fit(self, batch_size=32, verbose=1, reset_memory=True):
-        S, _, Y = self.memory.sample(batch_size)
+    def fit(self, batch_size=-1, verbose=1, reset_memory=True):
+        S, _, Y = self.memory.sample(-1)
         loss = self.model.train_on_batch(S, Y)  # works because of the definition of categorical XEnt
         if verbose:
             print("Loss: {:.4f}".format(loss))
