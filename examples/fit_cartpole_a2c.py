@@ -57,8 +57,7 @@ for episode in range(1, 2001):
     critic_losses.append(sum(episode_c_losses) / len(episode_c_losses))
     print("\rEpisode {:>4} RWD {:>3.0f} ACTR {:.4f} CRIT {:.4f}".format(
         episode, np.mean(rewards[-10:]), np.mean(actor_losses[-10:]), np.mean(critic_losses[-10:])), end="")
-    if episode % 10 == 0:
-        print()
+    print()
 
 visual.plot_vectors([rewards, actor_losses, critic_losses],
                     ["Reward", "Actor Utility", "Critic Loss"],

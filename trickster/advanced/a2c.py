@@ -115,12 +115,13 @@ class A2C_V2(A2C):
         assert len(S)
 
         S_ = self.preprocess(S_)
+        S = self.preprocess(S)
+
         value_next = self.critic.predict(S_)[..., 0]
         bellman_target = value_next * self.gamma + R
         bellman_target[F] = R[F]
         mean_bellman_error = self.critic.train_on_batch(S, bellman_target)
 
-        S = self.preprocess(S)
         value = self.critic.predict(S)[..., 0]
         action_onehot = self.possible_actions_onehot[A]
         advantage = numeric.batch_compute_gae(R, value, value_next, self.gamma, self.lmbda)
