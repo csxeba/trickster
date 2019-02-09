@@ -93,24 +93,25 @@ class PPO(AgentBase):
 
         self.memory.remember(S, P, A, returns)
 
-    def fit(self, batch_size=32, verbose=1, reset_memory=True):
+    def fit(self, epochs=3, batch_size=32, verbose=1, reset_memory=True):
         history = defaultdict(list)
 
-        for S, S_, P, A, returns in self.memory.stream(size=batch_size, infinite=False):
+        for epoch in range(epochs):
+            for S, S_, P, A, returns in self.memory.stream(size=batch_size, infinite=False):
 
-            S = self.preprocess(S)
-            critic_loss = self.critic.train_on_batch(S, returns)
+                S = self.preprocess(S)
+                critic_loss = self.critic.train_on_batch(S, returns)
 
-            action_onehot = self.possible_actions_onehot[A]
-            value = np.squeeze(self.critic.predict(S))
-            advantage = returns - value
-            loss, entropy, approximate_kld, combined_loss = self._actor_train_fn([S, P, advantage, action_onehot])
+                action_onehot = self.possible_actions_onehot[A]
+                value = np.squeeze(self.critic.predict(S))
+                advantage = returns - value
+                loss, entropy, approximate_kld, combined_loss = self._actor_train_fn([S, P, advantage, action_onehot])
 
-            history["actor_loss"].append(combined_loss)
-            history["actor_utility"].append(loss)
-            history["actor_entropy"].append(entropy)
-            history["actor_kld"].append(approximate_kld)
-            history["critic_loss"].append(critic_loss)
+                history["actor_loss"].append(combined_loss)
+                history["actor_utility"].append(loss)
+                history["actor_entropy"].append(entropy)
+                history["actor_kld"].append(approximate_kld)
+                history["critic_loss"].append(critic_loss)
 
         if reset_memory:
             self.memory.reset()

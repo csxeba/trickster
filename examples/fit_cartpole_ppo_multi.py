@@ -20,7 +20,7 @@ actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 critic = Sequential([Dense(16, activation="relu", input_shape=input_shape),
                      Dense(16, activation="relu"),
                      Dense(1, activation="linear")])
-critic.compile(loss="mse", optimizer=Adam(5e-4))
+critic.compile(loss="mse", optimizer=Adam(1e-3))
 
 agent = PPO(actor,
             critic,
@@ -38,11 +38,11 @@ actor_kld = []
 actor_entropy = []
 critic_loss = []
 
-for episode in range(1, 2001):
+for episode in range(1, 5001):
     rollout.reset()
 
     roll_history = rollout.rollout(verbose=0, learning_batch_size=0)
-    agent_history = agent.fit(batch_size=32, verbose=0, reset_memory=True)
+    agent_history = agent.fit(epochs=4, batch_size=32, verbose=0, reset_memory=True)
 
     rewards.append(np.mean(roll_history["reward_sum"]))
     actor_loss.append(np.mean(agent_history["actor_loss"]))
