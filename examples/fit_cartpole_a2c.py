@@ -24,41 +24,52 @@ critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = A2C(actor,
             critic,
-            action_space=2,
+            action_space=env.action_space,
             memory=Experience(max_length=10000),
             discount_factor_gamma=0.98,
             entropy_penalty_coef=0.)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, env)
 
 rewards = []
-actor_losses = []
+actor_loss = []
+actor_utility = []
 actor_entropy = []
-critic_losses = []
+critic_loss = []
 
-for episode in range(1, 2001):
-    rollout._reset()
-    episode_rewards = []
-    episode_a_losses = []
-    episode_a_entropy = []
-    episode_c_losses = []
-    while 1:
-        roll_history = rollout.roll(steps=2, verbose=0, learning_batch_size=0)
-        if rollout.finished:
-            break
-        agent_history = agent.fit(batch_size=-1, verbose=0, reset_memory=True)
-        episode_rewards.append(roll_history["reward_sum"])
-        episode_a_losses.append(agent_history["actor_utility"])
-        episode_c_losses.append(agent_history["critic_loss"])
-        agent.memory._reset()
+for episode in range(1, 301):
+    episode_actor_loss = []
+    episode_actor_utility = []
+    episode_actor_entropy = []
+    episode_critic_loss = []
 
-    rewards.append(sum(episode_rewards))
-    actor_losses.append(sum(episode_a_losses) / len(episode_a_losses))
-    critic_losses.append(sum(episode_c_losses) / len(episode_c_losses))
-    print("\rEpisode {:>4} RWD {:>3.0f} ACTR {:.4f} CRIT {:.4f}".format(
-        episode, np.mean(rewards[-10:]), np.mean(actor_losses[-10:]), np.mean(critic_losses[-10:])), end="")
-    print()
+    for batch in range(1, 101):
+        rollout.roll(steps=4, verbose=0, push_experience=True)
+        agent_history = agent.fit(batch_size=32, verbose=0)
+        episode_actor_loss.append(agent_history["actor_loss"])
+        episode_actor_utility.append(agent_history["actor_utility"])
+        episode_actor_entropy.append(agent_history["actor_entropy"])
+        episode_critic_loss.append(agent_history["critic_loss"])
 
-visual.plot_vectors([rewards, actor_losses, critic_losses],
-                    ["Reward", "Actor Utility", "Critic Loss"],
+    test_history = test_rollout.rollout(verbose=0, push_experience=False)
+
+    rewards.append(test_history["reward_sum"])
+    actor_loss.append(sum(episode_actor_loss) / len(episode_actor_loss))
+    actor_utility.append(sum(episode_actor_utility) / len(episode_actor_utility))
+    actor_entropy.append(sum(episode_actor_entropy) / len(episode_actor_entropy))
+    critic_loss.append(sum(episode_critic_loss) / len(episode_critic_loss))
+
+    print("\rEpisode {:>4} RWD {:>5.2f} ACTR {:>7.4f} UTIL {:>7.4f} ENTR {:>7.4f} CRIT {:>7.4f}".format(
+        episode,
+        np.mean(rewards[-10:]),
+        np.mean(actor_loss[-10:]),
+        np.mean(actor_utility[-10:]),
+        np.mean(actor_entropy[-10:]),
+        np.mean(critic_loss[-10:])), end="")
+    if episode % 10 == 0:
+        print()
+
+visual.plot_vectors([rewards, actor_loss, actor_utility, actor_entropy, critic_loss],
+                    ["Reward", "Actor Loss" "Actor Utility", "Actor Entropy" "Critic Loss"],
                     window_size=10)

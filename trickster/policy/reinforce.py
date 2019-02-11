@@ -17,28 +17,28 @@ class REINFORCE(AgentBase):
         self.action_indices = np.arange(self.output_dim)
         self.possible_actions_onehot = np.eye(self.output_dim)
 
-    def sample(self, state, reward):
-        self.states.append(state)
-        self.rewards.append(reward)
+    def sample(self, state, reward, done):
         probabilities = np.squeeze(self.model.predict(self.preprocess(state)[None, ...]))
         action = np.squeeze(np.random.choice(self.action_indices, p=probabilities))
-        self.actions.append(action)
+
+        if self.learning:
+            self.states.append(state)
+            self.actions.append(action)
+            self.rewards.append(reward)
+
         return action
 
-    def push_experience(self, final_state, final_reward, done=True):
-        R = np.array(self.rewards[1:] + [final_reward])
-        self.rewards = []
+    def push_experience(self, state, reward, done):
+        S = np.array(self.states)
+        A = self.possible_actions_onehot[self.actions]
+        R = np.array(self.rewards[1:] + [reward])
         R = discount_reward(R, self.gamma)
 
         rstd = R.std()
         if rstd > 0:
             R = (R - R.mean()) / rstd
 
-        A = self.possible_actions_onehot[self.actions]
-        self.actions = []
-
-        S = np.array(self.states)
-        self.states = []
+        self._reset_direct_memory()
 
         self.memory.remember(S, A*R[..., None])
 
@@ -48,5 +48,5 @@ class REINFORCE(AgentBase):
         if verbose:
             print("Loss: {:.4f}".format(loss))
         if reset_memory:
-            self.memory._reset()
+            self.memory.reset()
         return {"loss": loss}

@@ -21,12 +21,13 @@ policy.compile(loss="categorical_crossentropy", optimizer=Adam(5e-3))
 agent = REINFORCE(policy, action_space=num_actions)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, env)
 
 rewards = []
 losses = []
 
 for episode in range(1, 501):
-    rollout_history = rollout.rollout(verbose=0, learning_batch_size=0)
+    rollout_history = rollout.rollout(verbose=0, push_experience=True)
     agent_history = agent.fit(batch_size=-1, verbose=0, reset_memory=True)
     rewards.append(rollout_history["reward_sum"])
     losses.append(agent_history["loss"])
@@ -47,3 +48,4 @@ bax.set_title("Rewards")
 bax.grid()
 
 plt.show()
+
