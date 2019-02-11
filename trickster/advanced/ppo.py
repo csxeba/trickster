@@ -13,22 +13,21 @@ class PPO(AgentBase):
     def __init__(self,
                  actor,
                  critic,
-                 actions,
+                 action_space,
                  memory: Experience,
                  reward_discount_factor_gamma=0.99,
                  gae_factor_lambda=0.95,
                  entropy_penalty_coef=0.005,
-                 ratio_clip=0.2,
+                 ratio_clip_epsilon=0.2,
                  state_preprocessor=None):
 
-        super().__init__(actions, memory, reward_discount_factor_gamma, state_preprocessor)
+        super().__init__(action_space, memory, reward_discount_factor_gamma, state_preprocessor)
         self.actor = actor
         self.critic = critic
         self.lmbda = gae_factor_lambda
         self.possible_actions_onehot = np.eye(len(self.possible_actions))
         self.entropy_penalty_coef = entropy_penalty_coef
-        self.ratio_clip = ratio_clip
-        self.values = []
+        self.ratio_clip = ratio_clip_epsilon
         self.probabilities = []
         self._actor_train_fn = self._make_actor_train_function()
 
@@ -57,30 +56,27 @@ class PPO(AgentBase):
                           outputs=[loss, entropy, approximate_kld, combined_loss],
                           updates=updates)
 
-    def sample(self, state, reward):
+    def sample(self, state, reward, done):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.actor.predict(preprocessed_state)[0]
         action = np.squeeze(np.random.choice(self.possible_actions, p=probabilities, size=1))
-        value = self.critic.predict(preprocessed_state)
 
         if self.learning:
             self.states.append(state)
             self.rewards.append(reward)
             self.actions.append(action)
-            self.values.append(value)
             self.probabilities.append(probabilities)
 
         return action
 
-    def push_experience(self, final_state, final_reward, done=True):
-        final_value = np.squeeze(self.critic.predict(self.preprocess(final_state)[None, ...]))
-
+    def push_experience(self, state, reward, done):
+        final_value = np.squeeze(self.critic.predict(state[None, ...]))
         S = np.array(self.states)
-        V = np.array(self.values + [final_value])
+        V = np.squeeze(self.critic.predict(S))
+        V = np.append(V, final_value)
         A = np.array(self.actions)
-        R = np.array(self.rewards[1:] + [final_reward])
-        F = np.zeros(len(S), dtype=bool)
-        F[-1] = done
+        R = np.array(self.rewards[1:] + [reward])
+        F = np.array(self.dones[1:] + [done])
         P = np.array(self.probabilities)
 
         returns = numeric.compute_gae(R, V[:-1], V[1:], F, self.gamma, self.lmbda)
@@ -88,7 +84,6 @@ class PPO(AgentBase):
         self.states = []
         self.actions = []
         self.rewards = []
-        self.values = []
         self.probabilities = []
 
         self.memory.remember(S, P, A, returns)
@@ -114,6 +109,6 @@ class PPO(AgentBase):
                 history["critic_loss"].append(critic_loss)
 
         if reset_memory:
-            self.memory.reset()
+            self.memory._reset()
 
         return history

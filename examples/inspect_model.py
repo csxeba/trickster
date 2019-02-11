@@ -13,10 +13,10 @@ rcfg = ReskivConfig(canvas_shape=[64, 64, 3], player_radius=3, target_size=3)
 env = Reskiv(rcfg)
 
 actor = load_model("../models/reskiv/reinforce_latest.h5")
-agent = Policy(actor, actions=MOVES)
+agent = Policy(actor, action_space=MOVES)
 screen = CV2Screen(scale=2)
 rollout = Rollout(agent, env, RolloutConfig(learning=False, screen=screen))
 
 while 1:
-    rollout.reset()
+    rollout._reset()
     rollout.rollout(verbose=1)

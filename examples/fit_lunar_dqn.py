@@ -18,10 +18,10 @@ policy = Sequential([Dense(24, activation="relu", input_shape=input_shape),
 policy.compile(loss="mse", optimizer=Adam(1e-4))
 
 agent = DQN(policy,
-            actions=num_actions,
+            action_space=num_actions,
             memory=Experience(max_length=10000),
             epsilon=1.,
-            reward_discount_factor=0.98,
+            discount_factor_gamma=0.98,
             use_target_network=True)
 
 rollout = Rollout(agent, env, RolloutConfig(max_steps=200))
@@ -33,7 +33,7 @@ for warmup in range(1, 33):
     rollout.rollout(verbose=0, learning_batch_size=0)
 
 for episode in range(1, 501):
-    rollout.reset()
+    rollout._reset()
     episode_rewards = []
     episode_losses = []
     while not rollout.finished:

@@ -12,13 +12,13 @@ class A2C(AgentBase):
     def __init__(self,
                  actor: Model,
                  critic: Model,
-                 actions,
+                 action_space,
                  memory: Experience,
-                 reward_discount_factor=0.99,
+                 discount_factor_gamma=0.99,
                  state_preprocessor=None,
                  entropy_penalty_coef=0.):
 
-        super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
+        super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.actor = actor
         self.critic = critic
         self.action_indices = np.arange(len(self.possible_actions))
@@ -68,7 +68,7 @@ class A2C(AgentBase):
         # utility, entropy, loss = self._actor_train_function([S, advantage, action_onehot])
 
         if reset_memory:
-            self.memory.reset()
+            self.memory._reset()
         return {"actor_utility": actor_utility,
                 "critic_loss": mean_bellman_error}
 
@@ -78,7 +78,7 @@ class A2C_V2(A2C):
     def __init__(self,
                  actor: Model,
                  critic: Model,
-                 actions,
+                 action_space,
                  memory: Experience,
                  reward_discount_factor_gamma=0.99,
                  state_preprocessor=None,
@@ -87,7 +87,7 @@ class A2C_V2(A2C):
 
         super().__init__(actor,
                          critic,
-                         actions,
+                         action_space,
                          memory,
                          reward_discount_factor_gamma,
                          state_preprocessor,
@@ -128,7 +128,7 @@ class A2C_V2(A2C):
         utility, entropy, loss = self._actor_train_function([S, advantage, action_onehot])
 
         if reset_memory:
-            self.memory.reset()
+            self.memory._reset()
         return {"actor_utility": utility,
                 "actor_entropy": entropy,
                 "actor_loss": loss,

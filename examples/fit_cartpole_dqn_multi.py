@@ -18,10 +18,10 @@ qnet = Sequential([Dense(16, activation="relu", input_shape=input_shape),
 qnet.compile(loss="mse", optimizer=Adam(1e-3))
 
 agent = DQN(qnet,
-            actions=2,
+            action_space=2,
             memory=Experience(max_length=10000),
             epsilon=1.,
-            reward_discount_factor=0.98,
+            discount_factor_gamma=0.98,
             use_target_network=True)
 
 rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))

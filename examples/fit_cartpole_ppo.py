@@ -24,7 +24,7 @@ critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = PPO(actor,
             critic,
-            actions=2,
+            action_space=2,
             memory=Experience(max_length=10000),
             reward_discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)
@@ -39,7 +39,7 @@ actor_entropy = []
 critic_loss = []
 
 for episode in range(1, 2001):
-    rollout.reset()
+    rollout._reset()
 
     roll_history = rollout.rollout(verbose=0, learning_batch_size=0)
     agent_history = agent.fit(batch_size=32, verbose=0, reset_memory=True)

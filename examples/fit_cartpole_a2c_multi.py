@@ -24,9 +24,9 @@ critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = A2C(actor,
             critic,
-            actions=2,
+            action_space=envs[0].action_space,
             memory=Experience(max_length=10000),
-            reward_discount_factor=0.98,
+            discount_factor_gamma=0.98,
             entropy_penalty_coef=0.)
 
 rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
@@ -53,7 +53,7 @@ for episode in range(1, 1001):
         episode_rewards.append(roll_history["reward_sum"])
         episode_a_losses.append(agent_history["actor_utility"])
         episode_c_losses.append(agent_history["critic_loss"])
-        agent.memory.reset()
+        agent.memory._reset()
 
     rewards.append(sum(episode_rewards))
     actor_losses.append(sum(episode_a_losses) / len(episode_a_losses))

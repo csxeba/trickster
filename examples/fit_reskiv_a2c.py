@@ -53,7 +53,7 @@ actor.compile(Adam(1e-4), "categorical_crossentropy")
 critic = Model(critic_input, value_estimate, name="Critic")
 critic.compile(Adam(5e-4), "mse")
 
-agent = A2C(actor, critic, actions=MOVES, memory=Experience(max_length=10000), reward_discount_factor=0.99,
+agent = A2C(actor, critic, action_space=MOVES, memory=Experience(max_length=10000), discount_factor_gamma=0.99,
             state_preprocessor=lambda state: state / 255.)
 
 screen = CV2Screen(scale=2)

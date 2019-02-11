@@ -53,7 +53,7 @@ class MultiRollout:
         reward_sum = 0.
 
         for i, rollout in enumerate(self.rollouts):
-            rollout.reset()
+            rollout._reset()
             if verbose:
                 print(f"Rolling environment #{i}")
             history = rollout.rollout(verbose=0, learning_batch_size=0)
@@ -70,6 +70,6 @@ class MultiRollout:
 
     def reset(self):
         for rollout in self.rollouts:
-            rollout.reset()
+            rollout._reset()
         self.steps = 0
         self.episodes += 1

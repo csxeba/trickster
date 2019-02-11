@@ -9,18 +9,18 @@ class DoubleDQN(DQN):
 
     def __init__(self,
                  model: Model,
-                 actions,
+                 action_space,
                  memory: Experience,
-                 reward_discount_factor=0.99,
+                 discount_factor_gamma=0.99,
                  epsilon=0.99,
                  epsilon_decay=1.,
                  epsilon_min=0.1,
                  state_preprocessor=None):
 
         super().__init__(model=model,
-                         actions=actions,
+                         action_space=action_space,
                          memory=memory,
-                         reward_discount_factor=reward_discount_factor,
+                         discount_factor_gamma=discount_factor_gamma,
                          epsilon=epsilon,
                          epsilon_decay=epsilon_decay,
                          epsilon_min=epsilon_min,

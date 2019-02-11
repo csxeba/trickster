@@ -24,7 +24,7 @@ critic.compile(loss="mse", optimizer=Adam(1e-3))
 
 agent = PPO(actor,
             critic,
-            actions=2,
+            action_space=2,
             memory=Experience(max_length=10000),
             reward_discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)

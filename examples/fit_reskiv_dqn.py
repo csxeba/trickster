@@ -45,7 +45,7 @@ value_estimate = Dense(NUM_MOVES, activation="softmax")(critic_stream)
 critic = Model(critic_input, value_estimate, name="Critic")
 critic.compile(Adam(5e-4), "mse")
 
-agent = DQN(critic, actions=MOVES, memory=Experience(max_length=10000), reward_discount_factor=0.99, epsilon=0.7,
+agent = DQN(critic, action_space=MOVES, memory=Experience(max_length=10000), discount_factor_gamma=0.99, epsilon=0.7,
             state_preprocessor=lambda state: state / 255. - 0.5)
 
 screen = CV2Screen(scale=2)
@@ -70,7 +70,7 @@ last_best_running_reward = 0.
 
 while 1:
     episode += 1
-    rollout.reset()
+    rollout._reset()
     reward_sum = 0.
     episode_losses = []
     while not rollout.done:

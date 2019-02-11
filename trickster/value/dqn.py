@@ -10,23 +10,20 @@ class DQN(AgentBase):
 
     def __init__(self,
                  model: Model,
-                 actions,
+                 action_space,
                  memory: Experience=None,
-                 reward_discount_factor=0.99,
+                 discount_factor_gamma=0.99,
                  epsilon=0.99,
                  epsilon_decay=1.,
                  epsilon_min=0.1,
                  state_preprocessor=None,
                  use_target_network=True):
 
-        super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
+        super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.model = model
-        self.output_dim = model.output_shape[1]
-        self.action_indices = np.arange(self.output_dim)
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
-        self.eye = np.eye(self.output_dim)
         if use_target_network:
             self.target_network = copy_model(self.model)
         else:
@@ -39,28 +36,30 @@ class DQN(AgentBase):
             else:
                 self.epsilon = self.epsilon_min
 
-    def sample(self, state, reward):
-        self.states.append(state)
-        self.rewards.append(reward)
+    def sample(self, state, reward, done):
         if np.random.random() < self.epsilon:
             action = np.random.choice(self.possible_actions)
         else:
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
+
         self._maybe_decay_epsilon()
-        self.actions.append(action)
+
+        if self.learning:
+            self.states.append(state)
+            self.rewards.append(reward)
+            self.dones.append(done)
+            self.actions.append(action)
+
         return action
 
-    def push_experience(self, final_state, final_reward, done=True):
+    def push_experience(self, state, reward, done):
         S = np.array(self.states)  # 0..t
         A = np.array(self.actions)  # 0..t
-        R = np.array(self.rewards[1:] + [final_reward])  # 1..t+1
-        F = np.zeros(len(S), dtype=bool)
-        F[-1] = done
+        R = np.array(self.rewards[1:] + [reward])  # 1..t+1
+        F = np.array(self.dones[1:] + [done])
 
-        self.states = []
-        self.actions = []
-        self.rewards = []
+        self._reset_direct_memory()
 
         self.memory.remember(S, A, R, F)
 

@@ -19,10 +19,10 @@ ann = Sequential([Dense(16, activation="relu", input_shape=input_shape),
 ann.compile(loss="mse", optimizer=Adam(1e-3))
 
 agent = DoubleDQN(ann,
-                  actions=2,
+                  action_space=2,
                   memory=Experience(max_length=10000),
                   epsilon=1.,
-                  reward_discount_factor=0.98)
+                  discount_factor_gamma=0.98)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
 
@@ -33,7 +33,7 @@ for warmup in range(1, 33):
     rollout.rollout(verbose=0, learning_batch_size=0)
 
 for episode in range(1, 501):
-    rollout.reset()
+    rollout._reset()
     episode_rewards = []
     episode_losses = []
     while not rollout.finished:

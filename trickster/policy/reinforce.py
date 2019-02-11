@@ -9,9 +9,9 @@ from ..utility.numeric import discount_reward
 
 class REINFORCE(AgentBase):
 
-    def __init__(self, model: Model, actions, memory: Experience=None, reward_discount_factor=0.99,
+    def __init__(self, model: Model, action_space, memory: Experience=None, discount_factor_gamma=0.99,
                  state_preprocessor=None):
-        super().__init__(actions, memory, reward_discount_factor, state_preprocessor)
+        super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.model = model
         self.output_dim = model.output_shape[1]
         self.action_indices = np.arange(self.output_dim)
@@ -48,5 +48,5 @@ class REINFORCE(AgentBase):
         if verbose:
             print("Loss: {:.4f}".format(loss))
         if reset_memory:
-            self.memory.reset()
+            self.memory._reset()
         return {"loss": loss}

@@ -5,15 +5,12 @@ class RolloutConfig:
 
     def __init__(self,
                  max_steps=None,
-                 learning=True,
                  skipframes=None,
-                 screen=None,
                  initial_reward=None):
+
         self.max_steps = max_steps
-        self.learning = learning
         self.skipframes = skipframes or 1
-        self.screen = screen
-        self.initial_reward = initial_reward
+        self.initial_reward = initial_reward or 0.
 
 
 class Rollout:
@@ -21,98 +18,92 @@ class Rollout:
     def __init__(self, agent: AgentBase, env, config: RolloutConfig=None):
         self.env = env
         self.agent = agent
-        self.cfg = config or RolloutConfig()
-        self.done = False
-        self.episodes = 0
+        self.cfg = config or RolloutConfig()  # type: RolloutConfig
         self.step = 0
+        self.episodes = 0
+        self.state = None
+        self.action = None
+        self.reward = None
+        self.info = None
+        self.done = None
+        self._rolling_worker = None
+        self._resetted = False
 
-        self.rolling = self._environment_coroutine()
+    def _sample_action(self):
+        return self.agent.sample(self.state, self.reward, self.done)
 
-    def _environment_coroutine(self):
-        """Infinite loop ensures continuous rolling of agent inside the environment"""
-        state = self.env.reset()
-        reward = 0.
-        info = {}
-        action = self.agent.sample(state, reward=0.)
+    def _rolling_job(self, infinite=False):
         while 1:
-            yield state, reward, info
-            if self.done:
+            self._reset(infinite_mode=infinite)
+            while 1:
+                yield self.step
+                if self.finished:
+                    break
+                if self.step % self.cfg.skipframes == 0:
+                    self.action = self._sample_action()
+                assert not self.done
+                self.state, self.reward, self.done, self.info = self.env.step(
+                    self.agent.possible_actions[self.action])
+                self.step += 1
+            if not infinite:
                 break
-            state, reward, self.done, info = self.env.step(self.agent.possible_actions[action])
-            action = self.agent.sample(state, reward)
-            self.step += 1
-            if self.cfg.screen is not None:
-                self.cfg.screen.blit(state)
+        self._rolling_worker = None
 
-    def roll(self, steps, verbose=0, learning_batch_size=32):
+    def roll(self, steps, verbose=0, push_experience=True):
         """Roll the agent inside the environment for <steps> steps for eg. TD-learning"""
-        reward_sum = 0.
-        state = None
-        reward = None
-
-        for i, (state, reward, info) in enumerate(self.rolling, start=1):
+        if self._rolling_worker is None:
+            self._reset(infinite_mode=True)
+        history = {"rewards": [], "reward_sum": 0.}
+        self.agent.set_learning_mode(push_experience)
+        for i, step in enumerate(self._rolling_worker):
+            history["rewards"].append(self.reward)
+            history["reward_sum"] += self.reward
             if verbose:
-                print("Step {} rwd: {:.4f}".format(self.step, reward))
-
-            reward_sum += reward
-
+                print("Step {} rwd: {:.4f}".format(self.step, self.reward))
             if i >= steps:
                 break
-            if self.finished:
-                break
 
-        history = {"reward_sum": reward_sum}
+        if push_experience:
+            self.agent.push_experience(self.state, self.reward, self.done)
 
-        if self.cfg.learning:
-            self.agent.push_experience(state, reward, done=self.done)
-            if learning_batch_size:
-                result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
-                history.update(result)
+        self.agent.set_learning_mode(not push_experience)
 
         return history
 
-    def rollout(self, verbose=1, learning_batch_size=0):
+    def rollout(self, verbose=1, push_experience=True):
         """Generate a complete trajectory for eg. MCMC learning"""
-        state = self.env.reset()
-        reward = 0.
-        cumulative_reward = 0.
-        done = False
-        step = 0
-        action = None  # IDE bullies me heavily
-
-        while not done:
-            # self.env.render()
-            if self.cfg.screen is not None:
-                self.cfg.screen.blit(state)
+        self._reset(infinite_mode=False)
+        self.agent.set_learning_mode(push_experience)
+        history = {"rewards": [], "reward_sum": 0.}
+        for step in self._rolling_worker:
+            history["rewards"].append(self.reward)
+            history["reward_sum"] += self.reward
             if verbose:
-                print("\rStep: {} total reward: {:.4f}".format(step+1, cumulative_reward), end="")
-            if step % self.cfg.skipframes == 0:
-                action = self.agent.sample(state, reward)
-            state, reward, done, info = self.env.step(self.agent.possible_actions[action])
-            cumulative_reward += reward
-            step += 1
-            if self.cfg.max_steps:
-                if step >= self.cfg.max_steps:
-                    break
+                print("\rStep: {} total reward: {:.4f}".format(step+1, history["reward_sum"]), end="")
+
         if verbose:
             print()
-        history = {"reward_sum": cumulative_reward}
-        if self.cfg.learning:
-            self.agent.push_experience(state, reward, done)
-            if learning_batch_size:
-                result = self.agent.fit(batch_size=learning_batch_size, verbose=verbose)
-                history.update(result)
+        if push_experience:
+            self.agent.push_experience(self.state, self.reward, self.done)
+
+        self.agent.set_learning_mode(not push_experience)
+
         return history
 
-    def reset(self):
-        self.rolling = self._environment_coroutine()
+    def _reset(self, infinite_mode):
+        self.reward = self.cfg.initial_reward
+        self.info = {}
         self.done = False
-        self.episodes += 1
+        self.state = self.env.reset()
         self.step = 0
+        self.episodes += 1
+        self._resetted = True
+        if self._rolling_worker is None or not infinite_mode:
+            self._rolling_worker = self._rolling_job(infinite=infinite_mode)
 
     @property
     def finished(self):
-        result = self.done
+        done = self.done
         if self.cfg.max_steps is not None:
-            result = result or self.step >= self.cfg.max_steps
-        return result
+            done = done or self.step >= self.cfg.max_steps
+        return done

@@ -48,7 +48,7 @@ action_probs = Dense(NUM_MOVES, activation="softmax")(actor_stream)
 actor = Model(common_input, action_probs, name="Actor")
 actor.compile(Adam(1e-3), "categorical_crossentropy")
 
-agent = REINFORCE(actor, actions=MOVES, memory=Experience(max_length=10000), reward_discount_factor=0.99,
+agent = REINFORCE(actor, action_space=MOVES, memory=Experience(max_length=10000), discount_factor_gamma=0.99,
                   state_preprocessor=preprocess)
 
 screen = CV2Screen(scale=2)

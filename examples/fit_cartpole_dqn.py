@@ -19,33 +19,38 @@ ann = Sequential([Dense(16, activation="relu", input_shape=input_shape),
 ann.compile(loss="mse", optimizer=Adam(1e-3))
 
 agent = DQN(ann,
-            actions=2,
+            action_space=2,
             memory=Experience(max_length=10000),
             epsilon=1.,
-            reward_discount_factor=0.98,
+            discount_factor_gamma=0.98,
             use_target_network=True)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, env, config=RolloutConfig())
 
 rewards = []
 losses = []
 
 for warmup in range(1, 33):
-    rollout.rollout(verbose=0, learning_batch_size=0)
+    rollout.rollout(verbose=0, push_experience=True)
 
-for episode in range(1, 501):
-    rollout.reset()
-    episode_rewards = []
+for episode in range(1, 301):
     episode_losses = []
-    while not rollout.finished:
-        roll_history = rollout.roll(steps=4, verbose=0, learning_batch_size=64)
-        episode_rewards.append(roll_history["reward_sum"])
-        episode_losses.append(roll_history["loss"])
+    for batch in range(1, 101):
+        rollout.roll(steps=4, verbose=0, push_experience=True)
+        agent_history = agent.fit(batch_size=32, verbose=0)
+        episode_losses.append(agent_history["loss"])
 
-    rewards.append(sum(episode_rewards))
+    test_reward = 0.
+    for _ in range(10):
+        test_history = test_rollout.rollout(verbose=0, push_experience=False)
+        test_reward += test_history["reward_sum"]
+    test_reward /= 10
+
+    rewards.append(test_reward)
     losses.append(sum(episode_losses) / len(episode_losses))
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
-        episode, rewards[-1], losses[-1], agent.epsilon), end="")
+        episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")
 
     agent.epsilon *= 0.992
     agent.epsilon = max(agent.epsilon, 0.01)

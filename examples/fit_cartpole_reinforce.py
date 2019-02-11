@@ -18,7 +18,7 @@ policy = Sequential([Dense(16, activation="relu", input_shape=input_shape),
                      Dense(num_actions, activation="softmax")])
 policy.compile(loss="categorical_crossentropy", optimizer=Adam(5e-3))
 
-agent = REINFORCE(policy, actions=num_actions)
+agent = REINFORCE(policy, action_space=num_actions)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
 
