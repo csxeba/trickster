@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import PPO, Rollout, RolloutConfig, Experience
+from trickster.advanced import PPO
+from trickster.rollout import Rolling, Rollout, RolloutConfig
+from trickster.experience import Experience
 from trickster.utility import visual
 
 env = gym.make("CartPole-v1")
@@ -29,7 +31,8 @@ agent = PPO(actor,
             reward_discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
+rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, gym.make("CartPole-v1"))
 
 rewards = []
 actor_loss = []
@@ -39,27 +42,26 @@ actor_entropy = []
 critic_loss = []
 
 for episode in range(1, 2001):
-    rollout._reset()
 
-    roll_history = rollout.rollout(verbose=0, learning_batch_size=0)
+    rollout.roll(steps=64, verbose=0, push_experience=True)
     agent_history = agent.fit(batch_size=32, verbose=0, reset_memory=True)
 
-    rewards.append(np.mean(roll_history["reward_sum"]))
     actor_loss.append(np.mean(agent_history["actor_loss"]))
     actor_utility.append(np.mean(agent_history["actor_utility"]))
     actor_kld.append(np.mean(agent_history["actor_kld"]))
     actor_entropy.append(np.mean(agent_history["actor_entropy"]))
     critic_loss.append(np.mean(agent_history["critic_loss"]))
 
-    print("\rEpisode {:>4} RWD {:>3.0f} ALOSS {: >7.4f} UTIL {: >7.4f} KLD {: >7.4f} ENTR {: >7.4f} CRIT {:.4f}".format(
+    test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
+    rewards.append(test_history["reward_sum"])
+
+    print("\rEpisode {:>4} RWD {:>5.2f} ACTR {:>7.4f} UTIL {:>7.4f} ENTR {:>7.4f} CRIT {:>7.4f}".format(
         episode,
         np.mean(rewards[-10:]),
-        np.mean(agent_history["actor_loss"]),
-        np.mean(agent_history["actor_utility"]),
-        np.mean(agent_history["actor_kld"]),
-        np.mean(agent_history["actor_entropy"]),
-        np.mean(agent_history["critic_loss"])), end="")
-
+        np.mean(actor_loss[-10:]),
+        np.mean(actor_utility[-10:]),
+        np.mean(actor_entropy[-10:]),
+        np.mean(critic_loss[-10:])), end="")
     if episode % 10 == 0:
         print()
 

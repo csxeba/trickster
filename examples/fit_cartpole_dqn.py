@@ -26,7 +26,7 @@ agent = DQN(ann,
             use_target_network=True)
 
 rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Rollout(agent, env, config=RolloutConfig())
+test_rollout = Rollout(agent, gym.make("CartPole-v1"), config=RolloutConfig())
 
 rewards = []
 losses = []
@@ -41,13 +41,9 @@ for episode in range(1, 301):
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_losses.append(agent_history["loss"])
 
-    test_reward = 0.
-    for _ in range(10):
-        test_history = test_rollout.rollout(verbose=0, push_experience=False)
-        test_reward += test_history["reward_sum"]
-    test_reward /= 10
+    test_history = test_rollout.rollout(verbose=0, push_experience=False)
 
-    rewards.append(test_reward)
+    rewards.append(test_history["reward_sum"])
     losses.append(sum(episode_losses) / len(episode_losses))
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
         episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")

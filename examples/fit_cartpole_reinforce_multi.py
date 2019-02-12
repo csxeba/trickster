@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
 import gym
 
@@ -7,7 +6,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import REINFORCE, MultiRollout, RolloutConfig
+from trickster.policy import REINFORCE
+from trickster.rollout import MultiRollout, RolloutConfig
+from trickster.utility import visual
 
 envs = [gym.make("CartPole-v1") for _ in range(8)]
 input_shape = envs[0].observation_space.shape
@@ -26,24 +27,13 @@ rewards = []
 losses = []
 
 for episode in range(1, 501):
-    rollout_history = rollout.rollout(verbose=0, learning_batch_size=0)
+    rollout_history = rollout.rollout(verbose=0, push_experience=True)
     agent_history = agent.fit(batch_size=-1, verbose=0, reset_memory=True)
-    rewards.append(rollout_history["reward_sum"])
+    rewards.append(rollout_history["rewards"])
     losses.append(agent_history["loss"])
     print("\rEpisode {:>4} RWD: {:>6.1f}, UTILITY: {: >8.4f}".format(
         episode, np.mean(rewards[-10:]), np.mean(losses[-10:])), end="")
     if episode % 10 == 0:
         print()
 
-fig, (tax, bax) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
-tax.plot(losses, "r-", alpha=0.5)
-tax.plot(np.convolve(losses, np.ones(10) / 10., mode="valid"), "b-", alpha=0.8)
-tax.set_title("Loss")
-tax.grid()
-
-bax.plot(rewards, "r-", alpha=0.5)
-bax.plot(np.convolve(rewards, np.ones(10) / 10., mode="valid"), "b-", alpha=0.8)
-bax.set_title("Rewards")
-bax.grid()
-
-plt.show()
+visual.plot_vectors([rewards, losses], ["Reward", "Loss"], window_size=10)

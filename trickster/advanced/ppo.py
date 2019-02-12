@@ -66,6 +66,7 @@ class PPO(AgentBase):
             self.rewards.append(reward)
             self.actions.append(action)
             self.probabilities.append(probabilities)
+            self.dones.append(done)
 
         return action
 
@@ -81,9 +82,7 @@ class PPO(AgentBase):
 
         returns = numeric.compute_gae(R, V[:-1], V[1:], F, self.gamma, self.lmbda)
 
-        self.states = []
-        self.actions = []
-        self.rewards = []
+        self._reset_direct_memory()
         self.probabilities = []
 
         self.memory.remember(S, P, A, returns)
@@ -109,6 +108,6 @@ class PPO(AgentBase):
                 history["critic_loss"].append(critic_loss)
 
         if reset_memory:
-            self.memory._reset()
+            self.memory.reset()
 
         return history

@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import A2C, Rollout, RolloutConfig, Experience
+from trickster.advanced import A2C
+from trickster.rollout import Rolling, Rollout, RolloutConfig
+from trickster.experience import Experience
 from trickster.utility import visual
 
 env = gym.make("CartPole-v1")
@@ -29,8 +31,8 @@ agent = A2C(actor,
             discount_factor_gamma=0.98,
             entropy_penalty_coef=0.)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Rollout(agent, env)
+rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, gym.make("CartPole-v1"))
 
 rewards = []
 actor_loss = []
@@ -38,14 +40,14 @@ actor_utility = []
 actor_entropy = []
 critic_loss = []
 
-for episode in range(1, 301):
+for episode in range(1, 1001):
     episode_actor_loss = []
     episode_actor_utility = []
     episode_actor_entropy = []
     episode_critic_loss = []
 
-    for batch in range(1, 101):
-        rollout.roll(steps=4, verbose=0, push_experience=True)
+    for batch in range(32):
+        rollout.roll(steps=2, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_actor_loss.append(agent_history["actor_loss"])
         episode_actor_utility.append(agent_history["actor_utility"])
@@ -71,5 +73,5 @@ for episode in range(1, 301):
         print()
 
 visual.plot_vectors([rewards, actor_loss, actor_utility, actor_entropy, critic_loss],
-                    ["Reward", "Actor Loss" "Actor Utility", "Actor Entropy" "Critic Loss"],
+                    ["Reward", "Actor Loss", "Actor Utility", "Actor Entropy", "Critic Loss"],
                     window_size=10)

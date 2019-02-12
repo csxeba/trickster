@@ -29,7 +29,7 @@ losses = []
 for episode in range(1, 501):
     rollout_history = rollout.rollout(verbose=0, push_experience=True)
     agent_history = agent.fit(batch_size=-1, verbose=0, reset_memory=True)
-    rewards.append(rollout_history["reward_sum"])
+    rewards.append(rollout_history["rewards"])
     losses.append(agent_history["loss"])
     print("\rEpisode {:>4} RWD: {:>6.1f}, UTILITY: {: >8.4f}".format(
         episode, np.mean(rewards[-10:]), np.mean(losses[-10:])), end="")

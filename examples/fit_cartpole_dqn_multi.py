@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import DQN, MultiRollout, RolloutConfig, Experience
+from trickster.value import DQN
+from trickster.experience import Experience
+from trickster.rollout import MultiRolling, RolloutConfig, Rollout
 from trickster.utility import visual
 
 envs = [gym.make("CartPole-v1") for _ in range(4)]
@@ -24,33 +26,29 @@ agent = DQN(qnet,
             discount_factor_gamma=0.98,
             use_target_network=True)
 
-rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, gym.make("CartPole-v1"))
 
 rewards = []
 losses = []
 
-for warmup in range(1, 33):
-    rollout.rollout(verbose=0, learning_batch_size=0)
-
 for episode in range(1, 501):
-    rollout.reset()
-    episode_rewards = []
     episode_losses = []
-    while not rollout.finished:
-        roll_history = rollout.roll(steps=4, verbose=0, learning_batch_size=64)
-        episode_rewards.append(roll_history["reward_sum"])
-        episode_losses.append(roll_history["loss"])
+    for batch in range(32):
+        rollout.roll(steps=4, verbose=0, push_experience=True)
+        agent_history = agent.fit(batch_size=32, verbose=0)
+        episode_losses.append(agent_history["loss"])
 
-    rewards.append(sum(episode_rewards))
-    losses.append(sum(episode_losses) / len(episode_losses))
+    test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
+    rewards.append(test_history["reward_sum"])
+    losses.append(np.mean(episode_losses))
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:.2%}".format(
         episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")
 
     agent.epsilon *= 0.992
     agent.epsilon = max(agent.epsilon, 0.01)
-    if episode % 5 == 0:
+    if episode % 10 == 0:
         agent.push_weights()
         print(" Pushed weights to target net!")
-
 
 visual.plot_vectors([rewards, losses], ["Reward", "Loss"], window_size=10)

@@ -12,4 +12,5 @@ def plot_vectors(vectors, names, window_size):
         ax.set_title(name)
         ax.grid()
 
+    plt.tight_layout()
     plt.show()
