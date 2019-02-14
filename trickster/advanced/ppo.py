@@ -49,8 +49,8 @@ class PPO(AgentBase):
         surrogate_2 = K.clip(ratio, 1. - self.ratio_clip, 1 + self.ratio_clip) * advantages
         loss = -K.mean(K.minimum(surrogate_1, surrogate_2))
 
-        entropy = -K.mean(new_probabilities * new_log_prob)
-        combined_loss = entropy * self.entropy_penalty_coef + loss
+        entropy = -K.mean(new_log_prob)
+        combined_loss = (-entropy) * self.entropy_penalty_coef + loss
         updates = self.actor.optimizer.get_updates(combined_loss, self.actor.weights)
         return K.function(inputs=[self.actor.input, old_predictions, advantages, action_onehot],
                           outputs=[loss, entropy, approximate_kld, combined_loss],
@@ -72,40 +72,44 @@ class PPO(AgentBase):
 
     def push_experience(self, state, reward, done):
         final_value = np.squeeze(self.critic.predict(state[None, ...]))
-        S = np.array(self.states)
-        V = np.squeeze(self.critic.predict(S))
-        V = np.append(V, final_value)
-        A = np.array(self.actions)
-        R = np.array(self.rewards[1:] + [reward])
-        F = np.array(self.dones[1:] + [done])
-        P = np.array(self.probabilities)
+        states = np.array(self.states)
+        values = np.squeeze(self.critic.predict(states))
+        values = np.append(values, final_value)
+        actions = np.array(self.actions)
+        rewards = np.array(self.rewards[1:] + [reward])
+        dones = np.array(self.dones[1:] + [done])
+        probabilities = np.array(self.probabilities)
 
-        returns = numeric.compute_gae(R, V[:-1], V[1:], F, self.gamma, self.lmbda)
+        returns = numeric.compute_gae(rewards, values[:-1], values[1:], dones, self.gamma, self.lmbda)
 
         self._reset_direct_memory()
         self.probabilities = []
 
-        self.memory.remember(S, P, A, returns)
+        self.memory.remember(states, probabilities, actions, returns)
 
     def fit(self, epochs=3, batch_size=32, verbose=1, reset_memory=True):
         history = defaultdict(list)
 
         for epoch in range(epochs):
-            for S, S_, P, A, returns in self.memory.stream(size=batch_size, infinite=False):
+            for state, state_next, probability, action, returns in self.memory.stream(size=batch_size, infinite=False):
 
-                S = self.preprocess(S)
-                critic_loss = self.critic.train_on_batch(S, returns)
+                state = self.preprocess(state)
+                critic_loss = self.critic.train_on_batch(state, returns)
 
-                action_onehot = self.possible_actions_onehot[A]
-                value = np.squeeze(self.critic.predict(S))
+                action_onehot = self.possible_actions_onehot[action]
+                value = np.squeeze(self.critic.predict(state))
                 advantage = returns - value
-                loss, entropy, approximate_kld, combined_loss = self._actor_train_fn([S, P, advantage, action_onehot])
+
+                loss, entropy, approximate_kld, combined_loss = self._actor_train_fn(
+                    [state, probability, advantage, action_onehot]
+                )
 
                 history["actor_loss"].append(combined_loss)
                 history["actor_utility"].append(loss)
                 history["actor_entropy"].append(entropy)
                 history["actor_kld"].append(approximate_kld)
                 history["critic_loss"].append(critic_loss)
+                history["advantage"].append(advantage.mean())
 
         if reset_memory:
             self.memory.reset()

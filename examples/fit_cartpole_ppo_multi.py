@@ -5,10 +5,12 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import PPO, MultiRollout, RolloutConfig, Experience
+from trickster.advanced import PPO
+from trickster.rollout import MultiRolling, Rollout, RolloutConfig
+from trickster.experience import Experience
 from trickster.utility import visual
 
-envs = [gym.make("CartPole-v1") for _ in range(8)]
+envs = [gym.make("CartPole-v1") for _ in range(16)]
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 
@@ -29,7 +31,8 @@ agent = PPO(actor,
             reward_discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)
 
-rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+test_rollout = Rollout(agent, gym.make("CartPole-v1"))
 
 rewards = []
 actor_loss = []
@@ -38,25 +41,25 @@ actor_kld = []
 actor_entropy = []
 critic_loss = []
 
-for episode in range(1, 5001):
-    rollout.reset()
-
-    roll_history = rollout.rollout(verbose=0, learning_batch_size=0)
+for episode in range(1, 1001):
+    roll_history = rollout.roll(steps=32, verbose=0, push_experience=True)
     agent_history = agent.fit(epochs=4, batch_size=32, verbose=0, reset_memory=True)
 
-    rewards.append(np.mean(roll_history["reward_sum"]))
+    test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
+
+    rewards.append(test_history["reward_sum"])
     actor_loss.append(np.mean(agent_history["actor_loss"]))
     actor_utility.append(np.mean(agent_history["actor_utility"]))
     actor_kld.append(np.mean(agent_history["actor_kld"]))
     actor_entropy.append(np.mean(agent_history["actor_entropy"]))
     critic_loss.append(np.mean(agent_history["critic_loss"]))
 
-    print("\rEpisode {:>4} RWD {:>3.0f} ALOSS {: >7.4f} UTIL {: >7.4f} KLD {: >7.4f} ENTR {: >7.4f} CRIT {:.4f}".format(
+    print("\rEpisode {:>4} RWD {:>3.0f} ALOSS {: >7.4f} UTIL {: >7.4f} KKL {: >7.4f} ENTR {: >7.4f} CRIT {:.4f}".format(
         episode,
         np.mean(rewards[-10:]),
         np.mean(agent_history["actor_loss"]),
         np.mean(agent_history["actor_utility"]),
-        np.mean(agent_history["actor_kld"]),
+        np.mean(agent_history["actor_kld"])*1000,
         np.mean(agent_history["actor_entropy"]),
         np.mean(agent_history["critic_loss"])), end="")
 
