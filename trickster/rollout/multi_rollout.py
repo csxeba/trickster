@@ -15,7 +15,7 @@ class MultiRollout(MultiRolloutBase):
 
         for i, rollout in enumerate(self.rollouts):
             history = rollout.rollout(verbose=0, push_experience=push_experience)
-            rewards[i] = history["rewards"]
+            rewards[i] = history["reward_sum"]
             if verbose:
                 print(f"Rolled out environment #{i}, got total reward of {rewards[i]:.4f}")
 

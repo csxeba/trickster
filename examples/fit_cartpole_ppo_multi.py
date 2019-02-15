@@ -19,8 +19,9 @@ FIT_BATCH_SIZE = 32
 EXPERIENCE_SIZE = NUM_PARALLEL_ENVS * ROLL_TIMESTEPS
 ACTOR_ADAM_LR = 1e-4
 CRITIC_ADAM_LR = 1e-3
-DISCOUNT_FACTOR_GAMMA = 0.99
-ENTROPY_PENALTY_BETA = 0.005
+PPO_RATIO_CLIP = 0.3
+DISCOUNT_FACTOR_GAMMA = 0.9
+ENTROPY_PENALTY_BETA = 0.0
 SCALAR_SMOOTHING_WINDOW_SIZE = 10
 ENV = "CartPole-v1"
 
@@ -59,7 +60,7 @@ critic_loss = []
 
 for episode in range(1, NUM_EPISODES+1):
     roll_history = rollout.roll(steps=ROLL_TIMESTEPS, verbose=0, push_experience=True)
-    agent_history = agent.fit(epochs=FIT_EPOCHS, batch_size=FIT_BATCH_SIZE, verbose=0, reset_memory=False)
+    agent_history = agent.fit(epochs=FIT_EPOCHS, batch_size=FIT_BATCH_SIZE, verbose=0, reset_memory=True)
 
     test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
 

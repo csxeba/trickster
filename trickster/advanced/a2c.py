@@ -32,7 +32,7 @@ class A2C(AgentBase):
         softmaxes = self.actor.output
         probabilities = K.sum(action_onehot * softmaxes, axis=1)
         log_prob = K.log(probabilities)
-        entropy = -K.mean(probabilities * log_prob)
+        entropy = -K.mean(log_prob)
         loss = -K.mean(log_prob * advantages)
         combined_utility = entropy * self.entropy_penalty_coef + loss
         updates = self.actor.optimizer.get_updates(combined_utility, self.actor.weights)
