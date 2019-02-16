@@ -1,5 +1,5 @@
 from .rolling import Rolling
-from .rollout import Rollout
-from .multi_rollout import MultiRollout
+from .trajectory import Trajectory
+from .multi_rollout import MultiTrajectory
 from .multi_rolling import MultiRolling
 from .abstract import RolloutConfig

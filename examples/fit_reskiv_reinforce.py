@@ -3,10 +3,12 @@ from collections import deque
 import numpy as np
 import cv2
 from keras.models import Model
-from keras.layers import Conv2D, Input, LeakyReLU, BatchNormalization, Activation, Dense
+from keras.layers import Conv2D, Input, LeakyReLU, Dense
 from keras.optimizers import Adam
 
-from trickster import REINFORCE, Experience, MultiRollout, RolloutConfig
+from trickster.agent import REINFORCE
+from trickster.experience import Experience
+from trickster.rollout import MultiTrajectory, RolloutConfig
 
 from grund.reskiv import ReskivConfig, Reskiv
 from grund.util.movement import get_movement_vectors
@@ -57,7 +59,7 @@ reward_memory = deque(maxlen=100)
 critic_losses = deque(maxlen=50)
 actor_losses = deque(maxlen=100)
 
-rollout = MultiRollout(agent, envs, warmup_episodes=WARMUP, rollout_configs=RolloutConfig(max_steps=512, skipframes=4))
+rollout = MultiTrajectory(agent, envs, warmup_episodes=WARMUP, rollout_configs=RolloutConfig(max_steps=512, skipframes=4))
 history = {"episode": 0}
 
 while 1:

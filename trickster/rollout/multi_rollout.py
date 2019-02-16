@@ -1,14 +1,14 @@
 import numpy as np
 
-from .rollout import Rollout, RolloutConfig
+from .trajectory import Trajectory, RolloutConfig
 from .abstract import MultiRolloutBase
 
 
-class MultiRollout(MultiRolloutBase):
+class MultiTrajectory(MultiRolloutBase):
 
     def __init__(self, agent, envs: list, rollout_configs=None):
         super().__init__(agent, envs, rollout_configs)
-        self.rollouts = [Rollout(self.agent, env, config) for env, config in zip(envs, self.rollout_configs)]
+        self.rollouts = [Trajectory(self.agent, env, config) for env, config in zip(envs, self.rollout_configs)]
 
     def rollout(self, verbose=1, push_experience=True):
         rewards = np.empty(self.num_rollouts)

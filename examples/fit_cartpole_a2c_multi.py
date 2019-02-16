@@ -5,8 +5,8 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster.advanced import A2C
-from trickster.rollout import MultiRolling, Rollout, RolloutConfig
+from trickster.agent import A2C
+from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
 from trickster.utility import visual
 
@@ -32,7 +32,7 @@ agent = A2C(actor,
             entropy_penalty_coef=0.)
 
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
-test_rollout = Rollout(agent, gym.make("CartPole-v1"))
+test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
 rewards = []
 actor_loss = []

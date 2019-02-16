@@ -2,9 +2,9 @@ import numpy as np
 from keras.models import Model
 from keras import backend as K
 
-from ..abstract import AgentBase
-from ..experience import Experience
-from ..utility import numeric
+from trickster.abstract import AgentBase
+from trickster.experience import Experience
+from trickster.utility import numeric
 
 
 class A2C(AgentBase):

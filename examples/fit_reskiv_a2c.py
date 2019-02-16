@@ -6,7 +6,9 @@ from keras.layers import Conv2D, Input, LeakyReLU, Activation
 from keras.layers import GlobalAveragePooling2D
 from keras.optimizers import Adam
 
-from trickster import A2C, Experience, MultiRollout, RolloutConfig
+from trickster.agent import A2C
+from trickster.rollout import Trajectory, RolloutConfig
+from trickster.experience import Experience
 
 from grund.reskiv import ReskivConfig, Reskiv
 from grund.util.movement import get_movement_vectors

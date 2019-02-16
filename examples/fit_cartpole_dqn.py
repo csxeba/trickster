@@ -7,7 +7,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import DQN, Rollout, RolloutConfig, Experience
+from trickster.agent import DQN
+from trickster.rollout import Trajectory, RolloutConfig
+from trickster.experience import Experience
 
 env = gym.make("CartPole-v1")
 input_shape = env.observation_space.shape
@@ -25,8 +27,8 @@ agent = DQN(ann,
             discount_factor_gamma=0.98,
             use_target_network=True)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Rollout(agent, gym.make("CartPole-v1"), config=RolloutConfig())
+rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Trajectory(agent, gym.make("CartPole-v1"), config=RolloutConfig())
 
 rewards = []
 losses = []

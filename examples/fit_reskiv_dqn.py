@@ -5,7 +5,9 @@ from keras.models import Model
 from keras.layers import Input, Flatten, Dense, BatchNormalization
 from keras.optimizers import Adam
 
-from trickster import DQN, Experience, Rollout, RolloutConfig
+from trickster.agent import DQN
+from trickster.experience import Experience
+from trickster.rollout import RolloutConfig, Trajectory
 
 from grund.reskiv import ReskivConfig, Reskiv
 from grund.util.movement import get_movement_vectors
@@ -26,15 +28,6 @@ canvas_shape, action_shape = env.neurons_required
 actor_input = Input(shape=[64, 64, 3], name="actor_input")
 critic_input = Input(shape=[64, 64, 3], name="critic_input")
 
-# critic_stream = Conv2D(16, (3, 3), dilation_rate=(2, 2), padding="same")(common_input)  # 32
-# critic_stream = BatchNormalization()(LeakyReLU()(critic_stream))
-# critic_stream = Conv2D(32, (3, 3), dilation_rate=(2, 2), padding="same")(critic_stream)  # 16
-# critic_stream = BatchNormalization()(LeakyReLU()(critic_stream))
-# critic_stream = Conv2D(64, (3, 3), dilation_rate=(2, 2), padding="same")(critic_stream)  # 8
-# critic_stream = BatchNormalization()(LeakyReLU()(critic_stream))
-# critic_stream = Conv2D(NUM_MOVES, (1, 1), padding="valid")(critic_stream)
-# value_estimate = GlobalAveragePooling2D()(critic_stream)
-
 critic_stream = Flatten()(critic_input)
 critic_stream = Dense(64, activation="tanh")(critic_stream)
 critic_stream = BatchNormalization()(critic_stream)
@@ -53,7 +46,7 @@ episode = 0
 reward_memory = deque(maxlen=100)
 losses = deque(maxlen=100)
 
-rollout = Rollout(agent, env, config=RolloutConfig(max_steps=512))
+rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=512))
 history = {"episode": 0}
 
 print("Doing {} warmup rollouts...".format(WARMUP))

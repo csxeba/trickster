@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import A2C, MultiRollout, RolloutConfig, Experience
+from trickster.agent import A2C
+from trickster.rollout import MultiTrajectory, RolloutConfig
+from trickster.experience import Experience
 from trickster.utility import visual
 
 envs = [gym.make("LunarLander-v2") for _ in range(8)]
@@ -29,7 +31,7 @@ agent = A2C(actor,
             discount_factor_gamma=0.98,
             entropy_penalty_coef=0.)
 
-rollout = MultiRollout(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+rollout = MultiTrajectory(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 
 rewards = []
 actor_losses = []

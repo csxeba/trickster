@@ -5,8 +5,8 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster.advanced import PPO
-from trickster.rollout import MultiRolling, Rollout, RolloutConfig
+from trickster.agent import PPO
+from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
 from trickster.utility import visual
 
@@ -49,7 +49,7 @@ agent = PPO(actor,
             entropy_penalty_coef=ENTROPY_PENALTY_BETA)
 
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=MAX_TIMESTEPS))
-test_rollout = Rollout(agent, gym.make("CartPole-v1"))
+test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
 rewards = []
 actor_loss = []

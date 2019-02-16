@@ -6,8 +6,8 @@ from keras.models import Sequential
 from keras.layers import Flatten, Dense
 from keras.optimizers import RMSprop
 
-from trickster.rollout import MultiRollout, Rollout, RolloutConfig
-from trickster.policy import REINFORCE
+from trickster.rollout import MultiTrajectory, Trajectory, RolloutConfig
+from trickster.agent import REINFORCE
 from trickster.experience import Experience
 
 
@@ -68,8 +68,8 @@ actor.compile(RMSprop(1e-4, rho=0.99), "categorical_crossentropy")
 agent = REINFORCE(actor, 2, Experience(), discount_factor_gamma=0.99,
                   state_preprocessor=None)
 
-rollout = MultiRollout(agent, envs)
-test_rollout = Rollout(agent, test_env)
+rollout = MultiTrajectory(agent, envs)
+test_rollout = Trajectory(agent, test_env)
 
 rewards = deque(maxlen=10)
 actor_loss = deque(maxlen=80)

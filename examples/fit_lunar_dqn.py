@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-from trickster import DQN, Rollout, RolloutConfig, Experience
+from trickster.agent import DQN
+from trickster.rollout import Trajectory, RolloutConfig
+from trickster.experience import Experience
 from trickster.utility import visual
 
 env = gym.make("LunarLander-v2")
@@ -24,7 +26,7 @@ agent = DQN(policy,
             discount_factor_gamma=0.98,
             use_target_network=True)
 
-rollout = Rollout(agent, env, RolloutConfig(max_steps=200))
+rollout = Trajectory(agent, env, RolloutConfig(max_steps=200))
 
 rewards = []
 losses = []
