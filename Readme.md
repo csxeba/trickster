@@ -1,3 +1,6 @@
+
+[![codebeat badge](https://codebeat.co/badges/f72db301-fd66-4c05-b1ca-9b8c8196f06e)](https://codebeat.co/projects/github-com-csxeba-trickster-master)
+
 # Trickster
 
 Deep Reinforcement Learning mini-library with the aim of clear implementation of some algorithms.
