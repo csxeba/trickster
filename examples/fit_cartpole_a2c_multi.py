@@ -29,7 +29,7 @@ agent = A2C(actor,
             action_space=envs[0].action_space,
             memory=Experience(max_length=10000),
             discount_factor_gamma=0.98,
-            entropy_penalty_coef=0.)
+            entropy_penalty_coef=0.01)
 
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
@@ -46,7 +46,7 @@ for episode in range(1, 301):
     episode_actor_entropy = []
     episode_critic_loss = []
 
-    for batch in range(32):
+    for update in range(32):
         rollout.roll(steps=2, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_actor_loss.append(agent_history["actor_loss"])
@@ -57,10 +57,10 @@ for episode in range(1, 301):
     test_history = test_rollout.rollout(verbose=0, push_experience=False)
 
     rewards.append(test_history["reward_sum"])
-    actor_loss.append(sum(episode_actor_loss) / len(episode_actor_loss))
-    actor_utility.append(sum(episode_actor_utility) / len(episode_actor_utility))
-    actor_entropy.append(sum(episode_actor_entropy) / len(episode_actor_entropy))
-    critic_loss.append(sum(episode_critic_loss) / len(episode_critic_loss))
+    actor_loss.append(np.mean(episode_actor_loss))
+    actor_utility.append(np.mean(episode_actor_utility))
+    actor_entropy.append(np.mean(episode_actor_entropy))
+    critic_loss.append(np.mean(episode_critic_loss))
 
     print("\rEpisode {:>4} RWD {:>5.2f} ACTR {:>7.4f} UTIL {:>7.4f} ENTR {:>7.4f} CRIT {:>7.4f}".format(
         episode,
@@ -74,4 +74,4 @@ for episode in range(1, 301):
 
 visual.plot_vectors([rewards, actor_loss, actor_utility, actor_entropy, critic_loss],
                     ["Reward", "Actor Loss", "Actor Utility", "Actor Entropy", "Critic Loss"],
-                    window_size=10)
+                    smoothing_window_size=10)

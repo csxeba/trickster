@@ -1,8 +1,8 @@
 import numpy as np
-from keras.models import Model, model_from_json
+from keras.models import Model
 
-from trickster.experience import Experience
-from trickster.value import DQN
+from ..experience import Experience
+from .dqn import DQN
 
 
 class DoubleDQN(DQN):

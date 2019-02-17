@@ -34,7 +34,8 @@ losses = []
 
 for episode in range(1, 501):
     episode_losses = []
-    for batch in range(32):
+
+    for update in range(32):
         rollout.roll(steps=4, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_losses.append(agent_history["loss"])
@@ -51,4 +52,4 @@ for episode in range(1, 501):
         agent.push_weights()
         print(" Pushed weights to target net!")
 
-visual.plot_vectors([rewards, losses], ["Reward", "Loss"], window_size=10)
+visual.plot_vectors([rewards, losses], ["Reward", "Loss"], smoothing_window_size=10)

@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
 import gym
 
@@ -8,8 +7,10 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 from trickster.agent import DQN
-from trickster.rollout import Trajectory, RolloutConfig
+from trickster.rollout import Trajectory, RolloutConfig, Rolling
 from trickster.experience import Experience
+
+from trickster.utility import visual
 
 env = gym.make("CartPole-v1")
 input_shape = env.observation_space.shape
@@ -27,18 +28,17 @@ agent = DQN(ann,
             discount_factor_gamma=0.98,
             use_target_network=True)
 
-rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=300))
+rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"), config=RolloutConfig())
 
 rewards = []
 losses = []
 
-for warmup in range(1, 33):
-    rollout.rollout(verbose=0, push_experience=True)
-
 for episode in range(1, 301):
+
     episode_losses = []
-    for batch in range(1, 101):
+
+    for update in range(32):
         rollout.roll(steps=4, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_losses.append(agent_history["loss"])
@@ -46,7 +46,8 @@ for episode in range(1, 301):
     test_history = test_rollout.rollout(verbose=0, push_experience=False)
 
     rewards.append(test_history["reward_sum"])
-    losses.append(sum(episode_losses) / len(episode_losses))
+    losses.append(np.mean(episode_losses))
+
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
         episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")
 
@@ -56,16 +57,6 @@ for episode in range(1, 301):
         agent.push_weights()
         print(" Pushed weights to target net!")
 
-fig, (ax0, ax1) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
-
-ax0.plot(losses, "r-", alpha=0.5)
-ax0.plot(np.convolve(losses, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax0.set_title("Critic Loss")
-ax0.grid()
-
-ax1.plot(rewards, "r-", alpha=0.5)
-ax1.plot(np.convolve(rewards, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax1.set_title("Rewards")
-ax1.grid()
-
-plt.show()
+visual.plot_vectors([rewards, losses],
+                    ["Rewards", "Losses"],
+                    smoothing_window_size=10)

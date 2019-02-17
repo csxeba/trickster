@@ -22,7 +22,6 @@ CRITIC_ADAM_LR = 1e-3
 PPO_RATIO_CLIP = 0.3
 DISCOUNT_FACTOR_GAMMA = 0.9
 ENTROPY_PENALTY_BETA = 0.0
-SCALAR_SMOOTHING_WINDOW_SIZE = 10
 ENV = "CartPole-v1"
 
 envs = [gym.make(ENV) for _ in range(NUM_PARALLEL_ENVS)]
@@ -73,16 +72,16 @@ for episode in range(1, NUM_EPISODES+1):
 
     print("\rEpisode {:>4} RWD {:>3.0f} ALOSS {: >7.4f} UTIL {: >7.4f} kKL {: >7.4f} ENTR {: >7.4f} CRIT {:.4f}".format(
         episode,
-        np.mean(rewards[-SCALAR_SMOOTHING_WINDOW_SIZE:]),
-        np.mean(actor_loss[-SCALAR_SMOOTHING_WINDOW_SIZE:]),
-        np.mean(actor_utility[-SCALAR_SMOOTHING_WINDOW_SIZE:]),
-        np.mean(actor_kld[-SCALAR_SMOOTHING_WINDOW_SIZE:])*1000,  # kiloKL :D
-        np.mean(actor_entropy[-SCALAR_SMOOTHING_WINDOW_SIZE:]),
-        np.mean(critic_loss[-SCALAR_SMOOTHING_WINDOW_SIZE:])), end="")
+        np.mean(rewards[-10:]),
+        np.mean(actor_loss[-10:]),
+        np.mean(actor_utility[-10:]),
+        np.mean(actor_kld[-10:]) * 1000,  # kiloKL :D
+        np.mean(actor_entropy[-10:]),
+        np.mean(critic_loss[-10:])), end="")
 
     if episode % 10 == 0:
         print()
 
 visual.plot_vectors([rewards, actor_loss, actor_utility, actor_kld, actor_entropy, critic_loss],
                     ["Reward", "Actor Loss", "Actor Utility", "Actor KLD", "Actor Entropy", "Critic Loss"],
-                    window_size=SCALAR_SMOOTHING_WINDOW_SIZE)
+                    smoothing_window_size=10)

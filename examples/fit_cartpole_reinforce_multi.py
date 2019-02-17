@@ -36,4 +36,4 @@ for episode in range(1, 501):
     if episode % 10 == 0:
         print()
 
-visual.plot_vectors([rewards, losses], ["Reward", "Loss"], window_size=10)
+visual.plot_vectors([rewards, losses], ["Reward", "Loss"], smoothing_window_size=10)

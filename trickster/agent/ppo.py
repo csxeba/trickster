@@ -3,9 +3,9 @@ from collections import defaultdict
 import numpy as np
 from keras import backend as K
 
-from trickster.abstract import AgentBase
-from trickster.experience import Experience
-from trickster.utility import numeric
+from ..abstract import AgentBase
+from ..experience import Experience
+from ..utility import numeric
 
 
 class PPO(AgentBase):

@@ -2,9 +2,9 @@ import numpy as np
 
 from keras.models import Model
 
-from trickster.abstract import AgentBase
-from trickster.experience import Experience
-from trickster.utility.numeric import discount_reward
+from ..abstract import AgentBase
+from ..experience import Experience
+from ..utility.numeric import discount_reward
 
 
 class REINFORCE(AgentBase):

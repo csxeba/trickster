@@ -64,4 +64,4 @@ for episode in range(1, 1001):
 
 visual.plot_vectors([rewards, actor_losses, critic_losses],
                     ["Reward", "Actor Utility", "Critic Loss"],
-                    window_size=10)
+                    smoothing_window_size=10)

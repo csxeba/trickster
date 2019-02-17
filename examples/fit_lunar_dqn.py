@@ -53,4 +53,4 @@ for episode in range(1, 501):
         print()
         agent.push_weights()
 
-visual.plot_vectors([losses, rewards], ["Loss", "Reward"], window_size=10)
+visual.plot_vectors([losses, rewards], ["Loss", "Reward"], smoothing_window_size=10)

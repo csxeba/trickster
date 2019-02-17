@@ -1,6 +1,6 @@
 import numpy as np
 
-from .trajectory import Trajectory, RolloutConfig
+from .trajectory import Trajectory
 from .abstract import MultiRolloutBase
 
 

@@ -14,14 +14,14 @@ env = gym.make("CartPole-v1")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-actor = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                    Dense(16, activation="relu"),
-                    Dense(num_actions, activation="softmax")])
+actor = Sequential([Dense(16, activation="relu", input_shape=input_shape, kernel_initializer="he_uniform"),
+                    Dense(16, activation="relu", kernel_initializer="he_uniform"),
+                    Dense(num_actions, activation="softmax", kernel_initializer="he_uniform")])
 actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 
-critic = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                     Dense(16, activation="relu"),
-                     Dense(1, activation="linear")])
+critic = Sequential([Dense(16, activation="relu", input_shape=input_shape, kernel_initializer="he_uniform"),
+                     Dense(16, activation="relu", kernel_initializer="he_uniform"),
+                     Dense(1, activation="linear", kernel_initializer="he_uniform")])
 critic.compile(loss="mse", optimizer=Adam(5e-4))
 
 agent = A2C(actor,
@@ -29,7 +29,7 @@ agent = A2C(actor,
             action_space=env.action_space,
             memory=Experience(max_length=10000),
             discount_factor_gamma=0.98,
-            entropy_penalty_coef=0.)
+            entropy_penalty_coef=0.01)
 
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
@@ -46,7 +46,7 @@ for episode in range(1, 1001):
     episode_actor_entropy = []
     episode_critic_loss = []
 
-    for batch in range(32):
+    for update in range(32):
         rollout.roll(steps=2, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
         episode_actor_loss.append(agent_history["actor_loss"])
@@ -74,4 +74,4 @@ for episode in range(1, 1001):
 
 visual.plot_vectors([rewards, actor_loss, actor_utility, actor_entropy, critic_loss],
                     ["Reward", "Actor Loss", "Actor Utility", "Actor Entropy", "Critic Loss"],
-                    window_size=10)
+                    smoothing_window_size=10)

@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
 import gym
 
@@ -8,10 +7,13 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 from trickster.agent import DoubleDQN
-from trickster.rollout import Trajectory, RolloutConfig
+from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
+from trickster.utility import visual
 
 env = gym.make("CartPole-v1")
+test_env = gym.make("CartPole-v1")
+
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
@@ -26,44 +28,35 @@ agent = DoubleDQN(ann,
                   epsilon=1.,
                   discount_factor_gamma=0.98)
 
-rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=300))
+rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
+test_rollout = Trajectory(agent, test_env)
 
 rewards = []
 losses = []
 
-for warmup in range(1, 33):
-    rollout.rollout(verbose=0, learning_batch_size=0)
-
 for episode in range(1, 501):
-    rollout._reset()
-    episode_rewards = []
     episode_losses = []
-    while not rollout.finished:
-        roll_history = rollout.roll(steps=4, verbose=0, learning_batch_size=64)
-        episode_rewards.append(roll_history["reward_sum"])
-        episode_losses.append(roll_history["loss"])
 
-    rewards.append(sum(episode_rewards))
-    losses.append(sum(episode_losses) / len(episode_losses))
+    for update in range(32):
+        roll_history = rollout.roll(steps=4, verbose=0, push_experience=True)
+        agent_history = agent.fit(batch_size=32, verbose=0)
+        episode_losses.append(agent_history["loss"])
+
+    test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
+
+    rewards.append(test_history["reward_sum"])
+    losses.append(np.mean(episode_losses))
+
     print("\rEpisode {:>4} RWD {:>3.0f} LOSS {:.4f} EPS {:>6.2%}".format(
-        episode, rewards[-1], losses[-1], agent.epsilon), end="")
+        episode, np.mean(rewards[-10:]), np.mean(losses[-10:]), agent.epsilon), end="")
 
     agent.epsilon *= 0.992
     agent.epsilon = max(agent.epsilon, 0.01)
-    if episode % 5 == 0:
+
+    if episode % 10 == 0:
         agent.push_weights()
         print(" Pushed weights to target net!")
 
-fig, (ax0, ax1) = plt.subplots(2, 1, sharex="all", figsize=(6, 5))
-
-ax0.plot(losses, "r-", alpha=0.5)
-ax0.plot(np.convolve(losses, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax0.set_title("Critic Loss")
-ax0.grid()
-
-ax1.plot(rewards, "r-", alpha=0.5)
-ax1.plot(np.convolve(rewards, np.ones(10) / 10., "valid"), "b-", alpha=0.8)
-ax1.set_title("Rewards")
-ax1.grid()
-
-plt.show()
+visual.plot_vectors([rewards, losses],
+                    ["Rewards", "Losses"],
+                    smoothing_window_size=10)

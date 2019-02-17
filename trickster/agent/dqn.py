@@ -1,9 +1,9 @@
 import numpy as np
 from keras.models import Model
 
-from trickster.abstract import AgentBase
-from trickster.experience import Experience
-from trickster.utility.kerasic import copy_model
+from ..abstract import AgentBase
+from ..experience import Experience
+from ..utility.kerasic import copy_model
 
 
 class DQN(AgentBase):

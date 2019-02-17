@@ -1,12 +1,17 @@
+"""
+Trying to replicate the Pong experiment of Karpathy.
+"""
+
 from collections import deque
 
 import numpy as np
 import gym
+
 from keras.models import Sequential
 from keras.layers import Flatten, Dense
 from keras.optimizers import RMSprop
 
-from trickster.rollout import MultiTrajectory, Trajectory, RolloutConfig
+from trickster.rollout import MultiTrajectory, Trajectory
 from trickster.agent import REINFORCE
 from trickster.experience import Experience
 
@@ -36,6 +41,7 @@ class FakeEnv:
         state1, reward1, done, info = self.env.step(action)
         if done:
             return self.empty, reward1, done, info
+
         if self.initial_state is not None:
             state2 = self.initial_state
             reward = reward1
@@ -45,10 +51,11 @@ class FakeEnv:
             reward = max(reward1, reward2)
         if done:
             return self.empty, reward, done, info
+
         state1, state2 = map(self._preporcess, [state1, state2])
         state = np.abs(state1 - state2)
 
-        return state[..., None], reward, done, info
+        return state, reward, done, info
 
     def reset(self):
         self.initial_state = self.env.reset()
@@ -93,5 +100,6 @@ while 1:
         episode,
         np.mean(rewards),
         np.mean(actor_loss)), end="")
+
     if episode % 10 == 0:
         print()
