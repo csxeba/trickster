@@ -31,12 +31,12 @@ class A2C(AgentBase):
         softmaxes = self.actor.output
         probabilities = K.sum(action_onehot * softmaxes, axis=1)
         log_prob = K.log(probabilities)
-        entropy = -K.mean(log_prob)
-        loss = -K.mean(log_prob * advantages)
-        combined_utility = entropy * self.entropy_penalty_coef + loss
-        updates = self.actor.optimizer.get_updates(combined_utility, self.actor.weights)
+        neg_entropy = K.mean(log_prob)
+        utility = -K.mean(log_prob * advantages)
+        loss = neg_entropy * self.entropy_penalty_coef + utility
+        updates = self.actor.optimizer.get_updates(loss, self.actor.weights)
         return K.function(inputs=[self.actor.input, advantages, action_onehot],
-                          outputs=[loss, entropy, combined_utility],
+                          outputs=[utility, neg_entropy, loss],
                           updates=updates)
 
     def sample(self, state, reward, done):

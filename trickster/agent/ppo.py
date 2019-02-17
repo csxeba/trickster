@@ -47,13 +47,13 @@ class PPO(AgentBase):
         ratio = K.exp(new_log_prob - old_log_prob)
         surrogate_1 = ratio * advantages
         surrogate_2 = K.clip(ratio, 1. - self.ratio_clip, 1 + self.ratio_clip) * advantages
-        loss = -K.mean(K.minimum(surrogate_1, surrogate_2))
+        utility = -K.mean(K.minimum(surrogate_1, surrogate_2))
 
-        entropy = -K.mean(new_log_prob)
-        combined_loss = (-entropy) * self.entropy_penalty_coef + loss
-        updates = self.actor.optimizer.get_updates(combined_loss, self.actor.weights)
+        neg_entropy = K.mean(new_log_prob)
+        loss = neg_entropy * self.entropy_penalty_coef + utility
+        updates = self.actor.optimizer.get_updates(loss, self.actor.weights)
         return K.function(inputs=[self.actor.input, old_predictions, advantages, action_onehot],
-                          outputs=[loss, entropy, approximate_kld, combined_loss],
+                          outputs=[utility, neg_entropy, approximate_kld, loss],
                           updates=updates)
 
     def sample(self, state, reward, done):
