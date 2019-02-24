@@ -36,7 +36,7 @@ class A2C(AgentBase):
         loss = neg_entropy * self.entropy_penalty_coef + utility
         updates = self.actor.optimizer.get_updates(loss, self.actor.weights)
         return K.function(inputs=[self.actor.input, advantages, action_onehot],
-                          outputs=[utility, neg_entropy, loss],
+                          outputs=[utility, -neg_entropy, loss],
                           updates=updates)
 
     def sample(self, state, reward, done):

@@ -1,3 +1,5 @@
+from typing import List
+
 from ..abstract import AgentBase
 
 
@@ -20,19 +22,30 @@ class RolloutBase:
         self.env = env
         self.cfg = config or RolloutConfig()
 
+    def reset_memory(self):
+        self.agent.memory.reset()
+
 
 class MultiRolloutBase:
 
-    def __init__(self, agent, envs: list, rollout_configs=None):
+    def __init__(self,
+                 agents: List[AgentBase],
+                 envs: list,
+                 rollout_configs=None):
+
         self.num_rollouts = len(envs)
         if self.num_rollouts <= 1:
             raise ValueError("At least 2 environments are required for a MultiRollout!")
-        self.agent = agent
+        if self.num_rollouts != len(agents):
+            raise ValueError("There should be an equal number of agents and envs!")
 
-        env0 = envs[0]
-        for env in envs[1:]:
-            if env is env0:
-                print(" [MultiRollout] - Warning: one or more environments are shared between rollouts!")
+        agent_ids = {id(agent) for agent in agents}
+        if len(agent_ids) < len(agents):
+            print("[MultiRollout] - Warning: one or more agents are shared between rollouts!")
+
+        env_ids = {id(env) for env in envs}
+        if len(env_ids) < len(envs):
+            print("[MultiRollout] - Warning: one or more environments are shared between rollouts!")
 
         if rollout_configs is None:
             rollout_configs = [RolloutConfig() for _ in range(self.num_rollouts)]
@@ -40,3 +53,11 @@ class MultiRolloutBase:
             rollout_configs = [rollout_configs] * self.num_rollouts
 
         self.rollout_configs = rollout_configs
+        self.rollouts = None  # type: List[RolloutBase]
+
+    def reset_memory(self):
+        for rollout in self.rollouts:
+            rollout.reset_memory()
+
+    def gather_memory(self):
+        excluded_indices = []

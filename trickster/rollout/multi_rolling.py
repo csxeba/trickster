@@ -6,9 +6,10 @@ from .rolling import Rolling
 
 class MultiRolling(MultiRolloutBase):
 
-    def __init__(self, agent, envs: list, rollout_configs=None):
-        super().__init__(agent, envs, rollout_configs)
-        self.rollouts = [Rolling(self.agent, env, config) for env, config in zip(envs, self.rollout_configs)]
+    def __init__(self, agents: list, envs: list, rollout_configs=None):
+        super().__init__(agents, envs, rollout_configs)
+        self.rollouts = [Rolling(agent, env, config) for agent, env, config in
+                         zip(agents, envs, self.rollout_configs)]
 
     def roll(self, steps, verbose=0, push_experience=True):
         rewards = np.empty(self.num_rollouts)
