@@ -48,43 +48,5 @@ class TestExperienceRemember(unittest.TestCase):
             self.assertListEqual(source.tolist(), target.tolist())
 
 
-class TestExperienceSample(unittest.TestCase):
-
-    def setUp(self):
-        self.xp = Experience(max_length=100)
-        self.a = np.arange(100)
-        self.b = self.a - 100
-        self.c = self.a / 10
-
-    def test_sampling_of_next_states(self):
-        self.xp.remember(self.a)
-        states, next_states = self.xp.sample(3)
-
-        diff = next_states - states
-
-        self.assertTrue(np.all(diff == 1))
-
-    def test_sampling_when_samples_are_fewer_than_sample_size(self):
-        self.xp.remember(self.a)
-        states, next_states = self.xp.sample(200)
-
-        self.assertTrue(len(states) == len(self.a) - 1)
-        self.assertTrue(len(next_states) == len(self.a) - 1)
-
-    def test_last_state_doesnt_get_sampled(self):
-        self.xp.remember(self.a)
-        states, next_states = self.xp.sample(200)
-
-        self.assertNotIn(self.a[-1], states)
-
-    def test_excluded_state_doesnt_get_sampled(self):
-        EXCLUDE = (10, 20, 30)
-        self.xp.remember(self.a, exclude=EXCLUDE)
-
-        states, next_states = self.xp.sample(200)
-        for x in EXCLUDE:
-            self.assertNotIn(x-1, states)
-
-
 if __name__ == '__main__':
     unittest.main()
