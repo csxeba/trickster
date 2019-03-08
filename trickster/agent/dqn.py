@@ -38,7 +38,7 @@ class DQN(AgentBase):
 
     def sample(self, state, reward, done):
         if np.random.random() < self.epsilon:
-            action = np.random.choice(self.possible_actions)
+            action = np.random.choice(self.action_space)
         else:
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
@@ -64,7 +64,7 @@ class DQN(AgentBase):
         self.memory.remember(S, A, R, F)
 
     def fit(self, batch_size=32, verbose=1):
-        S, S_, A, R, F = self.memory.sample(batch_size)
+        S, S_, A, R, F = self.memory_sampler.sample(batch_size)
         bellman_targets = self.target_network.predict(S_).max(axis=1)
 
         Q = self.model.predict(S)

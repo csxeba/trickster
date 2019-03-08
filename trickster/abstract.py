@@ -1,6 +1,7 @@
 import numpy as np
+from keras.models import Model
 
-from .experience import Experience
+from .experience import Experience, ExperienceSampler
 
 
 class AgentBase:
@@ -11,15 +12,17 @@ class AgentBase:
                  discount_factor_gamma=0.99,
                  state_preprocessor=None):
 
-        if memory is None:
-            memory = Experience(max_length=1000)
         if isinstance(action_space, int):
             action_space = np.arange(action_space)
         if hasattr(action_space, "n"):
             action_space = np.arange(action_space.n)
 
         self.memory = memory
-        self.possible_actions = action_space
+        if self.memory is None:
+            self.memory_sampler = None
+        else:
+            self.memory_sampler = ExperienceSampler(self.memory)
+        self.action_space = action_space
         self.states = []
         self.rewards = []
         self.actions = []
@@ -39,9 +42,6 @@ class AgentBase:
         raise NotImplementedError
 
     def push_experience(self, state, reward, done):
-        raise NotImplementedError
-
-    def fit(self, batch_size=32, verbose=1):
         raise NotImplementedError
 
     def _reset_direct_memory(self):

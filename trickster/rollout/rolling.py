@@ -33,7 +33,7 @@ class Rolling(RolloutBase):
                     self.action = self._sample_action()
                 assert not self.done
                 self.state, self.reward, self.done, self.info = self.env.step(
-                    self.agent.possible_actions[self.action])
+                    self.agent.action_space[self.action])
                 self.step += 1
 
     def roll(self, steps, verbose=0, push_experience=True):

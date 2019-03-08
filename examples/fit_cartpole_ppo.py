@@ -7,7 +7,6 @@ from keras.optimizers import Adam
 
 from trickster.agent import PPO
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
-from trickster.experience import Experience
 from trickster.utility import visual
 
 env = gym.make("CartPole-v1")
@@ -27,11 +26,10 @@ critic.compile(loss="mse", optimizer=Adam(1e-5))
 agent = PPO(actor,
             critic,
             action_space=2,
-            memory=Experience(max_length=10000),
-            reward_discount_factor_gamma=0.99,
+            discount_factor_gamma=0.98,
             entropy_penalty_coef=0.005)
 
-rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
+rollout = Rolling(agent.create_workers(1)[0], env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
 rewards = []

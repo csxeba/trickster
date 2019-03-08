@@ -10,7 +10,7 @@ from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
 from trickster.utility import visual
 
-envs = [gym.make("CartPole-v1") for _ in range(32)]
+envs = [gym.make("CartPole-v1") for _ in range(4)]
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 
@@ -27,11 +27,10 @@ critic.compile(loss="mse", optimizer=Adam(1e-3))
 agent = A2C(actor,
             critic,
             action_space=envs[0].action_space,
-            memory=Experience(max_length=10000),
             discount_factor_gamma=0.98,
-            entropy_penalty_coef=0.05)
+            entropy_penalty_coef=0.005)
 
-rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
+rollout = MultiRolling(agent.create_workers(4), envs, rollout_configs=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
 rewards = []

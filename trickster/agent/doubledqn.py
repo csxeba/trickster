@@ -28,7 +28,7 @@ class DoubleDQN(DQN):
                          use_target_network=True)
 
     def fit(self, batch_size=32, verbose=1, update_target=False):
-        S, S_, A, R, F = self.memory.sample(batch_size)
+        S, S_, A, R, F = self.memory_sampler.sample(batch_size)
         bellman_target = self.target_network.predict(S_)
         next_state_actions = self.model.predict(S_).argmax(axis=1)
 

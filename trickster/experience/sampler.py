@@ -15,8 +15,12 @@ class ExperienceSampler:
         for memory in self.memories:
             memory.reset()
 
+    @property
+    def N(self):
+        return sum(memory.N for memory in self.memories)
+
     def sample(self, size=32):
-        N = sum(memory.N for memory in self.memories)
+        N = self.N
         if N < 2:
             return [[]] * self.width
         if size <= 0:
@@ -24,7 +28,7 @@ class ExperienceSampler:
         valid_indices = self._get_valid_indices()
         num_valid = len(valid_indices)
         size = min(size, num_valid)
-        idx = valid_indices[np.random.randint(num_valid, size=size)]
+        idx = valid_indices[np.random.randint(0, num_valid, size=size)]
         return self._sample_data(idx)
 
     def stream(self, size=32, infinite=False):
@@ -38,7 +42,7 @@ class ExperienceSampler:
                 break
 
     def _get_valid_indices(self):
-        memories_considered = [i for i, memory in enumerate(self.memories) if memory.N > 2]
+        memories_considered = [i for i, memory in enumerate(self.memories) if memory.N >= 2]
         valid_indices = []
         for i in memories_considered:
             valid_indices.extend([[i, j] for j in self.memories[i].get_valid_indices()])

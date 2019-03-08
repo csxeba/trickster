@@ -11,7 +11,9 @@ from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
 
 cfg = MatchConfig(canvas_size=(100, 100), players_per_side=2,
-                  learning_type=MatchConfig.LEARNING_TYPE_SINGLE_AGENT)
+                  learning_type=MatchConfig.LEARNING_TYPE_SINGLE_AGENT,
+                  observation_type=MatchConfig.OBSERVATION_TYPE_VECTOR)
+
 env = Match(cfg)
 test_env = Match(cfg)
 
@@ -53,8 +55,6 @@ while 1:
 
     print(f"\rEpisode {episode} RWD {np.mean(reward_memory): >5.2f} LOSS {loss:.4f}", end="")
 
-    if episode % 10 == 0:
-        print(" Pushed to target!")
-        agent.push_weights()
+    agent.meld_weights(mix_in_ratio=0.1)
 
     episode += 1
