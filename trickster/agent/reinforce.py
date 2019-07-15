@@ -43,7 +43,7 @@ class REINFORCE(AgentBase):
         self.memory.remember(S, A*R[..., None])
 
     def fit(self, batch_size=-1, verbose=1, reset_memory=True):
-        S, _, Y = self.memory_sampler.sample(-1)
+        S, _, Y = self.memory_sampler.sample(batch_size)
         loss = self.model.train_on_batch(S, Y)  # works because of the definition of categorical XEnt
         if verbose:
             print("Loss: {:.4f}".format(loss))

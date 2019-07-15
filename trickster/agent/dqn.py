@@ -3,7 +3,7 @@ from keras.models import Model
 
 from ..abstract import AgentBase
 from ..experience import Experience
-from ..utility.kerasic import copy_model
+from ..utility import kerasic
 
 
 class DQN(AgentBase):
@@ -25,7 +25,7 @@ class DQN(AgentBase):
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         if use_target_network:
-            self.target_network = copy_model(self.model)
+            self.target_network = kerasic.copy_model(self.model)
         else:
             self.target_network = self.model
 
@@ -89,10 +89,4 @@ class DQN(AgentBase):
             self.push_weights()
             return
 
-        W = []
-        mix_in_inverse = 1. - mix_in_ratio
-        for old, new in zip(self.target_network.get_weights(), self.model.get_weights()):
-            w = mix_in_inverse*old + mix_in_ratio*new
-            W.append(w)
-        self.model.set_weights(W)
-        self.target_network.set_weights(W)
+        kerasic.meld_weights(self.target_network, self.model, mix_in_ratio)

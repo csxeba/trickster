@@ -14,19 +14,17 @@ input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
 actor = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                    Dense(16, activation="relu"),
                     Dense(num_actions, activation="softmax")])
 actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 
 critic = Sequential([Dense(16, activation="relu", input_shape=input_shape),
-                     Dense(16, activation="relu"),
                      Dense(1, activation="linear")])
 critic.compile(loss="mse", optimizer=Adam(1e-5))
 
 agent = PPO(actor,
             critic,
             action_space=2,
-            discount_factor_gamma=0.98,
+            discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)
 
 rollout = Rolling(agent.create_workers(1)[0], env, config=RolloutConfig(max_steps=300))

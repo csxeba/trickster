@@ -1,0 +1,1 @@
+CONTINUOUS = "continuous"

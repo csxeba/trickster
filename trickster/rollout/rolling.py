@@ -2,6 +2,7 @@ import numpy as np
 
 from ..abstract import AgentBase
 from .abstract import RolloutBase, RolloutConfig
+from ..utility import spaces
 
 
 class Rolling(RolloutBase):
@@ -32,8 +33,11 @@ class Rolling(RolloutBase):
                 if self.step % self.cfg.skipframes == 0:
                     self.action = self._sample_action()
                 assert not self.done
-                self.state, self.reward, self.done, self.info = self.env.step(
-                    self.agent.action_space[self.action])
+                if self.agent.action_space == spaces.CONTINUOUS:
+                    a = self.action
+                else:
+                    a = self.agent.action_space[self.action]
+                self.state, self.reward, self.done, self.info = self.env.step(a)
                 self.step += 1
 
     def roll(self, steps, verbose=0, push_experience=True):

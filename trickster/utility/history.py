@@ -1,4 +1,5 @@
 from typing import Dict
+import string
 
 import numpy as np
 
@@ -12,7 +13,8 @@ class History:
 
     def record(self, **kwargs):
         for key, val in kwargs.items():
-            self._logs[key].append(val)
+            if key in self._logs:
+                self._logs[key].append(val)
 
     def buffer(self, **kwargs):
         for key, val in kwargs.items():
@@ -32,7 +34,8 @@ class History:
               prefix=""):
 
         templates = templates or {}
-        template = " ".join(templates.get(key, "{}") for key in self.keys)
+        template = "{}: {}"
+        template = " ".join(template.format(key, templates.get(key, "{}")) for key in self.keys)
 
         if average_last >= 2:
             values = [np.mean(self._logs[key][-average_last:]) for key in self.keys]
@@ -40,6 +43,8 @@ class History:
             values = [self._logs[key][-1] for key in self.keys]
 
         prefix = ("\r" if return_carriege else "") + prefix
+        if prefix[-1] not in string.whitespace:
+            prefix += " "
         end = "" if return_carriege else None
 
         print(prefix + template.format(*values), end=end)

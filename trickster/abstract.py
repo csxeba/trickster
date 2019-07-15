@@ -1,5 +1,4 @@
 import numpy as np
-from keras.models import Model
 
 from .experience import Experience, ExperienceSampler
 
@@ -17,11 +16,10 @@ class AgentBase:
         if hasattr(action_space, "n"):
             action_space = np.arange(action_space.n)
 
+        if memory is None:
+            memory = Experience()
         self.memory = memory
-        if self.memory is None:
-            self.memory_sampler = None
-        else:
-            self.memory_sampler = ExperienceSampler(self.memory)
+        self.memory_sampler = ExperienceSampler(self.memory)
         self.action_space = action_space
         self.states = []
         self.rewards = []

@@ -7,7 +7,6 @@ from keras.optimizers import Adam
 
 from trickster.agent import A2C
 from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
-from trickster.experience import Experience
 from trickster.utility import visual
 
 envs = [gym.make("CartPole-v1") for _ in range(4)]
