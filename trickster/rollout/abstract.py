@@ -8,11 +8,13 @@ class RolloutConfig:
     def __init__(self,
                  max_steps=None,
                  skipframes=None,
-                 initial_reward=None):
+                 initial_reward=None,
+                 testing_rollout=False):
 
         self.max_steps = max_steps
         self.skipframes = skipframes or 1
         self.initial_reward = initial_reward or 0.
+        self.testing_rollout = testing_rollout
 
 
 class RolloutBase:
@@ -58,6 +60,3 @@ class MultiRolloutBase:
     def reset_memory(self):
         for rollout in self.rollouts:
             rollout.reset_memory()
-
-    def gather_memory(self):
-        excluded_indices = []
