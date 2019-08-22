@@ -1,9 +1,15 @@
+from typing import Callable
+
 import numpy as np
+import keras
 
 from .experience import Experience, ExperienceSampler
+from .utility import kerasic, numeric
 
 
 class AgentBase:
+
+    history_keys = []
 
     def __init__(self,
                  action_space,

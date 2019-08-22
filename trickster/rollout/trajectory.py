@@ -22,7 +22,7 @@ class Trajectory(RolloutBase):
             step += 1
             if render:
                 self.env.render()
-            action = self.agent.sample(state, reward, done, self.cfg.testing_rollout)
+            action = self.agent.sample(state, reward, done)
             state, reward, done, info = self.env.step(action)
             reward_sum += reward
             if verbose:

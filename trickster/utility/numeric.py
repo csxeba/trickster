@@ -34,3 +34,9 @@ def batch_compute_gae(R, V, V_next, gamma, lmbda):
         advantage_estimation[:, i] = gae
     advantage_estimation[:, 0] = delta[:, 0]
     return advantage_estimation[:, ::-1]
+
+
+def noop(*args):
+    if len(args) == 1:
+        return args[0]
+    return args

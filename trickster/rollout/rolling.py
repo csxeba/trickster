@@ -21,7 +21,7 @@ class Rolling(RolloutBase):
         self._rolling_worker = None
 
     def _sample_action(self):
-        return self.agent.sample(self.state, self.reward, self.done, self.cfg.testing_rollout)
+        return self.agent.sample(self.state, self.reward, self.done)
 
     def _rolling_job(self):
         while 1:

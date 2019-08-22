@@ -66,6 +66,9 @@ class PPOWorker(AgentBase):
 
 class PPO(AgentBase):
 
+    history_keys = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
+                    "critic_loss", "advantage")
+
     def __init__(self,
                  actor,
                  critic,
@@ -97,6 +100,7 @@ class PPO(AgentBase):
         self.probabilities = []
         self._actor_train_fn = self._make_actor_train_function()
         self.workers = []  # type: List[PPOWorker]
+        self.memory_sampler = None
 
     def _create_worker(self, memory=None):
         if self.copy_models:
@@ -147,9 +151,6 @@ class PPO(AgentBase):
         utilities = -K.minimum(ratio*advantages, min_adv)
         utility = K.mean(utilities)
         utility_stdev = K.std(utilities)
-        # surrogate_1 = ratio * advantages
-        # surrogate_2 = K.clip(ratio, 1. - self.ratio_clip, 1 + self.ratio_clip) * advantages
-        # utility = -K.mean(K.minimum(surrogate_1, surrogate_2))
 
         neg_entropy = K.mean(new_log_prob)
         loss = neg_entropy * self.entropy_penalty_coef + utility
@@ -181,36 +182,65 @@ class PPO(AgentBase):
             worker.actor.set_weights(actor_W)
             worker.critic.set_weights(critic_W)
 
-    def fit(self, epochs=3, batch_size=32, verbose=1, reset_memory=True):
-        history = defaultdict(list)
-        stream = self.memory_sampler.stream(batch_size, infinite=True)
-        num_updates = epochs * (self.memory_sampler.N // batch_size)
-        for _ in range(num_updates):
-            state, state_next, probability, action, returns, values = next(stream)
+    def update_critic(self, batch_size):
+        state, state_next, probability, action, returns, values = self.memory_sampler.sample(batch_size)
+        state = self.preprocess(state)
+        critic_loss = self.critic_learner.train_on_batch(state, returns)
+        return critic_loss
 
-            state = self.preprocess(state)
-            critic_loss = self.critic_learner.train_on_batch(state, returns)
+    def update_actor(self, batch_size):
+        state, state_next, probability, action, returns, values = self.memory_sampler.sample(batch_size)
+        state = self.preprocess(state)
+        action_onehot = self.possible_actions_onehot[action]
+        advantage = returns - values
+        return list(self._actor_train_fn(
+            [state, probability, advantage, action_onehot]
+        )) + [advantage.mean()]
 
-            action_onehot = self.possible_actions_onehot[action]
-            advantage = returns - values
-
-            loss, loss_std, entropy, approximate_kld, combined_loss = self._actor_train_fn(
-                [state, probability, advantage, action_onehot]
-            )
-
+    def update_step(self, batch_size, fit_actor=True, fit_critic=True, history=None):
+        if history is None:
+            history = defaultdict(list)
+        if fit_critic:
+            critic_loss = self.update_critic(batch_size)
+            history["critic_loss"].append(critic_loss)
+        if fit_actor:
+            loss, loss_std, entropy, approximate_kld, combined_loss, advantage = self.update_actor(batch_size)
             history["actor_loss"].append(combined_loss)
             history["actor_utility"].append(loss)
             history["actor_utility_std"].append(loss_std)
             history["actor_entropy"].append(entropy)
             history["actor_kld"].append(approximate_kld)
-            history["critic_loss"].append(critic_loss)
             history["advantage"].append(advantage.mean())
 
-            if approximate_kld > self.target_kl:
+    def _fixed_update_fit_loop(self, epochs, batch_size, fit_actor, fit_critic, history):
+        updates_per_epoch = self.memory_sampler.N // batch_size
+        num_updates = epochs * updates_per_epoch
+        for update in range(1, num_updates+1):
+            self.update_step(batch_size, fit_actor, fit_critic, history)
+            if history["actor_kld"][-1] > self.target_kl:
                 break
+
+    def _target_kld_fit_loop(self, batch_size, fit_actor, fit_critic, history):
+        actor_kld = -1.
+        while actor_kld < self.target_kl:
+            self.update_step(batch_size, fit_actor, fit_critic, history)
+            actor_kld = history["actor_kld"][-1]
+
+    def fit(self, epochs=3, batch_size=32, verbose=1, fit_actor=True, fit_critic=True, reset_memory=True):
+        history = defaultdict(list)
+
+        if epochs > 0:
+            self._fixed_update_fit_loop(epochs, batch_size, fit_actor, fit_critic, history)
+        else:
+            self._target_kld_fit_loop(batch_size, fit_actor, fit_critic, history)
 
         if reset_memory:
             for worker in self.workers:
                 worker.memory.reset()
+
+        history_new = {}
+        for key in self.history_keys:
+            history_new[key] = np.mean(history[key])
+        history = history_new
 
         return history

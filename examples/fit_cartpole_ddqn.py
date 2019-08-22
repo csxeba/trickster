@@ -34,6 +34,9 @@ test_rollout = Trajectory(agent, test_env)
 rewards = []
 losses = []
 
+best_so_far = None
+best_rwd_so_far = -1
+
 for episode in range(1, 501):
     episode_losses = []
 

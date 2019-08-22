@@ -5,14 +5,12 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 from trickster.agent import A2C
-from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
+from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.utility import visual, history
 
-NUM_ENVS = 8
-
-envs = [gym.make("LunarLander-v2") for _ in range(NUM_ENVS)]
-input_shape = envs[0].observation_space.shape
-num_actions = envs[0].action_space.n
+env = gym.make("LunarLander-v2")
+input_shape = env.observation_space.shape
+num_actions = env.action_space.n
 
 actor = Sequential([Dense(24, activation="relu", input_shape=input_shape),
                     Dense(24, activation="relu"),
@@ -31,8 +29,8 @@ agent = A2C(actor,
             discount_factor_gamma=0.99,
             entropy_penalty_coef=0)
 
-rollout = MultiRolling(agent.create_workers(NUM_ENVS), envs, rollout_configs=RolloutConfig(max_steps=300))
-test_rollout = Trajectory(agent, gym.make("LunarLander-v2"), config=RolloutConfig(testing_rollout=True))
+rollout = Rolling(agent.create_workers(1)[0], gym.make("LunarLander-v2"))
+test_rollout = Trajectory(agent, gym.make("LunarLander-v2"))
 
 hst = history.History("reward_sum", "actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "critic_loss")
 

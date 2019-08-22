@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import Dict
 import string
 
@@ -21,11 +22,22 @@ class History:
             self._buffer[key].append(val)
 
     def push_buffer(self):
-        self.record(**{k: np.mean(v) for k, v in self._buffer.items()})
+        new_record = {}
+        for k, v in self._buffer.items():
+            if len(v):
+                new_record[k] = np.mean(v)
+        self.record(**new_record)
         self._buffer = {k: [] for k in self.keys}
 
     def gather(self):
         return self._logs
+
+    def last(self):
+        result = OrderedDict()
+        for k in self.keys:
+            if len(self._logs[k]):
+                result[k] = self._logs[k][-1]
+        return result
 
     def print(self,
               average_last=10,
@@ -42,9 +54,14 @@ class History:
         else:
             values = [self._logs[key][-1] for key in self.keys]
 
+        if not prefix:
+            prefix = "Episode {:>4} ".format(len(self))
         prefix = ("\r" if return_carriege else "") + prefix
         if prefix[-1] not in string.whitespace:
             prefix += " "
         end = "" if return_carriege else None
 
         print(prefix + template.format(*values), end=end)
+
+    def __len__(self):
+        return len(self._logs[self.keys[0]])

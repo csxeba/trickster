@@ -30,20 +30,20 @@ class DQN(AgentBase):
             self.target_network = self.model
 
     def _maybe_decay_epsilon(self):
-        if self.epsilon_decay < 1:
-            if self.epsilon < self.epsilon_min:
-                self.epsilon *= self.epsilon_decay
-            else:
-                self.epsilon = self.epsilon_min
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+        else:
+            self.epsilon = self.epsilon_min
 
-    def sample(self, state, reward, done):
+    def sample(self, state, reward, done, testing_rollout=False):
         if np.random.random() < self.epsilon:
             action = np.random.choice(self.action_space)
         else:
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
 
-        self._maybe_decay_epsilon()
+        if not testing_rollout:
+            self._maybe_decay_epsilon()
 
         if self.learning:
             self.states.append(state)
@@ -63,18 +63,19 @@ class DQN(AgentBase):
 
         self.memory.remember(S, A, R, F)
 
-    def fit(self, batch_size=32, verbose=1):
-        S, S_, A, R, F = self.memory_sampler.sample(batch_size)
-        bellman_targets = self.target_network.predict(S_).max(axis=1)
+    def fit(self, updates=1, batch_size=32, verbose=1):
+        losses = []
+        for update in range(1, updates+1):
+            S, S_, A, R, F = self.memory_sampler.sample(batch_size)
+            bellman_targets = self.target_network.predict(S_).max(axis=1)
 
-        Q = self.model.predict(S)
-        Q[range(len(Q)), A] = bellman_targets * self.gamma + R
-        Q[F, A[F]] = R[F]
+            Q = self.model.predict(S)
+            Q[range(len(Q)), A] = bellman_targets * self.gamma + R
+            Q[F, A[F]] = R[F]
 
-        loss = self.model.train_on_batch(S, Q)
-        if verbose:
-            print("Loss: {:.4f}".format(loss))
-        return {"loss": loss}
+            loss = self.model.train_on_batch(S, Q)
+            losses.append(loss)
+        return {"loss": np.mean(losses)}
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())
