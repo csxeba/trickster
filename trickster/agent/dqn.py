@@ -65,17 +65,20 @@ class DQN(AgentBase):
 
     def fit(self, updates=1, batch_size=32, verbose=1):
         losses = []
+        max_q_predictions = []
         for update in range(1, updates+1):
             S, S_, A, R, F = self.memory_sampler.sample(batch_size)
             bellman_targets = self.target_network.predict(S_).max(axis=1)
 
             Q = self.model.predict(S)
+            max_q_predictions.append(Q.max(axis=1))
             Q[range(len(Q)), A] = bellman_targets * self.gamma + R
             Q[F, A[F]] = R[F]
 
             loss = self.model.train_on_batch(S, Q)
             losses.append(loss)
-        return {"loss": np.mean(losses)}
+
+        return {"loss": np.mean(losses), "q": np.mean(max_q_predictions)}
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())
