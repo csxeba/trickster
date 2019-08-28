@@ -35,17 +35,15 @@ class DQN(AgentBase):
         else:
             self.epsilon = self.epsilon_min
 
-    def sample(self, state, reward, done, testing_rollout=False):
-        if np.random.random() < self.epsilon:
+    def sample(self, state, reward, done):
+        if self.learning and np.random.random() < self.epsilon:
             action = np.random.choice(self.action_space)
         else:
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
 
-        if not testing_rollout:
-            self._maybe_decay_epsilon()
-
         if self.learning:
+            self._maybe_decay_epsilon()
             self.states.append(state)
             self.rewards.append(reward)
             self.dones.append(done)

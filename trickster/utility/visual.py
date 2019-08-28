@@ -3,8 +3,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def plot_vectors(vectors, names, smoothing_window_size, skip_first=10):
-    fig, axes = plt.subplots(len(vectors), sharex="all")
+def plot_vectors(vectors, names, smoothing_window_size, skip_first=10, show=True, **subplots_kwargs):
+    fig, axes = plt.subplots(len(vectors), sharex="all", **subplots_kwargs)
     half_window = smoothing_window_size // 2
 
     for ax, vec, name in zip(axes, vectors, names):
@@ -14,10 +14,11 @@ def plot_vectors(vectors, names, smoothing_window_size, skip_first=10):
         ax.set_title(name)
         ax.grid()
 
-    plt.tight_layout()
-    plt.show()
+    if show:
+        plt.tight_layout()
+        plt.show()
 
 
-def plot_history(history, smoothing_window_size, skip_first=10):
+def plot_history(history, smoothing_window_size, skip_first=10, show=True, **subplots_kwargs):
     vectors = [v for k, v in history.gather().items()]
-    plot_vectors(vectors, history.keys, smoothing_window_size, skip_first)
+    plot_vectors(vectors, history.keys, smoothing_window_size, skip_first, show=show, **subplots_kwargs)
