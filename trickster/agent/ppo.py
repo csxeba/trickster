@@ -38,11 +38,9 @@ class PPOWorker(AgentBase):
         action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
 
         if self.learning:
-            self.states.append(state)
-            self.actions.append(action)
-            self.rewards.append(reward)
-            self.dones.append(done)
             self.probabilities.append(probabilities)
+
+        self._push_direct_experience(state, action, reward, done)
 
         return action
 
@@ -61,12 +59,12 @@ class PPOWorker(AgentBase):
         self._reset_direct_memory()
         self.probabilities = []
 
-        self.memory.remember(states, probabilities, actions, returns, values[:-1])
+        self.memory.remember(states, probabilities, actions, returns, values[:-1], dones=dones)
 
 
 class PPO(AgentBase):
 
-    history_keys = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
+    HISTORY_KEYS = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
                     "critic_loss", "advantage")
 
     def __init__(self,
@@ -145,7 +143,7 @@ class PPO(AgentBase):
         new_probabilities = K.sum(action_onehot * new_pedictions, axis=1)
         new_log_prob = K.log(new_probabilities)
 
-        approximate_kld = K.mean(old_log_prob - new_log_prob)  # yes, this is reversed!
+        approximate_kld = K.mean(K.sum(K.log(old_predictions) - K.log(new_pedictions), axis=-1))
         min_adv = K.switch(advantages > 0, (1+self.ratio_clip)*advantages, (1-self.ratio_clip)*advantages)
         ratio = K.exp(new_log_prob - old_log_prob)
         utilities = -K.minimum(ratio*advantages, min_adv)
@@ -195,7 +193,7 @@ class PPO(AgentBase):
         advantage = returns - values
         return list(self._actor_train_fn(
             [state, probability, advantage, action_onehot]
-        )) + [advantage.mean()]
+        )) + [values.mean()] + [advantage.mean()]
 
     def update_step(self, batch_size, fit_actor=True, fit_critic=True, history=None):
         if history is None:
@@ -204,35 +202,24 @@ class PPO(AgentBase):
             critic_loss = self.update_critic(batch_size)
             history["critic_loss"].append(critic_loss)
         if fit_actor:
-            loss, loss_std, entropy, approximate_kld, combined_loss, advantage = self.update_actor(batch_size)
+            loss, loss_std, entropy, approximate_kld, combined_loss, value, advantage = self.update_actor(batch_size)
             history["actor_loss"].append(combined_loss)
             history["actor_utility"].append(loss)
             history["actor_utility_std"].append(loss_std)
             history["actor_entropy"].append(entropy)
             history["actor_kld"].append(approximate_kld)
-            history["advantage"].append(advantage.mean())
+            history["values"].append(value.mean())
+            history["advantages"].append(advantage.mean())
 
-    def _fixed_update_fit_loop(self, epochs, batch_size, fit_actor, fit_critic, history):
+    def fit(self, epochs=3, batch_size=32, verbose=1, fit_actor=True, fit_critic=True, reset_memory=True):
+        history = defaultdict(list)
+
         updates_per_epoch = self.memory_sampler.N // batch_size
         num_updates = epochs * updates_per_epoch
         for update in range(1, num_updates+1):
             self.update_step(batch_size, fit_actor, fit_critic, history)
             if history["actor_kld"][-1] > self.target_kl:
                 break
-
-    def _target_kld_fit_loop(self, batch_size, fit_actor, fit_critic, history):
-        actor_kld = -1.
-        while actor_kld < self.target_kl:
-            self.update_step(batch_size, fit_actor, fit_critic, history)
-            actor_kld = history["actor_kld"][-1]
-
-    def fit(self, epochs=3, batch_size=32, verbose=1, fit_actor=True, fit_critic=True, reset_memory=True):
-        history = defaultdict(list)
-
-        if epochs > 0:
-            self._fixed_update_fit_loop(epochs, batch_size, fit_actor, fit_critic, history)
-        else:
-            self._target_kld_fit_loop(batch_size, fit_actor, fit_critic, history)
 
         if reset_memory:
             for worker in self.workers:
@@ -241,6 +228,5 @@ class PPO(AgentBase):
         history_new = {}
         for key in self.history_keys:
             history_new[key] = np.mean(history[key])
-        history = history_new
 
-        return history
+        return history_new

@@ -1,3 +1,6 @@
+import os
+
+import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers import Dense
 
@@ -15,52 +18,51 @@ envs = [Match(cfg) for _ in range(4)]
 test_env = Match(cfg)
 
 actor = Sequential([
-    Dense(32, activation="relu", input_shape=test_env.observation_space.shape),
-    Dense(32, activation="relu"),
+    Dense(400, activation="relu", input_shape=test_env.observation_space.shape),
+    Dense(300, activation="relu"),
     Dense(test_env.action_space.n, activation="softmax")
 ])
 actor.compile("adam", "categorical_crossentropy")
 
 critic = Sequential([
-    Dense(32, activation="relu", input_shape=test_env.observation_space.shape),
-    Dense(32, activation="relu"),
+    Dense(400, activation="relu", input_shape=test_env.observation_space.shape),
+    Dense(300, activation="relu"),
     Dense(1, activation="linear")
 ])
 critic.compile("adam", "mse")
 
 agent = A2C(actor, critic, test_env.action_space, absolute_memory_limit=10000, entropy_penalty_coef=0.05)
 
-rcfg = RolloutConfig(max_steps=1024, skipframes=2)
+rcfg = RolloutConfig(max_steps=512, skipframes=2)
 training_rollout = MultiRolling(agent.create_workers(4), envs, rcfg)
 testing_rollout = Trajectory(agent, test_env, rcfg)
 
-episode = 1
+episode = 0
+logger = history.History("reward_sum", *agent.HST_KEYS)
 
-while 1:
+for episode in range(1, 1001):
 
-    logger = history.History("reward", "actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "critic_loss")
+    for update in range(32):
+        training_rollout.roll(steps=32, verbose=0, push_experience=True)
+        agent_history = agent.fit(batch_size=-1, verbose=0)
+        logger.buffer(**agent_history)
 
-    for logging_round in range(300):
+    for _ in range(3):
+        test_history = testing_rollout.rollout(verbose=0, push_experience=False, render=False)
+        logger.buffer(reward_sum=test_history["reward_sum"])
 
-        for update in range(32):
-            training_rollout.roll(steps=32, verbose=0, push_experience=True)
-            agent_history = agent.fit(batch_size=-1, verbose=0)
-            logger.buffer(**agent_history)
+    logger.push_buffer()
+    logger.print(average_last=100,
+                 prefix="Episode {} ".format(episode))
 
-        for _ in range(5):
-            test_history = testing_rollout.rollout(verbose=0, push_experience=False, render=False)
-            logger.buffer(reward=test_history["reward_sum"])
+    if episode % 100 == 0:
+        print()
 
-        logger.push_buffer()
-        logger.print(average_last=10,
-                     templates={"reward": "RWD {: >5.2f}",
-                                "actor_loss": "LOSS {: >6.4f}",
-                                "actor_utility": "UTIL {: >6.4f}",
-                                "actor_utility_std": "STD {:>6.4f}",
-                                "actor_entropy": "ENTR {:>6.4f}",
-                                "critic_loss": "CRIT {:>6.4f}"},
-                     prefix="Episode {} ".format(episode))
-
-        episode += 1
-
-    # visual.plot_history(logger, smoothing_window_size=10)
+os.makedirs("Match", exist_ok=True)
+template = "Match/match_a2c_{}_e{}_r{}.h5".format("{}", episode, logger.last()["reward_sum"])
+actor.save_weights(template.format("actor"))
+critic.save_weights(template.format("critic"))
+visual.plot_history(logger, smoothing_window_size=100, show=False)
+plt.tight_layout()
+plt.savefig("Match/match_a2c_e{}_r{}.png".format(episode, logger.last()["reward_sum"]))
+plt.clf()

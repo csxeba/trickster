@@ -23,31 +23,18 @@ class Actor(AgentBase):
         self.action_indices = np.arange(len(self.action_space))
         self.possible_actions_onehot = np.eye(len(self.action_space))
 
-    def push_experience(self, state, reward, done):
-        S = np.array(self.states)
-        A = np.array(self.actions)
-        R = np.array(self.rewards[1:] + [reward])
-        F = np.array(self.dones[1:] + [done])
-
-        self._reset_direct_memory()
-
-        self.memory.remember(S, A, R, F)
-
     def sample(self, state, reward, done):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.model.predict(preprocessed_state)[0]
         action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
-
-        if self.learning:
-            self.states.append(state)
-            self.actions.append(action)
-            self.rewards.append(reward)
-            self.dones.append(done)
-
+        self._push_direct_experience(state, action, reward, done)
         return action
 
 
 class A2C(AgentBase):
+
+    HST_KEYS = ["actor_utility", "actor_utility_std", "actor_entropy", "actor_loss",
+                "values", "advantages", "critic_loss"]
 
     def __init__(self,
                  actor: Model,
@@ -166,4 +153,6 @@ class A2C(AgentBase):
                 "actor_utility_std": std,
                 "actor_entropy": entropy,
                 "actor_loss": loss,
+                "values": value.mean(),
+                "advantages": advantage.mean(),
                 "critic_loss": mean_bellman_error}

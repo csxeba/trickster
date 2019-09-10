@@ -2,25 +2,34 @@ import gym
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
-import mlflow
 
 from trickster.agent import PPO
-from trickster.rollout import Trajectory
+from trickster.rollout import Rolling, Trajectory
 from trickster.utility import visual, history
 
-env = gym.make("LunarLander-v2")
+
+class Lunar(gym.RewardWrapper):
+
+    def __init__(self):
+        super().__init__(gym.make("LunarLander-v2"))
+
+    def reward(self, reward):
+        return reward / 100.
+
+
+env = Lunar()
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-actor = Sequential([Dense(24, activation="tanh", input_shape=input_shape),
-                    Dense(24, activation="tanh"),
+actor = Sequential([Dense(400, activation="relu", input_shape=input_shape),
+                    Dense(300, activation="relu"),
                     Dense(num_actions, activation="softmax")])
-actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-3))
+actor.compile(loss="categorical_crossentropy", optimizer=Adam(1e-4))
 
-critic = Sequential([Dense(24, activation="tanh", input_shape=input_shape),
-                     Dense(24, activation="tanh"),
+critic = Sequential([Dense(400, activation="relu", input_shape=input_shape),
+                     Dense(300, activation="relu"),
                      Dense(1, activation="linear")])
-critic.compile(loss="mse", optimizer=Adam(1e-3))
+critic.compile(loss="mse", optimizer=Adam(1e-4))
 
 agent = PPO(actor,
             critic,
@@ -28,29 +37,26 @@ agent = PPO(actor,
             discount_factor_gamma=0.99,
             entropy_penalty_coef=0.05)
 
-rollout = Trajectory(agent.create_workers(1)[0], env)
+rollout = Rolling(agent.create_workers(1)[0], env)
+test_rollout = Trajectory(agent.create_workers(1)[0], Lunar())
 
-mlflow.set_tracking_uri("../artifacts/TestRuns")
 hst = history.History("reward_sum", *agent.history_keys)
 
 for episode in range(1, 1001):
 
-    for roll in range(16):
-        rollout_history = rollout.rollout(verbose=0, push_experience=True, render=False)
-        hst.buffer(reward_sum=rollout_history["reward_sum"])
+    for roll in range(4):
+        rollout.roll(steps=128, verbose=0, push_experience=True)
+        agent_hst = agent.fit(epochs=3, batch_size=32, verbose=0, fit_actor=True, fit_critic=True, reset_memory=True)
+        agent_hst["kld"] *= 1000
+        hst.buffer(**agent_hst)
 
-    agent_history = agent.fit(epochs=-1, batch_size=32, verbose=0, reset_memory=True)
-    agent_history["actor_kld"] *= 1000
+    for test_roll in range(4):
+        rollout_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
+        hst.buffer(**rollout_history)
 
     hst.push_buffer()
-    hst.record(**agent_history)
-    for key in agent.history_keys:
-        mlflow.log_metric(key, agent_history[key])
-    hst.print(average_last=100, templates={
-        k: "{:.4f}" for k in ["reward_sum"] + list(agent.history_keys)
-    })
+    hst.print(average_last=100, return_carriege=True, prefix="Episode {:>5}".format(episode))
     if episode % 100 == 0:
         print()
 
-mlflow.end_run()
 visual.plot_history(hst, smoothing_window_size=100, skip_first=10)

@@ -7,7 +7,7 @@ from ..utility import kerasic
 
 class DDPG(AgentBase):
 
-    history_keys = ["actor_loss", "critic_loss"]
+    history_keys = ["actor_loss", "actor_preds", "Qs", "critic_loss"]
 
     def __init__(self, actor: keras.Model, critic: keras.Model,
                  action_space, memory=None, discount_factor_gamma=0.99, state_preprocessor=None,
@@ -52,22 +52,9 @@ class DDPG(AgentBase):
 
         action = np.clip(action, self.action_minima, self.action_maxima)
 
-        self.states.append(state)
-        self.rewards.append(reward)
-        self.dones.append(done)
-        self.actions.append(action)
+        self._push_direct_experience(state, action, reward, done)
 
         return action
-
-    def push_experience(self, state, reward, done):
-        S = np.array(self.states)  # 0..t
-        A = np.array(self.actions)  # 0..t
-        R = np.array(self.rewards[1:] + [reward])  # 1..t+1
-        F = np.array(self.dones[1:] + [done])
-
-        self._reset_direct_memory()
-
-        self.memory.remember(S, A, R, F)
 
     def update_critic(self, *, batch_size=None, data=None, update_target_tau=None):
         if data is None and batch_size is None:
@@ -81,7 +68,7 @@ class DDPG(AgentBase):
         critic_loss = self.critic.train_on_batch([S, A], bellman_target)
         if update_target_tau:
             self.update_critic_target(update_target_tau)
-        return critic_loss
+        return critic_loss, target_Qs.mean()
 
     def update_actor(self, *, batch_size=None, data=None, update_target_tau=None):
         if data is None and batch_size is None:
@@ -91,29 +78,34 @@ class DDPG(AgentBase):
         S, *_ = data
         self.critic.trainable = False
         actor_loss = self._combo_model.train_on_batch(S, S)
+        actions = self.actor.predict(S)
         self.critic.trainable = True
         if update_target_tau:
             self.update_actor_target(update_target_tau)
-        return actor_loss
+        return actor_loss, actions.mean()
 
     def fit(self, updates=10, batch_size=32, fit_actor=True, fit_critic=True, update_target_tau=None):
         actor_losses = []
         critic_losses = []
+        Qs = []
         for i in range(1, updates+1):
             if fit_critic:
-                critic_loss = self.update_critic(data=self.memory_sampler.sample(batch_size),
-                                                 update_target_tau=update_target_tau)
+                critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size),
+                                                    update_target_tau=update_target_tau)
                 critic_losses.append(critic_loss)
+                Qs.append(Q)
             if fit_actor:
-                actor_loss = self.update_actor(data=self.memory_sampler.sample(batch_size),
+                actor_loss, actor_preds = self.update_actor(data=self.memory_sampler.sample(batch_size),
                                                update_target_tau=update_target_tau)
                 actor_losses.append(actor_loss)
 
         result = {}
         if fit_actor:
             result["actor_loss"] = np.mean(actor_losses)
+            result["actor_preds"] = np.mean(actor_preds)
         if fit_critic:
             result["critic_loss"] = np.mean(critic_losses)
+            result["Qs"] = np.mean(Qs)
         return result
 
     def update_critic_target(self, tau=0.01):

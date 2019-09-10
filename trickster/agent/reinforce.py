@@ -28,6 +28,7 @@ class REINFORCE(AgentBase):
             self.states.append(state)
             self.actions.append(action)
             self.rewards.append(reward)
+            self.dones.append(done)
             self.probabilities.append(probabilities[action])
 
         return action
@@ -39,6 +40,7 @@ class REINFORCE(AgentBase):
         R = np.array(self.rewards[1:] + [reward])
         R = discount_reward(R, self.gamma)
         P = np.array(self.probabilities)
+        F = np.array(self.dones[1:] + [done])
 
         rstd = R.std()
         if rstd > 0:
@@ -47,10 +49,10 @@ class REINFORCE(AgentBase):
         self._reset_direct_memory()
         self.probabilities = []
 
-        self.memory.remember(S, A, Y, R[..., None], P)
+        self.memory.remember(S, A, Y, R[..., None], P, dones=F)
 
     def fit(self, batch_size=-1, verbose=1, reset_memory=True):
-        S, _, A, Y, R, P = self.memory_sampler.sample(batch_size)
+        S, _, A, Y, R, P, F = self.memory_sampler.sample(batch_size)
         m = len(S)
 
         loss = self.model.train_on_batch(S, Y*R)  # works because of the definition of categorical XEnt

@@ -20,11 +20,10 @@ class ExperienceSampler:
         return sum(memory.N for memory in self.memories)
 
     def sample(self, size=32):
-        N = self.N
-        if N < 2:
+        if self.N < 2:
             return [[]] * self.width
         if size <= 0:
-            size = N-1
+            size = self.N - 1
         valid_indices = self._get_valid_indices()
         num_valid = len(valid_indices)
         size = min(size, num_valid)

@@ -47,7 +47,7 @@ class History:
 
         templates = templates or {}
         template = "{}: {}"
-        template = " ".join(template.format(key, templates.get(key, "{}")) for key in self.keys)
+        template = " ".join(template.format(key, templates.get(key, "{: >7.4f}")) for key in self.keys)
 
         if average_last >= 2:
             values = [np.mean(self._logs[key][-average_last:]) for key in self.keys]

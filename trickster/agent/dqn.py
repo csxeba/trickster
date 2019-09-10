@@ -38,28 +38,14 @@ class DQN(AgentBase):
     def sample(self, state, reward, done):
         if self.learning and np.random.random() < self.epsilon:
             action = np.random.choice(self.action_space)
+            self._maybe_decay_epsilon()
         else:
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
 
-        if self.learning:
-            self._maybe_decay_epsilon()
-            self.states.append(state)
-            self.rewards.append(reward)
-            self.dones.append(done)
-            self.actions.append(action)
+        self._push_direct_experience(state, action, reward, done)
 
         return action
-
-    def push_experience(self, state, reward, done):
-        S = np.array(self.states)  # 0..t
-        A = np.array(self.actions)  # 0..t
-        R = np.array(self.rewards[1:] + [reward])  # 1..t+1
-        F = np.array(self.dones[1:] + [done])
-
-        self._reset_direct_memory()
-
-        self.memory.remember(S, A, R, F)
 
     def fit(self, updates=1, batch_size=32, verbose=1):
         losses = []
