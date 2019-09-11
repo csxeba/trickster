@@ -1,5 +1,3 @@
-import numpy as np
-
 import gym
 
 from keras.models import Sequential
@@ -27,30 +25,27 @@ agent = DQN(ann,
             epsilon_decay=0.99995,
             epsilon_min=0.1,
             discount_factor_gamma=0.98,
-            use_target_network=True,)
+            use_target_network=False)
 
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
-learning_history = history.History("reward_sum", "bellman_loss", "max_qs", "epsilon")
+learning_history = history.History("reward_sum", *agent.history_keys, "epsilon")
 
 for episode in range(1, 301):
 
     for update in range(32):
         rollout.roll(steps=2, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=32, verbose=0)
-        learning_history.buffer(bellman_loss=agent_history["loss"], max_qs=agent_history["q"], epsilon=agent.epsilon)
+        learning_history.buffer(**agent_history)
 
     test_history = test_rollout.rollout(verbose=0, push_experience=False)
     learning_history.push_buffer()
-    learning_history.record(**test_history)
+    learning_history.record(reward_sum=test_history["reward_sum"], epsilon=agent.epsilon)
 
-    learning_history.print(average_last=100, templates={
-        "reward_sum": "{:>3.0f}", "bellman_loss": "{:>7.4f}", "max_qs": "{:7.4f}", "epsilon": "{:>7.2%}"
-    }, return_carriege=True, prefix="Episode {:>4}".format(episode))
+    learning_history.print(average_last=10, return_carriege=True, prefix="Episode {:>4}".format(episode))
 
     if episode % 10 == 0:
-        agent.push_weights()
-        print(" Pushed weights to target net!")
+        print()
 
 visual.plot_history(learning_history, smoothing_window_size=100, skip_first=0)

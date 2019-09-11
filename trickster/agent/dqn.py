@@ -8,6 +8,8 @@ from ..utility import kerasic
 
 class DQN(AgentBase):
 
+    history_keys = ["loss", "Qs"]
+
     def __init__(self,
                  model: Model,
                  action_space,
@@ -62,7 +64,7 @@ class DQN(AgentBase):
             loss = self.model.train_on_batch(S, Q)
             losses.append(loss)
 
-        return {"loss": np.mean(losses), "q": np.mean(max_q_predictions)}
+        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions)}
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())

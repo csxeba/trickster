@@ -31,7 +31,7 @@ class Trajectory(RolloutBase):
             print()
         if push_experience:
             self.agent.push_experience(state, reward, done)
-        self.agent.set_learning_mode(not push_experience)
+        self.agent.set_learning_mode(False)
 
         return {"reward_sum": reward_sum, "steps": step}
 

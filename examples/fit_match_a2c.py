@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers import Dense
+import keras
 
 from grund.match import MatchConfig, Match
 
@@ -22,16 +23,16 @@ actor = Sequential([
     Dense(300, activation="relu"),
     Dense(test_env.action_space.n, activation="softmax")
 ])
-actor.compile("adam", "categorical_crossentropy")
+actor.compile(keras.optimizers.Adam(1e-4), "categorical_crossentropy")
 
 critic = Sequential([
     Dense(400, activation="relu", input_shape=test_env.observation_space.shape),
     Dense(300, activation="relu"),
     Dense(1, activation="linear")
 ])
-critic.compile("adam", "mse")
+critic.compile(keras.optimizers.Adam(1e-4), "mse")
 
-agent = A2C(actor, critic, test_env.action_space, absolute_memory_limit=10000, entropy_penalty_coef=0.05)
+agent = A2C(actor, critic, test_env.action_space, entropy_penalty_coef=0.05)
 
 rcfg = RolloutConfig(max_steps=512, skipframes=2)
 training_rollout = MultiRolling(agent.create_workers(4), envs, rcfg)
@@ -42,8 +43,8 @@ logger = history.History("reward_sum", *agent.HST_KEYS)
 
 for episode in range(1, 1001):
 
-    for update in range(32):
-        training_rollout.roll(steps=32, verbose=0, push_experience=True)
+    for update in range(10):
+        training_rollout.roll(steps=64, verbose=0, push_experience=True)
         agent_history = agent.fit(batch_size=-1, verbose=0)
         logger.buffer(**agent_history)
 

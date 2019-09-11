@@ -57,7 +57,7 @@ class Rolling(RolloutBase):
         if push_experience:
             self.agent.push_experience(self.state, self.reward, self.done)
 
-        self.agent.set_learning_mode(not push_experience)
+        self.agent.set_learning_mode(False)
 
         return {"mean_reward": np.mean(rewards), "rewards": np.array(rewards)}
 
