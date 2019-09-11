@@ -107,7 +107,7 @@ agent = PPO(actor,
             gae_factor_lambda=GAE_LAMBDA,
             entropy_penalty_coef=ENTROPY_PENALTY_BETA)
 
-rollout = MultiRolling(agent.create_workers(NUM_PARALLEL_ENVS), envs)
+rollout = MultiRolling(agent.dispatch_workers(NUM_PARALLEL_ENVS), envs)
 test_rollout = Trajectory(agent, test_env)
 
 rewards = []

@@ -29,21 +29,33 @@ class DoubleDQN(DQN):
                          state_preprocessor=state_preprocessor,
                          use_target_network=True)
 
-    def fit(self, batch_size=32, verbose=1, polyak_tau=0.1):
-        S, S_, A, R, F = self.memory_sampler.sample(batch_size)
-        target_Qs = self.target_network.predict(S_)
-        next_state_actions = self.model.predict(S_).argmax(axis=1)
+    def fit(self, updates=1, batch_size=32, polyak_rate=0.1):
 
-        x_index = np.arange(len(S))
+        losses = []
+        max_q_predictions = []
 
-        bellman_target = self.model.predict(S)
-        max_q_values = bellman_target.max(axis=1)
-        bellman_reserve = target_Qs[x_index, next_state_actions]
-        bellman_target[x_index, A] = bellman_reserve * self.gamma + R
-        bellman_target[F, A[F]] = R[F]
-        loss = self.model.train_on_batch(S, bellman_target)
-        if verbose:
-            print("Loss: {:.4f}".format(loss))
-        if polyak_tau:
-            self.meld_weights(polyak_tau)
-        return {"loss": loss, "Qs": max_q_values.mean()}
+        for update in range(1, updates+1):
+
+            S, S_, A, R, F = self.memory_sampler.sample(batch_size)
+
+            m = len(S)
+            x_index = np.arange(m)
+
+            Qs = self.model.predict(S_)
+            next_state_actions = Qs.argmax(axis=1)
+            max_q_predictions.append(Qs[x_index, next_state_actions])
+
+            target_Qs = self.target_network.predict(S_)
+            bellman_reserve = target_Qs[x_index, next_state_actions]
+
+            bellman_target = self.model.predict(S)
+            bellman_target[x_index, A] = bellman_reserve * self.gamma + R
+            bellman_target[F, A[F]] = R[F]
+
+            loss = self.model.train_on_batch(S, bellman_target)
+            losses.append(loss)
+
+        if polyak_rate:
+            self.meld_weights(mix_in_ratio=polyak_rate)
+
+        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions)}

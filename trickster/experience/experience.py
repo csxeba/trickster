@@ -20,12 +20,13 @@ class Experience:
         if len(Ns) != 1:
             raise ValueError("All arrays passed to remember() must be the same lenght!")
 
-    def reset(self, num_memoirs=None):
-        if num_memoirs is None:
-            num_memoirs = len(self.memoirs)
-        if num_memoirs < 1:
-            raise ValueError("Invalid number of memoirs specified")
+    def initialize(self, num_memoirs):
         self.memoirs = [np.array([]) for _ in range(num_memoirs)]
+
+    def reset(self):
+        if self.memoirs is None:
+            return
+        self.memoirs = [np.array([]) for _ in range(self.width)]
 
     def _remember(self, arg, i):
         if not self.memoirs[i].size:
@@ -38,7 +39,7 @@ class Experience:
         args = (states,) + args + (dones,)
         self.sanitize(args)
         if self.memoirs is None:
-            self.reset(len(args))
+            self.initialize(num_memoirs=len(args))
         num_new_memories = len(states)
         N_before_update = self.N
         N_after_update = N_before_update + num_new_memories

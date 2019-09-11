@@ -1,11 +1,11 @@
 import numpy as np
 import keras
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 from ..utility import kerasic
 
 
-class DDPG(AgentBase):
+class DDPG(RLAgentBase):
 
     history_keys = ["actor_loss", "actor_preds", "Qs", "critic_loss"]
 
@@ -87,7 +87,9 @@ class DDPG(AgentBase):
     def fit(self, updates=10, batch_size=32, fit_actor=True, fit_critic=True, update_target_tau=None):
         actor_losses = []
         critic_losses = []
+        actor_preds = []
         Qs = []
+
         for i in range(1, updates+1):
             if fit_critic:
                 critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size),
@@ -95,9 +97,10 @@ class DDPG(AgentBase):
                 critic_losses.append(critic_loss)
                 Qs.append(Q)
             if fit_actor:
-                actor_loss, actor_preds = self.update_actor(data=self.memory_sampler.sample(batch_size),
+                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size),
                                                update_target_tau=update_target_tau)
                 actor_losses.append(actor_loss)
+                actor_preds.append(actor_pred)
 
         result = {}
         if fit_actor:
@@ -106,6 +109,7 @@ class DDPG(AgentBase):
         if fit_critic:
             result["critic_loss"] = np.mean(critic_losses)
             result["Qs"] = np.mean(Qs)
+
         return result
 
     def update_critic_target(self, tau=0.01):
@@ -117,3 +121,6 @@ class DDPG(AgentBase):
     def update_targets(self, tau):
         self.update_actor_target(tau)
         self.update_critic_target(tau)
+
+    def get_savables(self) -> dict:
+        return {"DDPG_actor": self.actor, "DDPG_critic": self.critic}

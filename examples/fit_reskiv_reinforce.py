@@ -70,7 +70,7 @@ while 1:
         reward_memory.append(history["reward_sum"])
         if "loss" in history:
             episode_actor_losses.append(history["loss"])
-    actor.save("../models/reskiv/reinforce_latest.h5")
+    actor.save("../artifacts/reskiv/reinforce_latest.h5")
     episode = history["episode"]
 
     if episode_actor_losses:
@@ -82,7 +82,7 @@ while 1:
 
     if episode >= 100 and episode % 100 == 0 and TRAIN:
         print(" Model dumplings...")
-        model_path_template_pfx = "../models/reskiv/reinforce_"
+        model_path_template_pfx = "../artifacts/reskiv/reinforce_"
         if np.mean(reward_memory) > 3:
             model_path_template_sfx = "{}_r{:.2f}.h5".format(episode, np.mean(reward_memory))
         else:

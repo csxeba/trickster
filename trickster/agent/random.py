@@ -1,10 +1,10 @@
 import numpy as np
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 from ..utility import spaces
 
 
-class RandomAgent(AgentBase):
+class RandomAgent(RLAgentBase):
 
     def sample(self, state, reward, done):
         if hasattr(self.action_space, "sample"):

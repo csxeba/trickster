@@ -25,9 +25,9 @@ def wide_mlp_critic_network(input_shape, output_dim, adam_lr=1e-3):
     return model
 
 
-def wide_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e4):
+def wide_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4):
     actor = wide_mlp_actor_categorical(input_shape, output_dim, actor_lr)
-    critic = wide_mlp_critic_network(input_shape, output_dim, critic_lr)
+    critic = wide_mlp_critic_network(input_shape, 1, critic_lr)
     return actor, critic
 
 

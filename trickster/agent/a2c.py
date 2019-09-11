@@ -4,12 +4,12 @@ import numpy as np
 from keras.models import Model
 from keras import backend as K
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 from ..experience import Experience, ExperienceSampler
 from ..utility import kerasic
 
 
-class Actor(AgentBase):
+class Actor(RLAgentBase):
 
     def __init__(self,
                  model: Model,
@@ -31,10 +31,10 @@ class Actor(AgentBase):
         return action
 
 
-class A2C(AgentBase):
+class A2C(RLAgentBase):
 
-    HST_KEYS = ["actor_utility", "actor_utility_std", "actor_entropy", "actor_loss",
-                "values", "advantages", "critic_loss"]
+    history_keys = ["actor_utility", "actor_utility_std", "actor_entropy", "actor_loss",
+                    "values", "advantages", "critic_loss"]
 
     def __init__(self,
                  actor: Model,
@@ -77,11 +77,9 @@ class A2C(AgentBase):
         )
         return self.workers[-1]
 
-    def create_workers(self, n=1, memories=None):
-        if memories is None:
-            memories = [None] * n
+    def dispatch_workers(self, n=1):
         for i in range(n):
-            self._create_worker(memories[i])
+            self._create_worker(None)
         self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
         return self.workers
 
@@ -125,7 +123,7 @@ class A2C(AgentBase):
         for worker in self.workers:
             worker.model.set_weights(W)
 
-    def fit(self, batch_size=-1, verbose=1, reset_memory=True):
+    def fit(self, batch_size=-1, reset_memory=True):
         S, S_, A, R, F = self.memory_sampler.sample(batch_size)
         assert len(S)
 
@@ -156,3 +154,6 @@ class A2C(AgentBase):
                 "values": value.mean(),
                 "advantages": advantage.mean(),
                 "critic_loss": mean_bellman_error}
+
+    def get_savables(self):
+        return {"A2C_actor": self.actor_learner, "A2C_critic": self.critic_learner}

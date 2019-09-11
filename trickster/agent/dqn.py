@@ -1,12 +1,12 @@
 import numpy as np
 from keras.models import Model
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 from ..experience import Experience
 from ..utility import kerasic
 
 
-class DQN(AgentBase):
+class DQN(RLAgentBase):
 
     history_keys = ["loss", "Qs"]
 
@@ -26,10 +26,9 @@ class DQN(AgentBase):
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
+        self.target_network = None
         if use_target_network:
             self.target_network = kerasic.copy_model(self.model)
-        else:
-            self.target_network = self.model
 
     def _maybe_decay_epsilon(self):
         if self.epsilon > self.epsilon_min:
@@ -49,20 +48,32 @@ class DQN(AgentBase):
 
         return action
 
-    def fit(self, updates=1, batch_size=32, verbose=1):
+    def fit(self, updates=1, batch_size=32, polyak_rate=0.01):
         losses = []
         max_q_predictions = []
         for update in range(1, updates+1):
             S, S_, A, R, F = self.memory_sampler.sample(batch_size)
-            bellman_targets = self.target_network.predict(S_).max(axis=1)
 
-            Q = self.model.predict(S)
-            max_q_predictions.append(Q.max(axis=1))
-            Q[range(len(Q)), A] = bellman_targets * self.gamma + R
-            Q[F, A[F]] = R[F]
+            m = len(S)
 
-            loss = self.model.train_on_batch(S, Q)
+            if self.target_network is None:
+                target_Qs = self.model.predict(S_).max(axis=1)
+            else:
+                target_Qs = self.target_network.predict(S_).max(axis=1)
+
+            bellman_reserve = R + self.gamma * target_Qs
+
+            bellman_targets = self.model.predict(S)
+            max_q_predictions.append(bellman_targets.max(axis=1))
+
+            bellman_targets[range(m), A] = bellman_reserve
+            bellman_targets[F, A[F]] = R[F]
+
+            loss = self.model.train_on_batch(S, bellman_targets)
             losses.append(loss)
+
+        if self.target_network is not None:
+            self.meld_weights(mix_in_ratio=polyak_rate)
 
         return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions)}
 
@@ -80,3 +91,6 @@ class DQN(AgentBase):
             return
 
         kerasic.meld_weights(self.target_network, self.model, mix_in_ratio)
+
+    def get_savables(self):
+        return {"model": self.model}

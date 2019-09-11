@@ -7,10 +7,10 @@ from keras.models import Model
 
 from ..experience import Experience, ExperienceSampler
 from ..utility import numeric, kerasic
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 
 
-class PPOWorker(AgentBase):
+class PPOWorker(RLAgentBase):
 
     def __init__(self,
                  actor: Model,
@@ -62,7 +62,7 @@ class PPOWorker(AgentBase):
         self.memory.remember(states, probabilities, actions, returns, values[:-1], dones=dones)
 
 
-class PPO(AgentBase):
+class PPO(RLAgentBase):
 
     HISTORY_KEYS = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
                     "critic_loss", "advantage")
@@ -120,11 +120,9 @@ class PPO(AgentBase):
         )
         return self.workers[-1]
 
-    def create_workers(self, n=1, memories=None):
-        if memories is None:
-            memories = [None] * n
+    def dispatch_workers(self, n=1):
         for i in range(n):
-            self._create_worker(memories[i])
+            self._create_worker(None)
         self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
         return self.workers
 

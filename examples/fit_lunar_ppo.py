@@ -37,8 +37,8 @@ agent = PPO(actor,
             discount_factor_gamma=0.99,
             entropy_penalty_coef=0.05)
 
-rollout = Rolling(agent.create_workers(1)[0], env)
-test_rollout = Trajectory(agent.create_workers(1)[0], Lunar())
+rollout = Rolling(agent.dispatch_workers(1)[0], env)
+test_rollout = Trajectory(agent.dispatch_workers(1)[0], Lunar())
 
 hst = history.History("reward_sum", *agent.history_keys)
 

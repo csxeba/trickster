@@ -1,6 +1,6 @@
 from typing import List
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 
 
 class RolloutConfig:
@@ -19,7 +19,7 @@ class RolloutConfig:
 
 class RolloutBase:
 
-    def __init__(self, agent: AgentBase, env, config: RolloutConfig=None):
+    def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
         self.agent = agent
         self.env = env
         self.cfg = config or RolloutConfig()
@@ -31,24 +31,14 @@ class RolloutBase:
 class MultiRolloutBase:
 
     def __init__(self,
-                 agents: List[AgentBase],
+                 agent: RLAgentBase,
                  envs: list,
                  rollout_configs=None):
 
+        self.agent = agent
         self.num_rollouts = len(envs)
         if self.num_rollouts <= 1:
             raise ValueError("At least 2 environments are required for a MultiRollout!")
-        if self.num_rollouts != len(agents):
-            raise ValueError("There should be an equal number of agents and envs!")
-
-        agent_ids = {id(agent) for agent in agents}
-        if len(agent_ids) < len(agents):
-            print("[MultiRollout] - Warning: one or more agents are shared between rollouts!")
-
-        env_ids = {id(env) for env in envs}
-        if len(env_ids) < len(envs):
-            print("[MultiRollout] - Warning: one or more environments are shared between rollouts!")
-
         if rollout_configs is None:
             rollout_configs = [RolloutConfig() for _ in range(self.num_rollouts)]
         if isinstance(rollout_configs, RolloutConfig):

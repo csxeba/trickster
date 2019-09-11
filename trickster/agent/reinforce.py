@@ -2,12 +2,12 @@ import numpy as np
 
 from keras.models import Model
 
-from ..abstract import AgentBase
+from ..abstract import RLAgentBase
 from ..experience import Experience
 from ..utility.numeric import discount_reward
 
 
-class REINFORCE(AgentBase):
+class REINFORCE(RLAgentBase):
 
     history_keys = ["loss", "entropy", "kld"]
 

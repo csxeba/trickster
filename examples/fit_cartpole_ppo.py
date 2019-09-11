@@ -27,7 +27,7 @@ agent = PPO(actor,
             discount_factor_gamma=0.99,
             entropy_penalty_coef=0.005)
 
-rollout = Rolling(agent.create_workers(1)[0], env, config=RolloutConfig(max_steps=300))
+rollout = Rolling(agent.dispatch_workers(1)[0], env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gym.make("CartPole-v1"))
 
 rewards = []

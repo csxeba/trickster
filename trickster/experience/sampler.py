@@ -52,6 +52,8 @@ class ExperienceSampler:
         sample.update({i: [] for i in range(1, self.width)})
 
         for i, memory in enumerate(self.memories):
+            if memory.N < 2:
+                continue
             idx = indices[indices[:, 0] == i][:, 1]
             sample["states"].append(memory.memoirs[0][idx])
             sample["next_states"].append(memory.memoirs[0][idx + 1])
