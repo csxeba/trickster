@@ -59,7 +59,7 @@ class PPOWorker(RLAgentBase):
         self._reset_direct_memory()
         self.probabilities = []
 
-        self.memory.remember(states, probabilities, actions, returns, values[:-1], dones=dones)
+        self.memory.remember(states, probabilities, actions, returns, values[:-1], dones=dones, final_state=state)
 
 
 class PPO(RLAgentBase):

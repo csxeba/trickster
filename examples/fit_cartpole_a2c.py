@@ -1,20 +1,10 @@
-import gym
-
 from trickster.agent import A2C
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.model import mlp
+from trickster.utility import gymic
 
 
-class CartPole(gym.RewardWrapper):
-
-    def __init__(self):
-        super().__init__(gym.make("CartPole-v1"))
-
-    def reward(self, reward):
-        return reward / 100
-
-
-env = CartPole()
+env = gymic.rwd_scaled_cartpole()
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
@@ -28,7 +18,7 @@ agent = A2C(actor,
             entropy_penalty_coef=0.01)
 
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Trajectory(agent, CartPole())
+test_rollout = Trajectory(agent, gymic.rwd_scaled_cartpole())
 
 rollout.fit(episodes=1000, updates_per_episode=32, step_per_update=32, testing_rollout=test_rollout, plot_curves=True)
 

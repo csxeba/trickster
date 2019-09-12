@@ -19,7 +19,7 @@ class Rolling(RolloutBase):
         self.reward = None
         self.info = None
         self.done = None
-        self.worker = agent.dispatch_workers(1)[0]
+        self.worker = agent.create_worker()
         self._rolling_worker = None
 
     def _sample_action(self):

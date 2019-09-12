@@ -27,5 +27,4 @@ class MultiRolling(MultiRolloutBase):
 
     def fit(self, episodes, updates_per_episode=32, step_per_update=32, testing_rollout: Trajectory=None,
             plot_curves=True):
-
             training_ops.fit(self, episodes, updates_per_episode, step_per_update, testing_rollout, plot_curves)

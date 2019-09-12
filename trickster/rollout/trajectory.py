@@ -10,7 +10,7 @@ class Trajectory(RolloutBase):
     def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
         super().__init__(agent, env, config)
         self.episodes = 0
-        self.worker = agent.dispatch_workers(1)[0]
+        self.worker = agent.create_worker()
 
     def rollout(self, verbose=1, push_experience=True, render=False):
         """Generate a complete trajectory for eg. MCMC learning"""

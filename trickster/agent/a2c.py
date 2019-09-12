@@ -65,7 +65,10 @@ class A2C(RLAgentBase):
     def set_learning_mode(self, switch: bool):
         pass
 
-    def _create_worker(self, memory=None):
+    def _update_memory_sampler(self):
+        self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
+
+    def create_worker(self, memory=None):
         if self.copy_actor_models:
             model = kerasic.copy_model(self.actor_learner)
         else:
@@ -75,13 +78,19 @@ class A2C(RLAgentBase):
         self.workers.append(
             Actor(model, self.action_space, memory, state_preprocessor=self.preprocess)
         )
+        self._update_memory_sampler()
         return self.workers[-1]
 
     def dispatch_workers(self, n=1):
+        if len(self.workers) > 0:
+            raise RuntimeError("Workers already dispatched!")
         for i in range(n):
-            self._create_worker(None)
-        self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
+            self.create_worker(None)
         return self.workers
+
+    def delete_workers(self):
+        self.workers = []
+        self.memory_sampler = None
 
     def _make_actor_train_function(self):
         advantages = K.placeholder(shape=(None,))

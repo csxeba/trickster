@@ -49,7 +49,7 @@ class REINFORCE(RLAgentBase):
         self._reset_direct_memory()
         self.probabilities = []
 
-        self.memory.remember(S, A, Y, R[..., None], P, dones=F)
+        self.memory.remember(S, A, Y, R[..., None], P, dones=F, final_state=state)
 
     def fit(self, batch_size=-1, verbose=1, reset_memory=True):
         S, _, A, Y, R, P, F = self.memory_sampler.sample(batch_size)

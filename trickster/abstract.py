@@ -35,7 +35,7 @@ class RLAgentBase:
         self.learning = True
         self.preprocess = self._preprocess_noop if state_preprocessor is None else state_preprocessor
 
-    def _push_direct_memory(self, reward, done):
+    def _push_direct_memory(self, state, reward, done):
         S = np.array(self.states)  # 0..t
         A = np.array(self.actions)  # 0..t
         R = np.array(self.rewards[1:] + [reward])  # 1..t+1
@@ -43,7 +43,7 @@ class RLAgentBase:
 
         self._reset_direct_memory()
 
-        self.memory.remember(S, A, R, dones=F)
+        self.memory.remember(S, A, R, dones=F, final_state=state)
 
     def _push_direct_experience(self, state, action, reward, done):
         if self.learning:
@@ -95,7 +95,10 @@ class RLAgentBase:
                 saveables[key].set_weights(value)
 
     def push_experience(self, state, reward, done):
-        self._push_direct_memory(reward, done)
+        self._push_direct_memory(state, reward, done)
 
     def dispatch_workers(self, n=1):
         return [self] * n
+
+    def create_worker(self, **worker_kwargs):
+        return self

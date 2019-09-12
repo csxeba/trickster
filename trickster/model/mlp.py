@@ -2,8 +2,8 @@ import keras
 
 
 def _wide_mlp_layers(input_shape, output_dim):
-    return [keras.layers.Dense(400, activation="relu", input_shape=input_shape),
-            keras.layers.Dense(300, activation="relu"),
+    return [keras.layers.Dense(400, activation="relu", kernel_initializer="he_normal", input_shape=input_shape),
+            keras.layers.Dense(300, activation="relu", kernel_initializer="he_normal"),
             keras.layers.Dense(output_dim, activation="linear")]
 
 
