@@ -5,6 +5,8 @@ from matplotlib import pyplot as plt
 def plot_vectors(vectors, names, smoothing_window_size, skip_first=10, show=True, **subplots_kwargs):
     figsize = subplots_kwargs.pop("figsize", (16, 9))
     fig, axes = plt.subplots(len(vectors), sharex="all", figsize=figsize, **subplots_kwargs)
+    if not isinstance(axes, np.ndarray):
+        axes = [axes]
     half_window = smoothing_window_size // 2
 
     for ax, vec, name in zip(axes, vectors, names):

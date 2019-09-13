@@ -3,7 +3,7 @@ from trickster.rollout import MultiRolling, Trajectory
 from trickster.utility import gymic
 from trickster.model import mlp
 
-envs = [gymic.rwd_scaled_cartpole() for _ in range(8)]
+envs = [gymic.rwd_scaled_env() for _ in range(8)]
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 
@@ -16,7 +16,7 @@ agent = A2C(actor,
             entropy_penalty_coef=0.05)
 
 rollout = MultiRolling(agent, envs)
-test_rollout = Trajectory(agent, gymic.rwd_scaled_cartpole())
+test_rollout = Trajectory(agent, gymic.rwd_scaled_env())
 
 rollout.fit(episodes=300, updates_per_episode=256, step_per_update=1, testing_rollout=test_rollout)
 test_rollout.render()

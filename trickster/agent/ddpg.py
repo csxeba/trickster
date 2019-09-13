@@ -12,7 +12,7 @@ class DDPG(RLAgentBase):
     def __init__(self, actor: keras.Model, critic: keras.Model,
                  action_space, memory=None, discount_factor_gamma=0.99, state_preprocessor=None,
                  action_noise_sigma=2., action_noise_sigma_decay=0.9999, min_action_noise_sigma=0.1,
-                 action_minima=-np.inf, action_maxima=np.inf):
+                 action_minima=-np.inf, action_maxima=np.inf, polyak_rate=0.01):
 
         super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.actor = actor
@@ -24,6 +24,7 @@ class DDPG(RLAgentBase):
         self.min_action_noise_sigma = min_action_noise_sigma
         self.action_minima = action_minima
         self.action_maxima = action_maxima
+        self.polyak_rate = polyak_rate
         self._combo_model = None  # type: keras.Model
         self._build_model_combination()
 
@@ -49,14 +50,13 @@ class DDPG(RLAgentBase):
                 self.action_noise_sigma = self.min_action_noise_sigma
 
             action += noise
-
-        action = np.clip(action, self.action_minima, self.action_maxima)
+            action = np.clip(action, self.action_minima, self.action_maxima)
 
         self._push_direct_experience(state, action, reward, done)
 
         return action
 
-    def update_critic(self, *, batch_size=None, data=None, update_target_tau=None):
+    def update_critic(self, *, batch_size=None, data=None):
         if data is None and batch_size is None:
             raise ValueError("Please either supply learning data or a batch size for sampling!")
         if batch_size is not None:
@@ -64,13 +64,14 @@ class DDPG(RLAgentBase):
         S, S_, A, R, F = data
         A_ = self.actor_target.predict(S_)
         target_Qs = self.critic_target.predict([S_, A_])[..., 0]
-        bellman_target = R + (1 - F) * self.gamma * target_Qs
+        bellman_target = R + self.gamma * target_Qs
+        bellman_target[F] = R[F]
         critic_loss = self.critic.train_on_batch([S, A], bellman_target)
-        if update_target_tau:
-            self.update_critic_target(update_target_tau)
+        if self.polyak_rate:
+            self.update_critic_target()
         return critic_loss, target_Qs.mean()
 
-    def update_actor(self, *, batch_size=None, data=None, update_target_tau=None):
+    def update_actor(self, *, batch_size=None, data=None):
         if data is None and batch_size is None:
             raise ValueError("Please either supply learning data or a batch size for sampling!")
         if batch_size is not None:
@@ -80,11 +81,11 @@ class DDPG(RLAgentBase):
         actor_loss = self._combo_model.train_on_batch(S, S)
         actions = self.actor.predict(S)
         self.critic.trainable = True
-        if update_target_tau:
-            self.update_actor_target(update_target_tau)
-        return actor_loss, actions.mean()
+        if self.polyak_rate:
+            self.update_actor_target()
+        return actor_loss, np.linalg.norm(actions, axis=-1).mean()
 
-    def fit(self, updates=10, batch_size=32, fit_actor=True, fit_critic=True, update_target_tau=None):
+    def fit(self, updates=1, batch_size=32, fit_actor=True, fit_critic=True):
         actor_losses = []
         critic_losses = []
         actor_preds = []
@@ -92,13 +93,11 @@ class DDPG(RLAgentBase):
 
         for i in range(1, updates+1):
             if fit_critic:
-                critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size),
-                                                    update_target_tau=update_target_tau)
+                critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size))
                 critic_losses.append(critic_loss)
                 Qs.append(Q)
             if fit_actor:
-                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size),
-                                               update_target_tau=update_target_tau)
+                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size))
                 actor_losses.append(actor_loss)
                 actor_preds.append(actor_pred)
 
@@ -112,15 +111,15 @@ class DDPG(RLAgentBase):
 
         return result
 
-    def update_critic_target(self, tau=0.01):
-        kerasic.meld_weights(self.critic_target, self.critic, tau)
+    def update_critic_target(self):
+        kerasic.meld_weights(self.critic_target, self.critic, self.polyak_rate)
 
-    def update_actor_target(self, tau=0.01):
-        kerasic.meld_weights(self.actor_target, self.actor, tau)
+    def update_actor_target(self):
+        kerasic.meld_weights(self.actor_target, self.actor, self.polyak_rate)
 
-    def update_targets(self, tau):
-        self.update_actor_target(tau)
-        self.update_critic_target(tau)
+    def update_targets(self):
+        self.update_actor_target()
+        self.update_critic_target()
 
     def get_savables(self) -> dict:
         return {"DDPG_actor": self.actor, "DDPG_critic": self.critic}

@@ -1,7 +1,7 @@
 from . import history, visual
 
 
-def fit(rolling, episodes, updates_per_episode=32, step_per_update=32, testing_rollout=None, plot_curves=True):
+def fit(rolling, episodes, updates_per_episode=32, step_per_update=32, update_batch_size=-1, testing_rollout=None, plot_curves=True):
 
     episode_w = len(str(episodes))
     logger = history.History("reward_sum", *rolling.agent.history_keys)
@@ -10,7 +10,7 @@ def fit(rolling, episodes, updates_per_episode=32, step_per_update=32, testing_r
 
         for update in range(updates_per_episode):
             roll_history = rolling.roll(steps=step_per_update, verbose=0, push_experience=True)
-            agent_history = rolling.agent.fit(batch_size=-1)
+            agent_history = rolling.agent.fit(batch_size=update_batch_size)
             logger.buffer(**agent_history)
             if testing_rollout is None:
                 logger.buffer(reward_sum=roll_history["reward_sum"])

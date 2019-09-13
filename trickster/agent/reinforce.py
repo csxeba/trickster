@@ -51,16 +51,16 @@ class REINFORCE(RLAgentBase):
 
         self.memory.remember(S, A, Y, R[..., None], P, dones=F, final_state=state)
 
-    def fit(self, batch_size=-1, verbose=1, reset_memory=True):
+    def fit(self, batch_size=-1, reset_memory=True):
         S, _, A, Y, R, P, F = self.memory_sampler.sample(batch_size)
         m = len(S)
 
         loss = self.model.train_on_batch(S, Y*R)  # works because of the definition of categorical XEnt
         new_probabilities = self.model.predict(S)
-        new_log_P = np.log(new_probabilities[range(m), tuple(A)])
+        new_log_P = np.log(new_probabilities)
 
-        entropy = -np.mean(np.log(np.max(new_probabilities, axis=1)))
-        approximate_kld = np.log(P) - new_log_P
+        entropy = -new_log_P.max(axis=1).mean()
+        approximate_kld = (np.log(P) - new_log_P).sum(axis=1).mean()
         if reset_memory:
             self.memory.reset()
         return {"loss": loss, "entropy": entropy, "kld": approximate_kld, "batch_size": m}

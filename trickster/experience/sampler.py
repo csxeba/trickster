@@ -20,8 +20,8 @@ class ExperienceSampler:
         return sum(memory.N for memory in self.memories)
 
     def sample(self, size=32):
-        if self.N < 2:
-            return [[]] * self.width
+        if self.N == 0:
+            return [[]] * (self.width+1)
         if size <= 0:
             size = self.N
         valid_indices = self._get_valid_indices()
@@ -31,7 +31,8 @@ class ExperienceSampler:
             idx = valid_indices[np.random.randint(0, num_valid, size=size)]
         else:
             idx = valid_indices
-        return self._sample_data(idx)
+        sample = self._sample_data(idx)
+        return sample
 
     def stream(self, size=32, infinite=False):
         arg = self._get_valid_indices()

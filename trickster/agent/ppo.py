@@ -64,8 +64,8 @@ class PPOWorker(RLAgentBase):
 
 class PPO(RLAgentBase):
 
-    HISTORY_KEYS = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
-                    "critic_loss", "advantage")
+    history_keys = ("actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
+                    "values", "advantages", "critic_loss")
 
     def __init__(self,
                  actor,
@@ -100,7 +100,7 @@ class PPO(RLAgentBase):
         self.workers = []  # type: List[PPOWorker]
         self.memory_sampler = None
 
-    def _create_worker(self, memory=None):
+    def create_worker(self, memory=None):
         if self.copy_models:
             actor = kerasic.copy_model(self.actor_learner)
             critic = kerasic.copy_model(self.critic_learner)
@@ -118,12 +118,14 @@ class PPO(RLAgentBase):
                       self.lmbda,
                       self.preprocess)
         )
+        self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
         return self.workers[-1]
 
     def dispatch_workers(self, n=1):
+        if len(self.workers) > 0:
+            raise RuntimeError("Workers already created!")
         for i in range(n):
-            self._create_worker(None)
-        self.memory_sampler = ExperienceSampler([worker.memory for worker in self.workers])
+            self.create_worker(None)
         return self.workers
 
     def _make_actor_train_function(self):
@@ -179,13 +181,13 @@ class PPO(RLAgentBase):
             worker.critic.set_weights(critic_W)
 
     def update_critic(self, batch_size):
-        state, state_next, probability, action, returns, values = self.memory_sampler.sample(batch_size)
+        state, state_next, probability, action, returns, values, dones = self.memory_sampler.sample(batch_size)
         state = self.preprocess(state)
         critic_loss = self.critic_learner.train_on_batch(state, returns)
         return critic_loss
 
     def update_actor(self, batch_size):
-        state, state_next, probability, action, returns, values = self.memory_sampler.sample(batch_size)
+        state, state_next, probability, action, returns, values, dones = self.memory_sampler.sample(batch_size)
         state = self.preprocess(state)
         action_onehot = self.possible_actions_onehot[action]
         advantage = returns - values
@@ -209,8 +211,10 @@ class PPO(RLAgentBase):
             history["values"].append(value.mean())
             history["advantages"].append(advantage.mean())
 
-    def fit(self, epochs=3, batch_size=32, verbose=1, fit_actor=True, fit_critic=True, reset_memory=True):
+    def fit(self, epochs=3, batch_size=32, fit_actor=True, fit_critic=True, reset_memory=True):
         history = defaultdict(list)
+        if batch_size == -1:
+            batch_size = self.memory_sampler.N
 
         updates_per_epoch = self.memory_sampler.N // batch_size
         num_updates = epochs * updates_per_epoch
@@ -228,3 +232,6 @@ class PPO(RLAgentBase):
             history_new[key] = np.mean(history[key])
 
         return history_new
+
+    def get_savables(self):
+        return {"PPO_actor": self.actor_learner, "PPO_critic": self.critic_learner}
