@@ -39,19 +39,20 @@ class TD3(DDPG):
 
         self.critic_dupe = critics[1]
         self.critic_dupe_target = kerasic.copy_model(self.critic_dupe)
+        self.target_noise_sigma = target_noise_sigma
+        self.target_noise_clip = target_noise_clip
+
         super().__init__(actor, critics[0], action_space, memory, discount_factor_gamma, state_preprocessor,
                          action_noise_sigma, action_noise_sigma_decay, min_action_noise_sigma, action_minima,
                          action_maxima, polyak_rate)
         self.actor_update_delay = actor_update_delay
         self.update_counter = 1
-        self.target_noise_simga = target_noise_sigma
-        self.target_noise_clip = target_noise_clip
 
     def _build_model_combination(self):
         input_tensor = keras.Input(self.actor.input_shape[-1:])
         actor_out = self.actor(input_tensor)
         noisy = keras.layers.Lambda(add_noise)(
-            [actor_out, self.target_noise_simga, self.target_noise_clip, self.action_maxima]
+            [actor_out, self.target_noise_sigma, self.target_noise_clip, self.action_maxima]
         )
         critic_out = self.critic([input_tensor, noisy])
         self._combo_model = keras.Model(input_tensor, critic_out)
