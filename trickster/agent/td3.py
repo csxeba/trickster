@@ -7,13 +7,6 @@ from .ddpg import DDPG
 from ..utility import kerasic
 
 
-def add_noise(inputs):
-    x, sigma, clip_noise, clip_action = inputs
-    K = keras.backend
-    noise = K.clip(K.random_normal(shape=K.int_shape(x), stddev=sigma), -clip_noise, clip_noise)
-    return K.clip(x + noise, -clip_action, clip_action)
-
-
 class TD3(DDPG):
 
     """Twin Delayed Deep Deterministic Policy Gradient"""
@@ -48,12 +41,17 @@ class TD3(DDPG):
         self.actor_update_delay = actor_update_delay
         self.update_counter = 1
 
+    def _add_noise(self, x):
+        K = keras.backend
+        noise = K.clip(K.random_normal(shape=K.int_shape(x),
+                                       stddev=self.target_noise_sigma),
+                       -self.target_noise_clip, self.target_noise_clip)
+        return K.clip(x + noise, -self.action_minima, self.action_maxima)
+
     def _build_model_combination(self):
         input_tensor = keras.Input(self.actor.input_shape[-1:])
         actor_out = self.actor(input_tensor)
-        noisy = keras.layers.Lambda(add_noise)(
-            [actor_out, self.target_noise_sigma, self.target_noise_clip, self.action_maxima]
-        )
+        noisy = keras.layers.Lambda(self._add_noise)(actor_out)
         critic_out = self.critic([input_tensor, noisy])
         self._combo_model = keras.Model(input_tensor, critic_out)
         self.critic.trainable = False
