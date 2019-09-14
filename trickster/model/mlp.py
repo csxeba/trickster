@@ -12,16 +12,18 @@ def _wide_mlp_layers(input_shape, output_dim, activation="linear"):
             keras.layers.Dense(output_dim, activation=activation)]
 
 
-def _wide_ddgp_critic(input_shape, output_dim, adam_lr):
-    state_input = keras.Input(input_shape)
-    action_input = keras.Input([output_dim])
-    x = keras.layers.concatenate([state_input, action_input])
-    x = keras.layers.Dense(400, kernel_initializer="he_normal")(x)
-    x = keras.layers.LeakyReLU()(x)
-    x = keras.layers.Dense(300, activation="relu", kernel_initializer="he_normal")(x)
-    x = keras.layers.LeakyReLU()(x)
-    q = keras.layers.Dense(1, activation="linear")(x)
-    critic = keras.Model([state_input, action_input], q)
+def _wide_ddgp_critic(input_shape, output_dim, adam_lr, critic_id=None):
+    if critic_id is None:
+        critic_id = "DDPG_critic"
+    state_input = keras.Input(input_shape, name=critic_id+"_state_in")
+    action_input = keras.Input([output_dim], name=critic_id+"_action_in")
+    x = keras.layers.concatenate([state_input, action_input], name=critic_id+"_cct")
+    x = keras.layers.Dense(400, name=critic_id+"_dense1")(x)
+    x = keras.layers.LeakyReLU(name=critic_id+"_relu1")(x)
+    x = keras.layers.Dense(300, name=critic_id+"_dense2")(x)
+    x = keras.layers.LeakyReLU(name=critic_id+"_relu2")(x)
+    q = keras.layers.Dense(1, activation="linear", name=critic_id+"_q")(x)
+    critic = keras.Model([state_input, action_input], q, name="critic_id")
     critic.compile(keras.optimizers.Adam(adam_lr), loss="mse")
     return critic
 
@@ -61,8 +63,16 @@ def wide_ddpg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-
     actor = wide_mlp_actor_continuous(input_shape, output_dim, actor_lr, actor_activation, action_range)
     critics = []
     critic = None
-    for i in range(num_critics):
-        critic = _wide_ddgp_critic(input_shape, output_dim, critic_lr)
+    if num_critics == 1:
+        td3 = False
+    else:
+        td3 = True
+    for i in range(1, num_critics+1):
+        if td3:
+            critic_id = "TD3_critic{}".format(i)
+        else:
+            critic_id = "DDPG_critic"
+        critic = _wide_ddgp_critic(input_shape, output_dim, critic_lr, critic_id=critic_id)
         critics.append(critic)
     if num_critics > 1:
         return actor, critics
