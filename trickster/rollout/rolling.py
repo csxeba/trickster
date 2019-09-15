@@ -1,14 +1,16 @@
 import numpy as np
 
-from ..abstract import AgentBase
+from .trajectory import Trajectory
 from .abstract import RolloutBase, RolloutConfig
+from ..abstract import RLAgentBase
+from ..utility import spaces, training_ops
 
 
 class Rolling(RolloutBase):
 
     """Generate n-step trajectories for Time-Difference learning and infinite horizon problems"""
 
-    def __init__(self, agent: AgentBase, env, config: RolloutConfig=None):
+    def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
         super().__init__(agent, env, config)
         self.step = 0
         self.episodes = 0
@@ -17,10 +19,11 @@ class Rolling(RolloutBase):
         self.reward = None
         self.info = None
         self.done = None
+        self.worker = agent.create_worker()
         self._rolling_worker = None
 
     def _sample_action(self):
-        return self.agent.sample(self.state, self.reward, self.done)
+        return self.worker.sample(self.state, self.reward, self.done)
 
     def _rolling_job(self):
         while 1:
@@ -32,8 +35,11 @@ class Rolling(RolloutBase):
                 if self.step % self.cfg.skipframes == 0:
                     self.action = self._sample_action()
                 assert not self.done
-                self.state, self.reward, self.done, self.info = self.env.step(
-                    self.agent.possible_actions[self.action])
+                if self.agent.action_space == spaces.CONTINUOUS:
+                    a = self.action
+                else:
+                    a = self.agent.action_space[self.action]
+                self.state, self.reward, self.done, self.info = self.env.step(a)
                 self.step += 1
 
     def roll(self, steps, verbose=0, push_experience=True):
@@ -42,7 +48,7 @@ class Rolling(RolloutBase):
 
         rewards = []
 
-        self.agent.set_learning_mode(push_experience)
+        self.worker.set_learning_mode(push_experience)
         for i, step in enumerate(self._rolling_worker):
             rewards.append(self.reward)
             if verbose:
@@ -51,9 +57,9 @@ class Rolling(RolloutBase):
                 break
 
         if push_experience:
-            self.agent.push_experience(self.state, self.reward, self.done)
+            self.worker.push_experience(self.state, self.reward, self.done)
 
-        self.agent.set_learning_mode(not push_experience)
+        self.worker.set_learning_mode(False)
 
         return {"mean_reward": np.mean(rewards), "rewards": np.array(rewards)}
 
@@ -70,3 +76,9 @@ class Rolling(RolloutBase):
         if self.cfg.max_steps is not None:
             done = done or self.step >= self.cfg.max_steps
         return done
+
+    def fit(self, episodes, updates_per_episode=32, step_per_update=32, update_batch_size=-1,
+            testing_rollout: Trajectory=None, plot_curves=True):
+
+        training_ops.fit(self, episodes, updates_per_episode, step_per_update, update_batch_size,
+                         testing_rollout, plot_curves)

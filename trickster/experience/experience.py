@@ -6,19 +6,29 @@ class Experience:
     def __init__(self, max_length=10000):
         self.memoirs = None
         self.max_length = max_length
+        if self.max_length is None:
+            self.max_length = 0
+        if not isinstance(self.max_length, int):
+            raise ValueError("max_length must be an integer!")
+        if self.max_length < 0:
+            self.max_length = 0
+        self._exclude_from_sampling = set()  # type: set
+        self.final_state = None
 
     @staticmethod
     def sanitize(args):
-        N0 = len(args[0])
-        if not all(N == N0 for N in map(len, args[1:])):
+        Ns = set(list(map(len, args)))
+        if len(Ns) != 1:
             raise ValueError("All arrays passed to remember() must be the same lenght!")
 
-    def reset(self, num_memoirs=None):
-        if num_memoirs is None:
-            num_memoirs = len(self.memoirs)
-        if num_memoirs < 1:
-            raise ValueError("Invalid number of memoirs specified")
+    def initialize(self, num_memoirs, final_state):
         self.memoirs = [np.array([]) for _ in range(num_memoirs)]
+        self.final_state = final_state
+
+    def reset(self):
+        if self.memoirs is None:
+            return
+        self.memoirs = [np.array([]) for _ in range(self.width)]
 
     def _remember(self, arg, i):
         if not self.memoirs[i].size:
@@ -27,40 +37,46 @@ class Experience:
         new = np.concatenate((self.memoirs[i][-self.max_length:], arg))
         self.memoirs[i] = new
 
-    def remember(self, states, *args):
-        args = (states,) + args
+    def remember(self, states, *args, dones, final_state, exclude=()):
+        args = (states,) + args + (dones,)
         self.sanitize(args)
         if self.memoirs is None:
-            self.reset(len(args))
+            self.initialize(num_memoirs=len(args), final_state=final_state)
+        num_new_memories = len(states)
+        N_before_update = self.N
+        N_after_update = N_before_update + num_new_memories
+        num_dropped_memories = N_after_update - self.max_length
+
         for i, arg in enumerate(args):
             self._remember(arg, i)
 
-    def sample(self, size=32):
-        if not self.N:
-            return [[]] * len(self.memoirs)
-        size = min(size, self.N)
-        if size < 0:
-            size = self.N-1
-        idx = np.random.randint(0, self.N-1, size=size)
-        states = self.memoirs[0][idx]
-        states_ = self.memoirs[0][idx+1]
-        result = [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
-        assert len(result) == len(self.memoirs) + 1
-        return result
+        if any(dones):
+            exclude_dones = (np.argwhere(dones)+1)
+            exclude_dones = exclude_dones[:, 0]
+            exclude = tuple(exclude_dones) + exclude
 
-    def stream(self, size=32, infinite=False):
-        N = len(self.memoirs[0])
-        arg = np.arange(0, N-1)
-        while 1:
-            np.random.shuffle(arg)
-            for start in range(0, len(arg), size):
-                idx = arg[start:start+size]
-                states = self.memoirs[0][idx]
-                states_ = self.memoirs[0][idx+1]
-                yield [states, states_] + [mem[idx] for mem in self.memoirs[1:]]
-            if not infinite:
-                break
+        if exclude:
+            exclude = np.array(exclude)
+            exclude[exclude < 0] = len(states) + exclude[exclude < 0]
+            self._exclude_from_sampling.update(
+                set(exclude + N_before_update)
+            )
+
+        if num_dropped_memories > 0:
+            self._exclude_from_sampling = [i-num_dropped_memories for i in list(self._exclude_from_sampling)]
+            self._exclude_from_sampling = {i for i in self._exclude_from_sampling if i >= 0}
+
+    def get_valid_indices(self):
+        return [i for i in range(0, self.N) if i not in self._exclude_from_sampling]
 
     @property
     def N(self):
+        if self.memoirs is None:
+            return 0
         return len(self.memoirs[0])
+
+    @property
+    def width(self):
+        if self.memoirs is None:
+            return 0
+        return len(self.memoirs)

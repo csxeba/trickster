@@ -8,7 +8,7 @@ import numpy as np
 import gym
 
 from keras.models import Sequential
-from keras.layers import Flatten, Dense
+from keras.layers import Flatten, Dense, BatchNormalization, LeakyReLU
 from keras.optimizers import RMSprop
 
 from trickster.rollout import MultiTrajectory, Trajectory
@@ -53,7 +53,7 @@ class FakeEnv:
             return self.empty, reward, done, info
 
         state1, state2 = map(self._preporcess, [state1, state2])
-        state = np.abs(state1 - state2)
+        state = np.abs(state1 - state2)[..., None]
 
         return state, reward, done, info
 
@@ -67,22 +67,23 @@ test_env = FakeEnv()
 
 actor = Sequential([  # 200, 160
     Flatten(input_shape=test_env.shape),
-    Dense(200, activation="relu"),
+    Dense(256),
+    BatchNormalization(),
+    LeakyReLU(),
     Dense(2, activation="softmax")
 ])
 actor.compile(RMSprop(1e-4, rho=0.99), "categorical_crossentropy")
 
-agent = REINFORCE(actor, 2, Experience(), discount_factor_gamma=0.99,
-                  state_preprocessor=None)
+agent = REINFORCE(actor, 2, Experience(), discount_factor_gamma=0.99, state_preprocessor=None)
 
-rollout = MultiTrajectory(agent, envs)
+rollout = MultiTrajectory([agent for _ in range(10)], envs)
 test_rollout = Trajectory(agent, test_env)
 
-rewards = deque(maxlen=10)
-actor_loss = deque(maxlen=80)
-actor_utility = deque(maxlen=80)
-actor_entropy = deque(maxlen=80)
-critic_loss = deque(maxlen=80)
+rewards = deque(maxlen=100)
+actor_loss = deque(maxlen=100)
+actor_utility = deque(maxlen=100)
+actor_entropy = deque(maxlen=100)
+critic_loss = deque(maxlen=100)
 
 episode = 0
 
@@ -95,11 +96,13 @@ while 1:
 
     rewards.append(history["mean_reward"])
     actor_loss.append(agent_history["loss"])
+    actor_entropy.append(agent_history["entropy"])
 
-    print("\rEpisode {:>4} RWD {:>5.2f} ACTR {:>7.4f}".format(
+    print("\rEpisode {:>4} RWD {:>5.2f} LOSS {:>7.4f} ENTR {:>7.4}".format(
         episode,
         np.mean(rewards),
-        np.mean(actor_loss)), end="")
+        np.mean(actor_loss),
+        np.mean(actor_entropy)), end="")
 
-    if episode % 10 == 0:
+    if episode % 100 == 0:
         print()
