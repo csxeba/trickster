@@ -1,25 +1,16 @@
-import gym
-
 from trickster.agent import DQN
 from trickster.rollout import Trajectory, RolloutConfig, Rolling
 from trickster.experience import Experience
 from trickster.model import mlp
+from trickster.utility import gymic
 
+env = gymic.rwd_scaled_env("CartPole-v1")
+test_env = gymic.rwd_scaled_env("CartPole-v1")
 
-class CartPole(gym.RewardWrapper):
-
-    def __init__(self):
-        super().__init__(gym.make("CartPole-v1"))
-
-    def reward(self, reward):
-        return reward / 100
-
-
-env = CartPole()
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-ann = mlp.wide_dueling_q_network(input_shape, num_actions, adam_lr=1e-3)
+ann = mlp.wide_mlp_critic_network(input_shape, num_actions, adam_lr=1e-3)
 
 agent = DQN(ann,
             action_space=env.action_space,
@@ -31,7 +22,8 @@ agent = DQN(ann,
             use_target_network=True)
 
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Trajectory(agent, CartPole())
+test_rollout = Trajectory(agent, test_env)
 
-rollout.fit(episodes=500, updates_per_episode=128, step_per_update=2, testing_rollout=test_rollout, plot_curves=True)
-test_rollout.render()
+rollout.fit(episodes=500, updates_per_episode=32, step_per_update=2, update_batch_size=32,
+            testing_rollout=test_rollout, plot_curves=True)
+test_rollout.render(repeats=10)

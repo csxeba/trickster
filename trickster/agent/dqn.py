@@ -8,7 +8,7 @@ from ..utility import kerasic
 
 class DQN(RLAgentBase):
 
-    history_keys = ["loss", "Qs"]
+    history_keys = ["loss", "Qs", "epsilon"]
 
     def __init__(self,
                  model: Model,
@@ -75,7 +75,7 @@ class DQN(RLAgentBase):
         if self.target_network is not None:
             self.meld_weights(mix_in_ratio=polyak_rate)
 
-        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions)}
+        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions), "epsilon": self.epsilon}
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())

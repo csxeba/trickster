@@ -25,6 +25,13 @@ class MultiRolling(MultiRolloutBase):
 
         return {"mean_reward": rewards.mean(), "rewards": rewards}
 
-    def fit(self, episodes, updates_per_episode=32, step_per_update=32, testing_rollout: Trajectory=None,
-            plot_curves=True):
-            training_ops.fit(self, episodes, updates_per_episode, step_per_update, testing_rollout, plot_curves)
+    def fit(self, episodes, updates_per_episode=32, steps_per_update=32, update_batch_size=-1,
+            testing_rollout: Trajectory=None, plot_curves=True):
+
+            training_ops.fit(self,
+                             episodes=episodes,
+                             updates_per_episode=updates_per_episode,
+                             steps_per_update=steps_per_update,
+                             update_batch_size=update_batch_size,
+                             testing_rollout=testing_rollout,
+                             plot_curves=plot_curves)

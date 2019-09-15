@@ -69,10 +69,13 @@ class ExperienceSampler:
             if memory.N == 0:
                 continue
             idx = indices[indices[:, 0] == i][:, 1]
+            if len(idx) == 0:
+                continue
             sample["states"].append(memory.memoirs[0][idx])
             sample["next_states"].append(self._generate_next_states(idx, memory))
             for j, tensor in enumerate(memory.memoirs[1:], start=1):
                 sample[j].append(tensor[idx])
+            pass
 
         sample = {key: np.concatenate(value, axis=0) for key, value in sample.items()}
         result = [sample["states"], sample["next_states"]]

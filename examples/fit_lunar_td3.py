@@ -1,5 +1,3 @@
-import numpy as np
-
 from trickster.agent import TD3
 from trickster.rollout import Trajectory, Rolling, RolloutConfig
 from trickster.utility import spaces, gymic
@@ -13,18 +11,6 @@ num_actions = env.action_space.shape[0]
 
 actor, critics = mlp.wide_ddpg_actor_critic(input_shape, output_dim=num_actions, action_range=2, num_critics=2,
                                             actor_lr=5e-4, critic_lr=5e-4)
-
-assert critics[0] is not critics[1]
-
-for layer1, layer2 in zip(critics[0].layers, critics[1].layers):
-    assert layer1 is not layer2
-    for w1, w2 in zip(layer1.weights, layer2.weights):
-        assert w1 is not w2
-
-for w_1, w_2 in zip(critics[0].get_weights(), critics[1].get_weights()):
-    if w_1.ndim == 1:
-        continue
-    assert not np.all(w_1 == w_2)
 
 agent = TD3(actor, critics,
             action_space=spaces.CONTINUOUS,

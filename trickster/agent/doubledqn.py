@@ -58,4 +58,4 @@ class DoubleDQN(DQN):
         if polyak_rate:
             self.meld_weights(mix_in_ratio=polyak_rate)
 
-        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions)}
+        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions), "epsilon": self.epsilon}

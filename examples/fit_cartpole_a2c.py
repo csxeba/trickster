@@ -18,5 +18,5 @@ agent = A2C(actor,
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, gymic.rwd_scaled_env())
 
-rollout.fit(episodes=1000, updates_per_episode=32, step_per_update=32, testing_rollout=test_rollout, plot_curves=True)
+rollout.fit(episodes=1000, updates_per_episode=64, step_per_update=1, testing_rollout=test_rollout, plot_curves=True)
 test_rollout.render(repeats=10)

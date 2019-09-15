@@ -94,22 +94,23 @@ class A2C(RLAgentBase):
 
     def _make_actor_train_function(self):
         advantages = K.placeholder(shape=(None,))
-        action_onehot = K.placeholder(shape=(None, len(self.action_space)))
         softmaxes = self.actor_learner.output
+        actions = K.argmax(softmaxes, axis=-1)
+        action_masks = K.one_hot(actions, num_classes=len(self.action_space))
+        action_masks = K.stop_gradient(action_masks)
 
-        probabilities = K.sum(action_onehot * softmaxes, axis=1)
+        probabilities = K.sum(action_masks * softmaxes, axis=1)
         log_prob = K.log(probabilities)
-
-        neg_entropy = K.mean(log_prob)
+        entropy = -K.mean(log_prob)
         utilities = -log_prob * advantages
         utility = K.mean(utilities)
         utility_std = K.std(utilities)
 
-        loss = neg_entropy * self.entropy_penalty_coef + utility
+        loss = -entropy * self.entropy_penalty_coef + utility
         updates = self.actor_learner.optimizer.get_updates(loss, self.actor_learner.weights)
 
-        return K.function(inputs=[self.actor_learner.input, advantages, action_onehot],
-                          outputs=[utility, utility_std, -neg_entropy, loss],
+        return K.function(inputs=[self.actor_learner.input, advantages],
+                          outputs=[utility, utility_std, entropy, loss],
                           updates=updates)
 
     def sample(self, state, reward, done):
@@ -145,10 +146,9 @@ class A2C(RLAgentBase):
         mean_bellman_error = self.critic_learner.train_on_batch(S, bellman_target)
 
         value = self.critic_learner.predict(S)[..., 0]
-        action_onehot = self.possible_actions_onehot[A]
         advantage = bellman_target - value
 
-        utility, std, entropy, loss = self._actor_train_function([S, advantage, action_onehot])
+        utility, std, entropy, loss = self._actor_train_function([S, advantage])
 
         if reset_memory:
             for worker in self.workers:
