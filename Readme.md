@@ -42,7 +42,7 @@ so that they are maximizing the expected reward of the environment they are inte
 
 - **action_space**: action space, integer or an iterable holding possible actions to be taken
 - **memory**: optional, an instance of Experience which is used as a buffer for learning
-- **reward_discount_factor_gamma**: I like long variable names
+- **discount_factor_gamma**: I like long variable names
 - **state_preprocessor**: callable, not quite stable yet. It is called on singe states and batches as well
  (this will change)
  
@@ -52,29 +52,9 @@ so that they are maximizing the expected reward of the environment they are inte
 - **sample(state, reward, done)**: sample an action to be taken, given state. Also rewards and done flags.
 - **push_experience(state, reward, done)**: direct experience is saved in an internal buffer. This method pushes
  it into the Experience buffer. Also handles the last reward and last done flag and for instance computes GAE.
-- **fit(batch_size, verbose, reset_memory)**: updates the network parameters and optionally resets the memory buffer.
- returns a history dictionary holding losses.
-- **fit(epochs, batch_size, verbose, reset_memory)**: PPO's interface for a multi-epoch update.
-
-*DQN* and *DoubleDQN* specific constructor parameters:
-
-- **epsilon**: Epsilon-greedy: probability of taking a uniform random action istead of arg max Q
-- **epsilon_decay**: decays epsilon by this rate at every *sample()* call
-- **epsilon_min**: minimum value of epsilon
-- **use_target_network**: whether to use a target network for Bellman-target determination
-
-*DQN* and *DoubleDQN* specific methods:
-
-- **push_weights**: copy weights to target network
-- **meld_weights(mix_in_ratio)**: target_network_weights = mix_in_ratio * new_weights + (1. - mix_in_ratio) * old_weights
-
-*A2C* specific constructor parameters:
-- **entropy_penalty_coef**: penalizes the negated entropy to increase exploration rate
-
-*PPO* specific constructor parameters:
-- **gae_factor_lambda**: coefficient for *Generalized Advantage Estimation*
-- **entropy_penalty_coef**: penalizes the negated entropy to increase exploration rate
-- **ratio_clip_epsilon**: clipping value for the probability ratio in the *PPO* clip surrogate loss function
+- **fit(\*args, \*\*kwargs)**: updates the network parameters and optionally resets the memory buffer.
+ returns a history dictionary holding losses. Specific algorithms have their own argument lists
+ for *fit*.
 
 ### Exeprience
 
@@ -118,13 +98,19 @@ of environment instances. These classes are called:
 - **rollout_configs**: in multi classes. Either an instance of *RolloutConfig* or one for every env passed.
 
 *Trajectory* type rollouts present the following public methods:
-- **rollout(verbose, push_experience)**: sample a complete trajectory. Optionally save the experience.
+- **rollout(verbose, push_experience, render)**: sample a complete trajectory. Optionally save the experience or render.
 
 *Rolling* type rollouts present the following public methods:
 - **roll(steps, verbose, push_experience)**: execute the environment/agent for a given number of timesteps.
 
+Both rollout types present a *fit()* method, which orchestrates basic learning
+functionality. See the docstrings for documentation and argument list.
+
 ## Working Examples
 
 Working examples are available in the repo under the *examples* folder.
+Not all algorithms converge on all environments. This might be due to
+incorrect implementation, or incorrect hyperparameters or both...
 
-*CartPole* examples are checked for convergence, *Atari* examples aren't due to lack of time and compute :)
+One major takeaway for me regarding Deep Reinforcement Learning is the fact
+of how unstable and unreliable it is.
