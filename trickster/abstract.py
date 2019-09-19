@@ -35,17 +35,25 @@ class RLAgentBase:
         self.learning = True
         self.preprocess = self._preprocess_noop if state_preprocessor is None else state_preprocessor
 
-    def _push_direct_memory(self, state, reward, done):
+    def _filter_invalid_samples(self, *args):
+        if any(self.dones):
+            mask = np.logical_not(np.array(self.dones))
+            return [arg[mask] for arg in args]
+        return args
+
+    def _push_direct_memory_to_buffer(self, state, reward, done):
         S = np.array(self.states)  # 0..t
+        S_ = np.array(self.states[1:] + [state])
         A = np.array(self.actions)  # 0..t
         R = np.array(self.rewards[1:] + [reward])  # 1..t+1
-        F = np.array(self.dones[1:] + [done])
+        F = np.array(self.dones[1:] + [done])  # 1..t+1
+        S, S_, A, R, F = self._filter_invalid_samples(S, S_, A, R, F)
 
         self._reset_direct_memory()
 
-        self.memory.remember(S, A, R, dones=F, final_state=state)
+        self.memory.remember(S, S_, A, R, F)
 
-    def _push_direct_experience(self, state, action, reward, done):
+    def _push_step_to_direct_memory_if_learning(self, state, action, reward, done):
         if self.learning:
             self.states.append(state)
             self.actions.append(action)
@@ -95,7 +103,7 @@ class RLAgentBase:
                 saveables[key].set_weights(value)
 
     def push_experience(self, state, reward, done):
-        self._push_direct_memory(state, reward, done)
+        self._push_direct_memory_to_buffer(state, reward, done)
 
     def dispatch_workers(self, n=1):
         return [self] * n

@@ -40,13 +40,14 @@ class PPOWorker(RLAgentBase):
         if self.learning:
             self.probabilities.append(probabilities)
 
-        self._push_direct_experience(state, action, reward, done)
+        self._push_step_to_direct_memory_if_learning(state, action, reward, done)
 
         return action
 
     def push_experience(self, state, reward, done):
         final_value = np.squeeze(self.critic.predict(state[None, ...]))
         states = np.array(self.states)
+        next_states = np.array(self.states[1:] + [state])
         values = np.squeeze(self.critic.predict(states))
         values = np.append(values, final_value)
         actions = np.array(self.actions)
@@ -56,10 +57,15 @@ class PPOWorker(RLAgentBase):
 
         returns = numeric.compute_gae(rewards, values[:-1], values[1:], dones, self.gamma, self.lmbda)
 
+        states, next_states, probabilities, actions, returns, values = self._filter_invalid_samples(
+            states, next_states, probabilities, actions, returns, values
+        )
+
         self._reset_direct_memory()
+
         self.probabilities = []
 
-        self.memory.remember(states, probabilities, actions, returns, values[:-1], dones=dones, final_state=state)
+        self.memory.remember(states, next_states, probabilities, actions, returns, values[:-1], dones)
 
 
 class PPO(RLAgentBase):

@@ -51,19 +51,8 @@ class ExperienceSampler:
             valid_indices.extend([[i, j] for j in self.memories[i].get_valid_indices()])
         return np.array(valid_indices)
 
-    @staticmethod
-    def _generate_next_states(idx, memory):
-        next_states = []
-        for i in idx:
-            if i+1 < memory.N:
-                next_states.append(memory.memoirs[0][i+1])
-            else:
-                next_states.append(memory.final_state)
-        return np.array(next_states)
-
     def _sample_data(self, indices: np.ndarray):
-        sample = {"states": [], "next_states": []}
-        sample.update({i: [] for i in range(1, self.width)})
+        sample = [[] for _ in range(self.width)]
 
         for i, memory in enumerate(self.memories):
             if memory.N == 0:
@@ -71,17 +60,11 @@ class ExperienceSampler:
             idx = indices[indices[:, 0] == i][:, 1]
             if len(idx) == 0:
                 continue
-            sample["states"].append(memory.memoirs[0][idx])
-            sample["next_states"].append(self._generate_next_states(idx, memory))
-            for j, tensor in enumerate(memory.memoirs[1:], start=1):
+            for j, tensor in enumerate(memory.memoirs):
                 sample[j].append(tensor[idx])
-            pass
 
-        sample = {key: np.concatenate(value, axis=0) for key, value in sample.items()}
-        result = [sample["states"], sample["next_states"]]
-        if self.width > 1:
-            result += [sample[i] for i in range(1, self.width)]
-        return result
+        sample = [np.concatenate(s, axis=0) for s in sample]
+        return sample
 
     @property
     def width(self):

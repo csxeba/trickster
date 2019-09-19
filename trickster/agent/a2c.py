@@ -27,8 +27,11 @@ class Actor(RLAgentBase):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.model.predict(preprocessed_state)[0]
         action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
-        self._push_direct_experience(state, action, reward, done)
+        self._push_step_to_direct_memory_if_learning(state, action, reward, done)
         return action
+
+    def get_savables(self):
+        raise RuntimeError("get_saveables was called on an agent's worker object!")
 
 
 class A2C(RLAgentBase):

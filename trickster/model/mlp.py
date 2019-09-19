@@ -1,3 +1,8 @@
+"""
+This module contains some basic MLP architectures, which are more-or-less standard for
+Deep Reinforcement Learning.
+"""
+
 import keras
 
 

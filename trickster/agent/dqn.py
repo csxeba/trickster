@@ -44,7 +44,7 @@ class DQN(RLAgentBase):
             Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
 
-        self._push_direct_experience(state, action, reward, done)
+        self._push_step_to_direct_memory_if_learning(state, action, reward, done)
 
         return action
 

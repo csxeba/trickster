@@ -24,6 +24,8 @@ agent = DQN(ann,
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, test_env)
 
-rollout.fit(episodes=500, updates_per_episode=32, step_per_update=2, update_batch_size=32,
+rollout.roll(steps=1024, verbose=0, push_experience=True)
+
+rollout.fit(episodes=500, updates_per_episode=32, step_per_update=1, update_batch_size=32,
             testing_rollout=test_rollout, plot_curves=True)
 test_rollout.render(repeats=10)

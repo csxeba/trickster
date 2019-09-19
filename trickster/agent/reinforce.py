@@ -18,8 +18,7 @@ class REINFORCE(RLAgentBase):
                  action_space,
                  memory: Experience=None,
                  discount_factor_gamma=0.99,
-                 state_preprocessor=None,
-                 entropy_penalty_coef=0.):
+                 state_preprocessor=None):
 
         super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.model = model
@@ -33,24 +32,26 @@ class REINFORCE(RLAgentBase):
         else:
             action = np.squeeze(np.argmax(probabilities))
 
-        self._push_direct_experience(state, action, reward, done)
+        self._push_step_to_direct_memory_if_learning(state, action, reward, done)
 
         return action
 
     def push_experience(self, state, reward, done):
         S = np.array(self.states)
+        S_ = np.array(self.states[1:] + [state])
         A = np.array(self.actions)
         R = np.array(self.rewards[1:] + [reward])
         R = discount_reward(R, self.gamma)
         F = np.array(self.dones[1:] + [done])
 
+        self._reset_direct_memory()
+
         rstd = R.std()
         if rstd > 0:
             R = (R - R.mean()) / rstd
 
-        self._reset_direct_memory()
-
-        self.memory.remember(S, A, R, dones=F, final_state=state)
+        S, S_, A, R, F = self._filter_invalid_samples(S, S_, A, R, F)
+        self.memory.remember(S, S_, A, R, F)
 
     def fit(self, batch_size=-1, reset_memory=True):
         S, _, A, R, F = self.memory_sampler.sample(batch_size)

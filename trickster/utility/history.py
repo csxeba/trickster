@@ -11,6 +11,7 @@ class History:
         self.keys = keys
         self._logs = {key: [] for key in keys}
         self._buffer = {key: [] for key in keys}
+        self._strwidths = {key: max(len(key), 11) for key in keys}
 
     def record(self, **kwargs):
         for key, val in kwargs.items():
@@ -41,27 +42,31 @@ class History:
 
     def print(self,
               average_last=10,
-              templates: Dict[str, str]=None,
-              return_carriege=True,
-              prefix=""):
-
-        templates = templates or {}
-        template = "{}: {}"
-        template = " ".join(template.format(key, templates.get(key, "{: >7.4f}")) for key in self.keys)
+              return_carriege=True):
 
         if average_last >= 2:
             values = [np.mean(self._logs[key][-average_last:]) for key in self.keys]
         else:
             values = [self._logs[key][-1] for key in self.keys]
 
-        if not prefix:
-            prefix = "Episode {:>4} ".format(len(self))
+        prefix = "{:^7} | ".format(len(self))
         prefix = ("\r" if return_carriege else "") + prefix
         if prefix[-1] not in string.whitespace:
             prefix += " "
         end = "" if return_carriege else None
 
-        print(prefix + template.format(*values), end=end)
+        logstrs = []
+        for value, key in zip(values, self._strwidths):
+            logstrs.append("{: ^{w}.4f}".format(value, w=self._strwidths[key]+1))
+        logstr = prefix + "|".join(logstrs)
+
+        print(logstr, end=end)
+
+    def print_header(self):
+        logstr = "|".join("{:^{w}}".format(key, w=self._strwidths[key]+1) for key in self.keys)
+        logstr = "Episode | " + logstr
+        print(logstr)
+        print("-"*len(logstr))
 
     def __len__(self):
         return len(self._logs[self.keys[0]])

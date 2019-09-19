@@ -3,7 +3,7 @@ from trickster.model import mlp
 from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.utility import gymic
 
-NUM_ENVS = 8
+NUM_ENVS = 32
 
 envs = [gymic.rwd_scaled_env("LunarLander-v2") for _ in range(NUM_ENVS)]
 test_env = gymic.rwd_scaled_env("LunarLander-v2")

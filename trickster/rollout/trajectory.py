@@ -5,7 +5,7 @@ from ..utility import history, visual
 
 class Trajectory(RolloutBase):
 
-    """Generate complete trajectories for MCMC learning or testing purposes"""
+    """Generate complete trajectories for Monte Carlo learning or testing purposes"""
 
     def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
         super().__init__(agent, env, config)
@@ -13,7 +13,16 @@ class Trajectory(RolloutBase):
         self.worker = agent.create_worker()
 
     def rollout(self, verbose=1, push_experience=True, render=False):
-        """Generate a complete trajectory for eg. MCMC learning"""
+        """
+        Execute a complete rollout, eg. until a 'done' flag is received
+
+        :param verbose: how much info to print
+        :param push_experience: whether to save the experience for training
+        :param render: whether to display the rollout visually
+        :return: dict
+            With keys: "reward_sum" and "steps".
+        """
+
         self.worker.set_learning_mode(push_experience)
         state = self.env.reset()
         reward = self.cfg.initial_reward
@@ -44,6 +53,23 @@ class Trajectory(RolloutBase):
         return done
 
     def fit(self, episodes, rollouts_per_update=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True):
+
+        """
+        Orchestrates a basic learning scheme.
+        :param episodes: int
+            How many episodes to learn for
+        :param rollouts_per_update: int
+            How many updates an episode consits of
+        :param update_batch_size: int
+            If set to -1, the complete experience buffer will be used as a single batch
+        :param smoothing_window_size: int
+            Used together with the argument <plot_curves>
+        :param plot_curves: bool
+            Whether to plot the agent's metrics
+        :return: History
+            A History object aggregating the learning metrics
+        """
+
         logger = history.History("reward_sum", *self.agent.history_keys)
 
         for episode in range(1, episodes+1):
