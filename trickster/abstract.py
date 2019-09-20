@@ -1,10 +1,7 @@
-from typing import Callable
-
 import numpy as np
-import keras
 
 from .experience import Experience, ExperienceSampler
-from .utility import kerasic, numeric
+from .utility import spaces
 
 
 class RLAgentBase:
@@ -17,10 +14,16 @@ class RLAgentBase:
                  discount_factor_gamma=0.99,
                  state_preprocessor=None):
 
-        if isinstance(action_space, int):
+        if isinstance(action_space, np.ndarray):
+            pass
+        elif isinstance(action_space, int):
             action_space = np.arange(action_space)
-        if hasattr(action_space, "n"):
+        elif hasattr(action_space, "n"):
             action_space = np.arange(action_space.n)
+        elif hasattr(action_space, "shape"):
+            action_space = spaces.CONTINUOUS
+        else:
+            assert False
 
         if memory is None:
             memory = Experience()
@@ -38,7 +41,12 @@ class RLAgentBase:
     def _filter_invalid_samples(self, *args):
         if any(self.dones):
             mask = np.logical_not(np.array(self.dones))
-            return [arg[mask] for arg in args]
+            idx = np.where(mask)[0]
+            result = []
+            for array in args:
+                filtered = array[idx]
+                result.append(filtered)
+            return result
         return args
 
     def _push_direct_memory_to_buffer(self, state, reward, done):

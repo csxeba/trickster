@@ -11,7 +11,7 @@ class History:
         self.keys = keys
         self._logs = {key: [] for key in keys}
         self._buffer = {key: [] for key in keys}
-        self._strwidths = {key: max(len(key), 11) for key in keys}
+        self._strwidths = {key: max(len(key)+2, 11) for key in keys}
 
     def record(self, **kwargs):
         for key, val in kwargs.items():

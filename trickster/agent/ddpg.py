@@ -7,7 +7,7 @@ from ..utility import kerasic
 
 class DDPG(RLAgentBase):
 
-    history_keys = ["actor_loss", "actor_preds", "Qs", "critic_loss"]
+    history_keys = ["actor_loss", "actor_ds", "actor_preds", "Qs", "target_preds", "critic_loss", "critic_ds", "sigma"]
 
     def __init__(self, actor: keras.Model, critic: keras.Model,
                  action_space, memory=None, discount_factor_gamma=0.99, state_preprocessor=None,
@@ -67,9 +67,8 @@ class DDPG(RLAgentBase):
         bellman_target = R + self.gamma * target_Qs
         bellman_target[F] = R[F]
         critic_loss = self.critic.train_on_batch([S, A], bellman_target)
-        if self.polyak_rate:
-            self.update_critic_target()
-        return critic_loss, target_Qs.mean()
+        d = self.update_critic_target()
+        return critic_loss, target_Qs.mean(), A_.mean(), d
 
     def update_actor(self, *, batch_size=None, data=None):
         if data is None and batch_size is None:
@@ -81,45 +80,54 @@ class DDPG(RLAgentBase):
         actor_loss = self._combo_model.train_on_batch(S, S)
         actions = self.actor.predict(S)
         self.critic.trainable = True
-        if self.polyak_rate:
-            self.update_actor_target()
-        return actor_loss, np.linalg.norm(actions, axis=-1).mean()
+        d = self.update_actor_target()
+        return actor_loss, np.linalg.norm(actions, axis=-1).mean(), d
 
     def fit(self, updates=1, batch_size=32, fit_actor=True, fit_critic=True):
         actor_losses = []
         critic_losses = []
         actor_preds = []
         Qs = []
+        target_preds = []
+        actor_ds = []
+        critic_ds = []
 
         for i in range(1, updates+1):
             if fit_critic:
-                critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size))
+                critic_loss, Q, target_pred, critic_d = self.update_critic(data=self.memory_sampler.sample(batch_size))
                 critic_losses.append(critic_loss)
                 Qs.append(Q)
+                target_preds.append(target_pred)
+                critic_ds.append(np.sqrt(critic_d))
             if fit_actor:
-                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size))
+                actor_loss, actor_pred, actor_d = self.update_actor(data=self.memory_sampler.sample(batch_size))
                 actor_losses.append(actor_loss)
                 actor_preds.append(actor_pred)
+                actor_ds.append(np.sqrt(actor_d))
 
-        result = {}
+        result = {"sigma": self.action_noise_sigma}
         if fit_actor:
             result["actor_loss"] = np.mean(actor_losses)
             result["actor_preds"] = np.mean(actor_preds)
+            result["actor_ds"] = np.mean(actor_ds)
         if fit_critic:
             result["critic_loss"] = np.mean(critic_losses)
             result["Qs"] = np.mean(Qs)
+            result["target_preds"] = np.mean(target_preds)
+            result["critic_ds"] = np.mean(critic_ds)
 
         return result
 
     def update_critic_target(self):
-        kerasic.meld_weights(self.critic_target, self.critic, self.polyak_rate)
+        return kerasic.meld_weights(self.critic_target, self.critic, self.polyak_rate)
 
     def update_actor_target(self):
-        kerasic.meld_weights(self.actor_target, self.actor, self.polyak_rate)
+        return kerasic.meld_weights(self.actor_target, self.actor, self.polyak_rate)
 
     def update_targets(self):
-        self.update_actor_target()
-        self.update_critic_target()
+        actor_d = self.update_actor_target()
+        critic_d = self.update_critic_target()
+        return actor_d, critic_d
 
     def get_savables(self) -> dict:
         return {"DDPG_actor": self.actor, "DDPG_critic": self.critic}

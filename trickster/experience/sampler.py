@@ -68,4 +68,9 @@ class ExperienceSampler:
 
     @property
     def width(self):
-        return self.memories[0].width
+        w = None
+        for m in self.memories:
+            w = m.width
+            if w > 0:
+                break
+        return w

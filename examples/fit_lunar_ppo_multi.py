@@ -14,12 +14,15 @@ critic = mlp.wide_mlp_critic_network(input_shape, output_dim=1, adam_lr=1e-4)
 agent = PPO(actor,
             critic,
             action_space=num_actions,
+            ratio_clip_epsilon=0.2,
+            training_epochs=10,
             discount_factor_gamma=0.99,
-            entropy_penalty_coef=0.05)
+            entropy_penalty_coef=1e-3)
 
 rollout = MultiRolling(agent, envs)
 test_rollout = Trajectory(agent, test_env)
 
-rollout.fit(episodes=1000, updates_per_episode=1, steps_per_update=32, update_batch_size=32,
+rollout.fit(episodes=1000, updates_per_episode=16, steps_per_update=1, update_batch_size=64,
             testing_rollout=test_rollout, plot_curves=True)
+
 test_rollout.render(repeats=10)

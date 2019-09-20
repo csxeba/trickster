@@ -119,7 +119,7 @@ class TD3(DDPG):
                 actor_preds.append(actor_pred)
             self.update_counter += 1
 
-        result = {}
+        result = {"sigma": self.action_noise_sigma}
         if fit_actor:
             result["actor_loss"] = np.mean(actor_losses)
             result["actor_preds"] = np.mean(actor_preds)

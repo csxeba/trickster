@@ -1,26 +1,18 @@
-import gym
-
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.optimizers import Adam
-
 from trickster.agent import DQN
 from trickster.rollout import Rolling, Trajectory
-from trickster.experience import Experience
-from trickster.utility import visual, history
+from trickster.utility import gymic
+from trickster.model import mlp
 
-env = gym.make("LunarLander-v2")
+env = gymic.rwd_scaled_env("LunarLander-v2")
+test_env = gymic.rwd_scaled_env("LunarLander-v2")
+
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-policy = Sequential([Dense(24, activation="relu", input_shape=input_shape),
-                     Dense(24, activation="relu"),
-                     Dense(num_actions, activation="linear")])
-policy.compile(loss="mse", optimizer=Adam(1e-4))
+model = mlp.wide_mlp_critic_network(input_shape, num_actions, adam_lr=1e-3)
 
-agent = DQN(policy,
-            action_space=num_actions,
-            memory=Experience(max_length=10000),
+agent = DQN(model,
+            action_space=env.action_space,
             epsilon=1.,
             epsilon_decay=1.,
             epsilon_min=0.1,
@@ -30,22 +22,9 @@ agent = DQN(policy,
 rollout = Rolling(agent, env)
 test_rollout = Trajectory(agent, env)
 
-hst = history.History("reward_sum", "loss", "epsilon")
-
-for warmup in range(1, 33):
-    rollout.roll(32, verbose=0, push_experience=True)
+rollout.roll(10_000, verbose=0, push_experience=True)  # warmup
 agent.epsilon_decay = 0.99999
 
-for episode in range(1, 1001):
-    rollout.roll(steps=32, verbose=0, push_experience=True)
-    agent_history = agent.fit(updates=10, batch_size=64, verbose=0)
-    test_history = test_rollout.rollout(verbose=0, push_experience=False, render=False)
-    hst.record(reward_sum=test_history["reward_sum"], loss=agent_history["loss"], epsilon=agent.epsilon)
-    hst.print(average_last=100, templates={
-        "reward_sum": "{:.4f}", "loss": "{:.4f}", "epsilon": "{:.2%}"
-    }, return_carriege=True, prefix="Episode {:>4}".format(episode))
-    agent.meld_weights(mix_in_ratio=0.01)
-    if episode % 100 == 0:
-        print()
-
-visual.plot_history(hst, smoothing_window_size=100, skip_first=10)
+rollout.fit(episodes=1000, updates_per_episode=64, step_per_update=1, update_batch_size=32,
+            testing_rollout=test_rollout, plot_curves=True)
+test_rollout.render(repeats=10)

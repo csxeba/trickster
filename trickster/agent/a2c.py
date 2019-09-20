@@ -26,7 +26,10 @@ class Actor(RLAgentBase):
     def sample(self, state, reward, done):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.model.predict(preprocessed_state)[0]
-        action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
+        if self.learning:
+            action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
+        else:
+            action = np.squeeze(np.argmax(probabilities, axis=-1))
         self._push_step_to_direct_memory_if_learning(state, action, reward, done)
         return action
 

@@ -35,10 +35,11 @@ class PPOWorker(RLAgentBase):
     def sample(self, state, reward, done):
         preprocessed_state = self.preprocess(state)[None, ...]
         probabilities = self.actor.predict(preprocessed_state)[0]
-        action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
-
         if self.learning:
+            action = np.squeeze(np.random.choice(self.action_indices, p=probabilities, size=1))
             self.probabilities.append(probabilities)
+        else:
+            action = np.squeeze(np.argmax(probabilities, axis=-1))
 
         self._push_step_to_direct_memory_if_learning(state, action, reward, done)
 
@@ -57,15 +58,16 @@ class PPOWorker(RLAgentBase):
 
         returns = numeric.compute_gae(rewards, values[:-1], values[1:], dones, self.gamma, self.lmbda)
 
-        states, next_states, probabilities, actions, returns, values = self._filter_invalid_samples(
-            states, next_states, probabilities, actions, returns, values
-        )
+        memory = states, next_states, probabilities, actions, returns, values[1:], dones
+        memory = self._filter_invalid_samples(*memory)
+
+        lengths = set([len(array) for array in memory])
+        assert len(lengths) == 1
+
+        self.memory.remember(*memory)
 
         self._reset_direct_memory()
-
         self.probabilities = []
-
-        self.memory.remember(states, next_states, probabilities, actions, returns, values[:-1], dones)
 
 
 class PPO(RLAgentBase):
@@ -84,7 +86,8 @@ class PPO(RLAgentBase):
                  ratio_clip_epsilon=0.2,
                  target_kl_divergence=0.01,
                  state_preprocessor=None,
-                 copy_models=False):
+                 copy_models=False,
+                 training_epochs=10):
 
         super().__init__(action_space,
                          memory=None,
@@ -101,6 +104,7 @@ class PPO(RLAgentBase):
         self.target_kl = target_kl_divergence
         self.possible_actions_onehot = np.eye(len(self.action_space))
         self.action_indices = np.arange(len(self.action_space))
+        self.training_epochs = training_epochs
         self.probabilities = []
         self._actor_train_fn = self._make_actor_train_function()
         self.workers = []  # type: List[PPOWorker]
@@ -149,7 +153,7 @@ class PPO(RLAgentBase):
         new_probabilities = K.sum(action_onehot * new_pedictions, axis=1)
         new_log_prob = K.log(new_probabilities)
 
-        approximate_kld = K.mean(K.sum(K.log(old_predictions) - K.log(new_pedictions), axis=-1))
+        approximate_kld = K.mean(K.sum(K.log(old_predictions + 1e-7) - K.log(new_pedictions + 1e-7), axis=-1))
         min_adv = K.switch(advantages > 0, (1+self.ratio_clip)*advantages, (1-self.ratio_clip)*advantages)
         ratio = K.exp(new_log_prob - old_log_prob)
         utilities = -K.minimum(ratio*advantages, min_adv)
@@ -217,13 +221,13 @@ class PPO(RLAgentBase):
             history["values"].append(value.mean())
             history["advantages"].append(advantage.mean())
 
-    def fit(self, epochs=3, batch_size=32, fit_actor=True, fit_critic=True, reset_memory=True):
+    def fit(self, batch_size=32, fit_actor=True, fit_critic=True, reset_memory=True):
         history = defaultdict(list)
         if batch_size == -1:
             batch_size = self.memory_sampler.N
 
-        updates_per_epoch = self.memory_sampler.N // batch_size
-        num_updates = epochs * updates_per_epoch
+        updates_per_epoch = int(np.ceil(self.memory_sampler.N / batch_size))
+        num_updates = self.training_epochs * updates_per_epoch
         for update in range(1, num_updates+1):
             self.update_step(batch_size, fit_actor, fit_critic, history)
             if history["actor_kld"][-1] > self.target_kl:

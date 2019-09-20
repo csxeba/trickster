@@ -71,6 +71,7 @@ class Trajectory(RolloutBase):
         """
 
         logger = history.History("reward_sum", *self.agent.history_keys)
+        logger.print_header()
 
         for episode in range(1, episodes+1):
             for update in range(rollouts_per_update):
@@ -81,10 +82,14 @@ class Trajectory(RolloutBase):
 
             logger.push_buffer()
             logger.record(**agent_history)
-            logger.print(average_last=smoothing_window_size, return_carriege=True, prefix="Episode {}".format(episode))
+            logger.print(average_last=smoothing_window_size, return_carriege=True)
 
             if episode % smoothing_window_size == 0:
                 print()
+
+            if episode % (smoothing_window_size*10) == 0:
+                print()
+                logger.print_header()
 
         if plot_curves:
             visual.plot_history(logger, smoothing_window_size, skip_first=0, show=True)

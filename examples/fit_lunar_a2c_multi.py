@@ -16,7 +16,7 @@ agent = A2C(actor,
             critic,
             action_space=num_actions,
             discount_factor_gamma=0.99,
-            entropy_penalty_coef=0.05)
+            entropy_penalty_coef=0.01)
 
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, test_env)
