@@ -101,7 +101,7 @@ class Rolling(RolloutBase):
         return done
 
     def fit(self, episodes, updates_per_episode=32, step_per_update=32, update_batch_size=-1,
-            testing_rollout: Trajectory=None, plot_curves=True):
+            testing_rollout: Trajectory=None, plot_curves=True, render_every=0):
 
         """
         Orchestrates a basic learning scheme.
@@ -121,4 +121,4 @@ class Rolling(RolloutBase):
         """
 
         training_ops.fit(self, episodes, updates_per_episode, step_per_update, update_batch_size,
-                         testing_rollout, plot_curves)
+                         testing_rollout, plot_curves, render_every)

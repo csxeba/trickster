@@ -11,7 +11,7 @@ class TD3(DDPG):
 
     """Twin Delayed Deep Deterministic Policy Gradient"""
 
-    history_keys = ["actor_loss", "actor_preds", "Qs", "critic1_loss", "critic2_loss", "critic_diff"]
+    history_keys = ["actor_loss", "actor_preds", "Qs", "critic1_loss", "critic2_loss", "critic_diff", "sigma"]
 
     def __init__(self,
                  actor: keras.Model,

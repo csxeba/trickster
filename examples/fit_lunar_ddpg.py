@@ -4,7 +4,7 @@ from trickster.utility import spaces, gymic
 from trickster.experience import Experience
 from trickster.model import mlp
 
-env = gymic.rwd_scaled_env("LunarLanderContinuous-v2", reward_scale=0.01)
+env = gymic.rwd_scaled_env("LunarLanderContinuous-v2")
 
 input_shape = env.observation_space.shape
 num_actions = env.action_space.shape[0]

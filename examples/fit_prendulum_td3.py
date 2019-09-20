@@ -1,10 +1,10 @@
 from trickster.agent import TD3
 from trickster.model import mlp
-from trickster.rollout import Rolling, Trajectory
+from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.utility import gymic
 
-env = gymic.rwd_scaled_env("Pendulum-v0", reward_scale=0.0006)
-test_env = gymic.rwd_scaled_env("Pendulum-v0", reward_scale=0.0006)
+env = gymic.rwd_scaled_env("Pendulum-v0", reward_scale=1.)
+test_env = gymic.rwd_scaled_env("Pendulum-v0", reward_scale=1.)
 
 actor, critic = mlp.wide_ddpg_actor_critic(env.observation_space.shape, env.action_space.shape[0],
                                            action_range=(-2, 2), num_critics=2, actor_lr=1e-4, critic_lr=1e-4)
@@ -16,9 +16,8 @@ agent = TD3(actor, critic, env.action_space,
             target_noise_sigma=0.2,
             target_noise_clip=0.5)
 
-rollout = Rolling(agent, env)
-test_rollout = Trajectory(agent, env)
-rollout.roll(steps=1024, push_experience=True)
+rollout = Rolling(agent, env, RolloutConfig(100))
+test_rollout = Trajectory(agent, env, RolloutConfig(100))
 
-rollout.fit(episodes=500, updates_per_episode=32, step_per_update=1, update_batch_size=32, testing_rollout=test_rollout)
-test_rollout.render(repeats=10)
+rollout.fit(episodes=500, updates_per_episode=100, step_per_update=1, update_batch_size=128,
+            testing_rollout=test_rollout, plot_curves=True, render_every=100)
