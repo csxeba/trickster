@@ -1,28 +1,28 @@
 from trickster.agent import PPO
-from trickster.rollout import MultiRolling, Trajectory
+from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.utility import gymic
 from trickster.model import mlp
 
-envs = [gymic.rwd_scaled_env("LunarLander-v2") for _ in range(32)]
-test_env = gymic.rwd_scaled_env("LunarLander-v2")
+NUM_ENVS = 32
 
+envs = [gymic.rwd_scaled_env("LunarLander-v2", reward_scale=1) for _ in range(NUM_ENVS)]
+test_env = gymic.rwd_scaled_env("LunarLander-v2", reward_scale=1)
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 
-actor = mlp.wide_mlp_actor_categorical(input_shape, num_actions, adam_lr=1e-4)
-critic = mlp.wide_mlp_critic_network(input_shape, output_dim=1, adam_lr=1e-4)
+actor, critic = mlp.wide_pg_actor_critic(input_shape, num_actions)
+
 agent = PPO(actor,
             critic,
             action_space=num_actions,
-            ratio_clip_epsilon=0.2,
+            ratio_clip_epsilon=0.3,
             training_epochs=10,
             discount_factor_gamma=0.99,
-            entropy_penalty_coef=1e-3)
+            entropy_penalty_coef=5e-3)
 
-rollout = MultiRolling(agent, envs)
-test_rollout = Trajectory(agent, test_env)
+rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=200))
+test_rollout = Trajectory(agent, test_env, config=RolloutConfig(max_steps=200))
 
-rollout.fit(episodes=1000, updates_per_episode=16, steps_per_update=1, update_batch_size=64,
+rollout.fit(episodes=1000, updates_per_episode=25, steps_per_update=8, update_batch_size=32,
             testing_rollout=test_rollout, plot_curves=True)
-
-test_rollout.render(repeats=10)
+test_rollout.render(100)
