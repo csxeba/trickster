@@ -8,7 +8,7 @@ env = gym.make("Pendulum-v0")
 test_env = gym.make("Pendulum-v0")
 
 actor, critic = mlp.wide_ddpg_actor_critic(env.observation_space.shape, env.action_space.shape[0],
-                                           action_range=(-2, 2), num_critics=2, actor_lr=1e-3, critic_lr=1e-3)
+                                           action_range=(-2, 2), num_critics=2, actor_lr=1e-4, critic_lr=1e-4)
 
 agent = TD3(actor, critic, env.action_space,
             action_noise_sigma=0.1,

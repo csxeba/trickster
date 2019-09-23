@@ -42,19 +42,17 @@ class TD3(DDPG):
         self.actor_update_delay = actor_update_delay
         self.update_counter = 1
 
-    def _add_noise(self, x):
-        K = keras.backend
-        # shape = tf.shape(x)
-        noise = K.random_normal(shape=K.shape(x), mean=0., stddev=1.)
+    def _add_target_noise(self, x):
+        noise = np.random.randn(*x.shape)
         noise = noise * self.target_noise_sigma
-        noise = K.clip(noise, -self.target_noise_clip, self.target_noise_clip)
-        return K.clip(x + noise, -self.action_minima, self.action_maxima)
+        noise = np.clip(noise, -self.target_noise_clip, self.target_noise_clip)
+        return np.clip(x + noise, -self.action_minima, self.action_maxima)
 
     def _build_model_combination(self):
         input_tensor = keras.Input(self.actor.input_shape[-1:])
         actor_out = self.actor(input_tensor)
-        noisy = keras.layers.Lambda(self._add_noise)(actor_out)
-        critic_out = self.critic([input_tensor, noisy])
+        # noisy = keras.layers.Lambda(self._add_noise)(actor_out)
+        critic_out = self.critic([input_tensor, actor_out])
         self._combo_model = keras.Model(input_tensor, critic_out)
         self.critic.trainable = False
         self._combo_model.compile(self.actor.optimizer.from_config(self.actor.optimizer.get_config()),
@@ -82,6 +80,7 @@ class TD3(DDPG):
             data = self.memory_sampler.sample(batch_size)
         S, S_, A, R, F = data
         A_ = self.actor_target.predict(S_)
+        A_ = self._add_target_noise(A_)
         target_Qs = self.critic_target.predict([S_, A_])[..., 0]
         dupe_target_Qs = self.critic_dupe_target.predict([S_, A_])[..., 0]
         critic_diffs = np.abs(target_Qs - dupe_target_Qs)
