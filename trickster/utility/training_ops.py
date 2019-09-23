@@ -27,12 +27,12 @@ def fit(rolling, episodes, updates_per_episode=32, steps_per_update=32, update_b
         if episode % 10 == 0:
             print()
 
+        if render_every and testing_rollout is not None and episode % render_every == 0:
+            testing_rollout.render(repeats=10)
+
         if episode % 100 == 0:
             print()
             logger.print_header()
-
-        if render_every and testing_rollout is not None and episode % render_every == 0:
-            testing_rollout.render(repeats=10)
 
     if plot_curves:
         visual.plot_history(logger, smoothing_window_size=10)

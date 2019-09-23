@@ -1,20 +1,20 @@
-from keras.models import Model, model_from_json
+import keras
 
 
-def copy_model(model: Model, rename_to=None, copy_weights=True):
+def copy_model(model: keras.Model, rename_to=None, copy_weights=True):
     arch = model.to_json()
     if rename_to is not None:
         import json
         arch_json = json.loads(arch)
         arch_json["config"]["name"] = rename_to
         arch = json.dumps(arch_json)
-    new_model = model_from_json(arch)
+    new_model = keras.models.model_from_json(arch)
     if copy_weights:
         new_model.set_weights(model.get_weights())
     return new_model
 
 
-def meld_weights(target_model: Model, online_model: Model, mix_in_ratio: float):
+def meld_weights(target_model: keras.Model, online_model: keras.Model, mix_in_ratio: float):
     W = []
     mix_in_inverse = 1. - mix_in_ratio
     d = 0.
@@ -25,3 +25,7 @@ def meld_weights(target_model: Model, online_model: Model, mix_in_ratio: float):
     target_model.set_weights(W)
     # online_model.set_weights(W)
     return d
+
+
+def clip(x, min_value, max_value):
+    return keras.layers.Lambda(lambda xx: keras.backend.clip(xx, min_value, max_value))(x)

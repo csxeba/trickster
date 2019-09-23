@@ -8,20 +8,21 @@ cfg = MatchConfig(canvas_size=(100, 100), players_per_side=2,
                   learning_type=MatchConfig.LEARNING_TYPE_SINGLE_AGENT,
                   observation_type=MatchConfig.OBSERVATION_TYPE_VECTOR)
 
-envs = [Match(cfg) for _ in range(8)]
+envs = [Match(cfg) for _ in range(32)]
 test_env = Match(cfg)
 
 actor, critic = mlp.wide_pg_actor_critic(envs[0].observation_space.shape,
                                          envs[0].action_space.n,
-                                         actor_lr=1e-2,
-                                         critic_lr=1e-2)
+                                         actor_lr=1e-4,
+                                         critic_lr=1e-4)
 
-agent = A2C(actor, critic, test_env.action_space, entropy_penalty_coef=1e-3)
+agent = A2C(actor, critic, test_env.action_space, entropy_penalty_coef=5e-3)
 
 rcfg = RolloutConfig(max_steps=512, skipframes=2)
 
 training_rollout = MultiRolling(agent, envs, rcfg)
 testing_rollout = Trajectory(agent, test_env, rcfg)
 
-training_rollout.fit(episodes=100, updates_per_episode=256, steps_per_update=1, testing_rollout=testing_rollout)
-testing_rollout.render(repeats=5)
+training_rollout.fit(episodes=1000, updates_per_episode=256, steps_per_update=1, testing_rollout=testing_rollout,
+                     render_every=100)
+testing_rollout.render(repeats=50)

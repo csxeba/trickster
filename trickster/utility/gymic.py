@@ -30,5 +30,5 @@ def gym_env(env_id, observation_callback=None, reward_callback=None, action_call
     return env
 
 
-def rwd_scaled_env(env="CartPole-v1", reward_scale=0.01):
+def rwd_scaled_env(env="CartPole-v1", reward_scale=1.):
     return gym_env(env, reward_callback=lambda r: r * reward_scale)
