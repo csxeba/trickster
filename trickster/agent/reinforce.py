@@ -5,7 +5,7 @@ from keras.utils import to_categorical
 
 from ..abstract import RLAgentBase
 from ..experience import Experience
-from ..utility.numeric import discount_reward
+from ..utility.numeric import discount
 from ..utility import symbolic
 
 
@@ -41,7 +41,7 @@ class REINFORCE(RLAgentBase):
         S_ = np.array(self.states[1:] + [state])
         A = np.array(self.actions)
         R = np.array(self.rewards[1:] + [reward])
-        R = discount_reward(R, self.gamma)
+        R = discount(R, self.gamma)
         F = np.array(self.dones[1:] + [done])
 
         self._reset_direct_memory()

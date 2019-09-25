@@ -8,6 +8,7 @@ from ..utility import kerasic, symbolic
 class SAC(RLAgentBase):
 
     """Soft Actor-Critic"""
+    """Under construction"""
 
     history_keys = ["actor_loss", "actor_preds", "Qs", "critic_loss"]
 
@@ -44,8 +45,7 @@ class SAC(RLAgentBase):
         self._combo_model = None  # type: keras.Model
 
     def _actor_entropy(self):
-
-
+        return ...
 
     def fit_critics(self, batch):
         S, S_, _, R, F = batch
@@ -55,4 +55,4 @@ class SAC(RLAgentBase):
         q1_target = self.q_net1.predict(S_, A)
         q2_target = self.q_net2.predict(S_, A)
 
-        q_target = np.minimum(q1_target, q2_target) - self.entropy_alpha *
+        q_target = np.minimum(q1_target, q2_target) + self.entropy_alpha * self._actor_entropy()

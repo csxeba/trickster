@@ -139,9 +139,9 @@ class PPO(RLAgentBase):
         return self.workers
 
     def _make_actor_train_function(self):
-        advantages = K.placeholder(shape=(None,))
-        action_onehot = K.placeholder(shape=(None, len(self.action_space)))
-        old_predictions = K.placeholder(shape=(None, len(self.action_space)))
+        advantages = K.placeholder(shape=(None,), name="Advantage")
+        action_onehot = K.placeholder(shape=(None, len(self.action_space)), name="Action_onehot")
+        old_predictions = K.placeholder(shape=(None, len(self.action_space)), name="Old_predictions")
 
         advantages = advantages - K.mean(advantages)
         advantages = advantages / K.std(advantages)
@@ -149,23 +149,26 @@ class PPO(RLAgentBase):
         old_probabilities = K.sum(action_onehot * old_predictions, axis=1)
         old_log_prob = K.log(old_probabilities)
 
+        old_log_prob = K.stop_gradient(old_log_prob)
+        advantages = K.stop_gradient(advantages)
+
         new_pedictions = self.actor_learner.output
         new_probabilities = K.sum(action_onehot * new_pedictions, axis=1)
         new_log_prob = K.log(new_probabilities)
+        entropy = -K.mean(new_log_prob)
 
-        approximate_kld = K.mean(K.sum(K.log(old_predictions + 1e-7) - K.log(new_pedictions + 1e-7), axis=-1))
+        kld = K.mean(old_probabilities * (old_log_prob - new_log_prob))
         min_adv = K.switch(advantages > 0, (1+self.ratio_clip)*advantages, (1-self.ratio_clip)*advantages)
         ratio = K.exp(new_log_prob - old_log_prob)
         utilities = -K.minimum(ratio*advantages, min_adv)
         utility = K.mean(utilities)
         utility_stdev = K.std(utilities)
 
-        neg_entropy = K.mean(new_log_prob)
-        loss = neg_entropy * self.entropy_penalty_coef + utility
+        loss = -entropy * self.entropy_penalty_coef + utility
         updates = self.actor_learner.optimizer.get_updates(loss, self.actor_learner.weights)
 
         return K.function(inputs=[self.actor_learner.input, old_predictions, advantages, action_onehot],
-                          outputs=[utility, utility_stdev, -neg_entropy, approximate_kld, loss],
+                          outputs=[utility, utility_stdev, entropy, kld, loss],
                           updates=updates)
 
     def sample(self, state, reward, done):
@@ -197,13 +200,18 @@ class PPO(RLAgentBase):
         return critic_loss
 
     def update_actor(self, batch_size):
+        """ Keras pain
+
+        return K.function(inputs=[self.actor_learner.input, old_predictions, advantages, action_onehot],
+                  outputs=[utility, utility_stdev, entropy, approximate_kld, loss],
+                  updates=updates)
+        """
         state, state_next, probability, action, returns, values, dones = self.memory_sampler.sample(batch_size)
         state = self.preprocess(state)
         action_onehot = self.possible_actions_onehot[action]
         advantage = returns - values
-        return list(self._actor_train_fn(
-            [state, probability, advantage, action_onehot]
-        )) + [values.mean()] + [advantage.mean()]
+        logs = list(self._actor_train_fn([state, probability, advantage, action_onehot]))
+        return logs + [values.mean()] + [advantage.mean()]
 
     def update_step(self, batch_size, fit_actor=True, fit_critic=True, history=None):
         if history is None:
