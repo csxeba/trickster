@@ -116,7 +116,7 @@ agent = DDPG(actor, critic,
 rollout = MultiRolling(agent, envs)
 test_rollout = Trajectory(agent, test_env, RolloutConfig(max_steps=128))
 
-rollout.fit(episodes=10000, updates_per_episode=4z6vgbhn    , steps_per_update=4, update_batch_size=64,
+rollout.fit(episodes=10000, updates_per_episode=4, steps_per_update=4, update_batch_size=64,
             testing_rollout=test_rollout, render_every=100)
 
 test_rollout.render(repeats=100)
