@@ -29,7 +29,7 @@ class DDPG(RLAgentBase):
         self._build_model_combination()
 
     def _build_model_combination(self):
-        input_tensor = keras.Input(self.actor.input_shape[-1:])
+        input_tensor = keras.Input(self.actor.input_shape[1:])
         actor_out = self.actor(input_tensor)
         critic_out = self.critic([input_tensor, actor_out])
         self._combo_model = keras.Model(input_tensor, critic_out)

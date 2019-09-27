@@ -22,6 +22,8 @@ class RLAgentBase:
             action_space = np.arange(action_space.n)
         elif hasattr(action_space, "shape"):
             action_space = spaces.CONTINUOUS
+        elif action_space == spaces.CONTINUOUS:
+            pass
         else:
             assert False
 
