@@ -13,11 +13,11 @@ agent = PPO(actor,
             critic,
             action_space=envs[0].action_space,
             discount_factor_gamma=0.98,
-            entropy_penalty_coef=0.05)
+            ratio_clip_epsilon=0.3)
 
 rollout = MultiRolling(agent, envs)
 test_rollout = Trajectory(agent, gymic.rwd_scaled_env("CartPole-v1"))
 
-rollout.fit(episodes=1000, updates_per_episode=16, steps_per_update=1, update_batch_size=32,
-            testing_rollout=test_rollout, plot_curves=True)
-test_rollout.render(repeats=10)
+rollout.fit(episodes=1000, updates_per_episode=16, steps_per_update=32, update_batch_size=64,
+            testing_rollout=test_rollout, plot_curves=True, render_every=100)
+test_rollout.render(repeats=100)

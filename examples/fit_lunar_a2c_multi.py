@@ -21,6 +21,6 @@ agent = A2C(actor,
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=200))
 test_rollout = Trajectory(agent, test_env, config=RolloutConfig(max_steps=200))
 
-rollout.fit(episodes=500, updates_per_episode=200, steps_per_update=1, update_batch_size=-1,
-            testing_rollout=test_rollout, plot_curves=True)
+rollout.fit(episodes=1000, updates_per_episode=200, steps_per_update=1, update_batch_size=-1,
+            testing_rollout=test_rollout, plot_curves=True, render_every=100)
 test_rollout.render(100)

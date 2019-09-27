@@ -4,7 +4,6 @@ from . import history, visual
 def fit(rolling, episodes, updates_per_episode=32, steps_per_update=32, update_batch_size=-1,
         testing_rollout=None, plot_curves=True, render_every=0):
 
-    episode_w = len(str(episodes))
     logger = history.History("reward_sum", *rolling.agent.history_keys)
     logger.print_header()
     for episode in range(1, episodes + 1):
@@ -28,7 +27,7 @@ def fit(rolling, episodes, updates_per_episode=32, steps_per_update=32, update_b
             print()
 
         if render_every and testing_rollout is not None and episode % render_every == 0:
-            testing_rollout.render(repeats=10)
+            testing_rollout.render(repeats=5)
 
         if episode % 100 == 0:
             print()

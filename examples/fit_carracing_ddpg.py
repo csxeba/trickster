@@ -1,15 +1,51 @@
+import keras
+import gym
+
 from trickster.agent import DDPG
 from trickster.rollout import Trajectory, Rolling, RolloutConfig
-from trickster.utility import spaces, gymic
 from trickster.experience import Experience
 from trickster.model import cnn
 
-env = gymic.rwd_scaled_env("LunarLanderContinuous-v2")
 
-input_shape = env.observation_space.shape
+def _activate(_x, activation="leakyrelu", batch_normalize=True):
+    if batch_normalize:
+        _x = keras.layers.BatchNormalization()(_x)
+    if activation == "leakyrelu":
+        _x = keras.layers.LeakyReLU()(_x)
+    else:
+        _x = keras.layers.Activation(activation)(_x)
+    return _x
+
+
+def _conv(_x, width, stride=1, activation="leakyrelu", batch_normalize=True):
+    _x = keras.layers.Conv2D(width, kernel_size=3, strides=stride, padding="same")(_x)
+
+
+def _dense(_x, width, activation="leakyrelu", batch_normalize=True):
+    _x = keras.layers.Dense(width)(_x)
+    if batch_normalize:
+        _x = keras.layers.BatchNormalization()(_x)
+    if activation == "leakyrelu":
+        _x = keras.layers.LeakyReLU()(_x)
+    else:
+        _x = keras.layers.Activation(activation)(_x)
+    return _x
+
+
+env = gym.make("CarRacing-v0")
+
+input_shape = env.observation_space.shape  # 96 96 3
 num_actions = env.action_space.shape[0]
 
-actor, critic = cnn.cnn_ddpg_actor_critic(input_shape, output_dim=num_actions, clip_range=2)
+state_in = keras.Input(input_shape)
+action_in = keras.Input([num_actions])
+
+x = _conv(state_in, width=8, stride=2)  # 48
+x = _conv(x, width=16, stride=2)  # 24
+x = _conv(x, width=32, stride=2)  # 12
+features = keras.layers.GlobalAveragePooling2D()(x)  # 32
+
+actor_stream = keras.layers.Dense()
 
 agent = DDPG(actor, critic,
              action_space=spaces.CONTINUOUS,

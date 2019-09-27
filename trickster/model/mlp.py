@@ -9,90 +9,90 @@ import keras
 K = keras.backend
 
 
-def _wide_mlp_layers(input_shape, output_dim, activation="linear"):
-    return [keras.layers.Dense(400, kernel_initializer="he_normal", input_shape=input_shape),
-            keras.layers.LeakyReLU(),
-            keras.layers.Dense(300, kernel_initializer="he_normal"),
-            keras.layers.LeakyReLU(),
-            keras.layers.Dense(output_dim, activation=activation)]
+def _dense(x, units, activation, batch_norm):
+    activation_layer = {"leakyrelu": keras.layers.LeakyReLU}.get(
+        activation,
+        lambda: keras.layers.Activation(activation))
+    x = keras.layers.Dense(units)(x)
+    if batch_norm:
+        x = keras.layers.BatchNormalization()(x)
+    x = activation_layer()(x)
+    return x
 
 
-def _wide_ddgp_critic(input_shape, output_dim, adam_lr, critic_id=None):
-    if critic_id is None:
-        critic_id = "DDPG_critic"
-    state_input = keras.Input(input_shape, name=critic_id+"_state_in")
-    action_input = keras.Input([output_dim], name=critic_id+"_action_in")
-    x = keras.layers.concatenate([state_input, action_input], name=critic_id+"_cct")
-    x = keras.layers.Dense(400, name=critic_id+"_dense1")(x)
-    x = keras.layers.LeakyReLU(name=critic_id+"_relu1")(x)
-    x = keras.layers.Dense(300, name=critic_id+"_dense2")(x)
-    x = keras.layers.LeakyReLU(name=critic_id+"_relu2")(x)
-    q = keras.layers.Dense(1, activation="linear", name=critic_id+"_q")(x)
-    critic = keras.Model([state_input, action_input], q, name="critic_id")
+def _wide_mlp_layers(inputs, output_dim, output_activation, batch_norm):
+    x = _dense(inputs, 400, "leakyrelu", batch_norm)
+    x = _dense(x, 300, "leakyrelu", batch_norm)
+    x = _dense(x, output_dim, output_activation, batch_norm=False)
+    return x
+
+
+def _wide_ddgp_critic(input_shape, output_dim, adam_lr, batch_norm):
+    state_input = keras.Input(input_shape)
+    action_input = keras.Input([output_dim])
+    x = keras.layers.concatenate([state_input, action_input])
+    q = _wide_mlp_layers(inputs=x, output_dim=output_dim, output_activation="linear", batch_norm=batch_norm)
+    critic = keras.Model([state_input, action_input], q)
     critic.compile(keras.optimizers.Adam(adam_lr), loss="mse")
     return critic
 
 
-def wide_mlp_actor_categorical(input_shape, output_dim, adam_lr=1e-3):
-    model = keras.Sequential(_wide_mlp_layers(input_shape, output_dim) + [keras.layers.Softmax()])
-    model.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="categorical_crossentropy")
-    return model
+def wide_mlp_actor_categorical(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
+    state_input = keras.Input(input_shape)
+    actions = _wide_mlp_layers(state_input, output_dim, output_activation="softmax", batch_norm=batch_norm)
+    actor = keras.Model(state_input, actions)
+    actor.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="categorical_crossentropy")
+    return actor
 
 
-def wide_mlp_actor_continuous(input_shape, output_dim, adam_lr=1e-3, activation="linear", action_range=None):
-    additional_layers = []
+def wide_mlp_actor_continuous(input_shape, output_dim, adam_lr=1e-3, activation="linear", action_range=None,
+                              batch_norm=False):
     if not isinstance(action_range, tuple):
         action_range = (-action_range, action_range)
+    state_input = keras.Input(input_shape)
+    action = _wide_mlp_layers(state_input, output_dim, output_activation=activation, batch_norm=batch_norm)
     if action_range is not None:
-        additional_layers.append(keras.layers.Lambda(lambda x: K.clip(x, action_range[0], action_range[1])))
-    model = keras.Sequential(_wide_mlp_layers(input_shape, output_dim, activation) + additional_layers)
+        action = keras.layers.Lambda(lambda x: K.clip(x, action_range[0], action_range[1]))(action)
+    model = keras.Model(state_input, action)
     model.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="mse")
     return model
 
 
-def wide_mlp_critic_network(input_shape, output_dim, adam_lr=1e-3):
-    model = keras.Sequential(_wide_mlp_layers(input_shape, output_dim))
+def wide_mlp_critic_network(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
+    state_input = keras.Input(input_shape)
+    output = _wide_mlp_layers(state_input, output_dim, output_activation="linear", batch_norm=batch_norm)
+    model = keras.Model(state_input, output)
     model.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="mse")
     return model
 
 
-def wide_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4):
-    actor = wide_mlp_actor_categorical(input_shape, output_dim, actor_lr)
-    critic = wide_mlp_critic_network(input_shape, 1, critic_lr)
+def wide_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4, batch_norm=False):
+    actor = wide_mlp_actor_categorical(input_shape, output_dim, actor_lr, batch_norm)
+    critic = wide_mlp_critic_network(input_shape, 1, critic_lr, batch_norm)
     return actor, critic
 
 
 def wide_ddpg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4,
-                           actor_activation="linear", action_range=None, num_critics=1):
+                           actor_activation="linear", action_range=None, num_critics=1, batch_norm=False):
 
-    actor = wide_mlp_actor_continuous(input_shape, output_dim, actor_lr, actor_activation, action_range)
+    actor = wide_mlp_actor_continuous(input_shape, output_dim, actor_lr, actor_activation, action_range, batch_norm)
     critics = []
     critic = None
-    if num_critics == 1:
-        td3 = False
-    else:
-        td3 = True
     for i in range(1, num_critics+1):
-        if td3:
-            critic_id = "TD3_critic{}".format(i)
-        else:
-            critic_id = "DDPG_critic"
-        critic = _wide_ddgp_critic(input_shape, output_dim, critic_lr, critic_id=critic_id)
+        critic = _wide_ddgp_critic(input_shape, output_dim, critic_lr, batch_norm)
         critics.append(critic)
     if num_critics > 1:
         return actor, critics
     return actor, critic
 
 
-def wide_dueling_q_network(input_shape, output_dim, adam_lr=1e-3):
+def wide_dueling_q_network(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
     inputs = keras.Input(input_shape)
-    h1 = keras.layers.Dense(400)(inputs)
-    h1 = keras.layers.LeakyReLU()(h1)
-    h2 = keras.layers.Dense(300)(h1)
-    h2 = keras.layers.LeakyReLU()(h2)
+    h1 = _dense(inputs, 400, "leakyrelu", batch_norm)
+    h2 = _dense(h1, 300, "leakyrelu", batch_norm)
 
-    value = keras.layers.Dense(1, activation="linear")(h2)
-    advantage = keras.layers.Dense(output_dim, activation="linear")(h2)
+    value = _dense(h2, 1, activation="linear", batch_norm=False)
+    advantage = _dense(h2, output_dim, activation="linear", batch_norm=False)
 
     q = keras.layers.add([value, advantage])
 

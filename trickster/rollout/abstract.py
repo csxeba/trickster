@@ -7,14 +7,10 @@ class RolloutConfig:
 
     def __init__(self,
                  max_steps=None,
-                 skipframes=None,
-                 initial_reward=None,
-                 testing_rollout=False):
+                 initial_reward=None):
 
         self.max_steps = max_steps
-        self.skipframes = skipframes or 1
         self.initial_reward = initial_reward or 0.
-        self.testing_rollout = testing_rollout
 
 
 class RolloutBase:

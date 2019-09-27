@@ -7,12 +7,10 @@ from .dqn import DQN
 
 class DoubleDQN(DQN):
 
-    history_keys = ["loss", "Qs"]
-
     def __init__(self,
                  model: Model,
                  action_space,
-                 memory: Experience,
+                 memory: Experience=None,
                  discount_factor_gamma=0.99,
                  epsilon=0.99,
                  epsilon_decay=1.,

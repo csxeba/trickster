@@ -17,12 +17,11 @@ agent = PPO(actor,
             action_space=num_actions,
             ratio_clip_epsilon=0.3,
             training_epochs=10,
-            discount_factor_gamma=0.99,
-            entropy_penalty_coef=5e-3)
+            discount_factor_gamma=0.99)
 
 rollout = MultiRolling(agent, envs, rollout_configs=RolloutConfig(max_steps=200))
 test_rollout = Trajectory(agent, test_env, config=RolloutConfig(max_steps=200))
 
-rollout.fit(episodes=1000, updates_per_episode=25, steps_per_update=8, update_batch_size=32,
-            testing_rollout=test_rollout, plot_curves=True)
+rollout.fit(episodes=1000, updates_per_episode=1, steps_per_update=8, update_batch_size=32,
+            testing_rollout=test_rollout, plot_curves=True, render_every=100)
 test_rollout.render(100)

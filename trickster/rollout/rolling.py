@@ -38,8 +38,7 @@ class Rolling(RolloutBase):
             self._reset()
             while 1:
                 yield self.step
-                if self.step % self.cfg.skipframes == 0:
-                    self.action = self._sample_action()
+                self.action = self._sample_action()
                 if self._finished():
                     break
                 assert not self.done
