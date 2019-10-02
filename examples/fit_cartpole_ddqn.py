@@ -10,7 +10,7 @@ test_env = gymic.rwd_scaled_env("CartPole-v1")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-ann = mlp.wide_mlp_critic_network(input_shape, num_actions, adam_lr=1e-3)
+ann = mlp.wide_mlp_critic(input_shape, num_actions, adam_lr=1e-3)
 
 agent = DoubleDQN(ann,
                   action_space=env.action_space,

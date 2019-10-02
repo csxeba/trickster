@@ -1,8 +1,7 @@
 from typing import List
 
 import numpy as np
-from keras.models import Model
-from keras import backend as K
+import keras
 
 from ..abstract import RLAgentBase
 from ..experience import Experience, ExperienceSampler
@@ -12,7 +11,7 @@ from ..utility import kerasic
 class Actor(RLAgentBase):
 
     def __init__(self,
-                 model: Model,
+                 model: keras.Model,
                  action_space,
                  memory: Experience=None,
                  discount_factor_gamma=0.99,
@@ -43,8 +42,8 @@ class A2C(RLAgentBase):
                     "values", "advantages", "critic_loss"]
 
     def __init__(self,
-                 actor: Model,
-                 critic: Model,
+                 actor: keras.Model,
+                 critic: keras.Model,
                  action_space,
                  absolute_memory_limit=10000,
                  discount_factor_gamma=0.99,
@@ -99,23 +98,27 @@ class A2C(RLAgentBase):
         self.memory_sampler = None
 
     def _make_actor_train_function(self):
-        advantages = K.placeholder(shape=(None,))
-        softmaxes = self.actor_learner.output
-        actions = K.argmax(softmaxes, axis=-1)
-        action_masks = K.one_hot(actions, num_classes=len(self.action_space))
-        action_masks = K.stop_gradient(action_masks)
+        K = keras.backend
 
-        probabilities = K.sum(action_masks * softmaxes, axis=1)
+        advantages = K.placeholder(shape=(None,))
+        action_onehots = K.placeholder(shape=(None, len(self.action_space)))
+        softmaxes = self.actor_learner.output
+
+        advantages_n = advantages - K.mean(advantages)
+        advantages = advantages_n / K.std(advantages_n)
+        # advantages_n = K.stop_gradient(advantages_n)
+
+        probabilities = K.sum(action_onehots * softmaxes, axis=1)
         log_prob = K.log(probabilities)
         entropy = -K.mean(log_prob)
-        utilities = -log_prob * advantages
+        utilities = -log_prob * advantages_n
         utility = K.mean(utilities)
         utility_std = K.std(utilities)
 
         loss = -entropy * self.entropy_penalty_coef + utility
         updates = self.actor_learner.optimizer.get_updates(loss, self.actor_learner.weights)
 
-        return K.function(inputs=[self.actor_learner.input, advantages],
+        return K.function(inputs=[self.actor_learner.input, advantages, action_onehots],
                           outputs=[utility, utility_std, entropy, loss],
                           updates=updates)
 
@@ -146,6 +149,8 @@ class A2C(RLAgentBase):
         S_ = self.preprocess(S_)
         S = self.preprocess(S)
 
+        action_masks = keras.utils.to_categorical(A, num_classes=len(self.action_space))
+
         value_next = self.critic_learner.predict(S_)[..., 0]
         bellman_target = value_next * self.gamma + R
         bellman_target[F] = R[F]
@@ -154,7 +159,7 @@ class A2C(RLAgentBase):
         value = self.critic_learner.predict(S)[..., 0]
         advantage = bellman_target - value
 
-        utility, std, entropy, loss = self._actor_train_function([S, advantage])
+        utility, std, entropy, loss = self._actor_train_function([S, advantage, action_masks])
 
         if reset_memory:
             for worker in self.workers:

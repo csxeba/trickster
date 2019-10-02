@@ -46,7 +46,7 @@ class TD3(DDPG):
         noise = np.random.randn(*x.shape)
         noise = noise * self.target_noise_sigma
         noise = np.clip(noise, -self.target_noise_clip, self.target_noise_clip)
-        return np.clip(x + noise, -self.action_minima, self.action_maxima)
+        return np.clip(x + noise, self.action_minima, self.action_maxima)
 
     def _build_model_combination(self):
         input_tensor = keras.Input(self.actor.input_shape[-1:])

@@ -1,6 +1,6 @@
 import gym
 
-from trickster.agent import A2C
+from trickster.agent import SAC
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.model import mlp
 
@@ -11,7 +11,7 @@ num_actions = env.action_space.n
 
 actor, critic = mlp.wide_pg_actor_critic(input_shape, num_actions)
 
-agent = A2C(actor,
+agent = SAC(actor,
             critic,
             action_space=env.action_space,
             discount_factor_gamma=0.98,

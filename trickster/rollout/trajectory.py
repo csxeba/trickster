@@ -52,7 +52,8 @@ class Trajectory(RolloutBase):
             done = done or current_step >= self.cfg.max_steps
         return done
 
-    def fit(self, episodes, rollouts_per_update=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True):
+    def fit(self, episodes, rollouts_per_update=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True,
+            render_every=100):
 
         """
         Orchestrates a basic learning scheme.
@@ -90,6 +91,10 @@ class Trajectory(RolloutBase):
             if episode % (smoothing_window_size*10) == 0:
                 print()
                 logger.print_header()
+
+            if episode % render_every == 0:
+                print()
+                self.rollout(verbose=1, push_experience=False, render=True)
 
         if plot_curves:
             visual.plot_history(logger, smoothing_window_size, skip_first=0, show=True)

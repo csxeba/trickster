@@ -3,7 +3,7 @@ from trickster.rollout import MultiRolling, Trajectory
 from trickster.model import mlp
 from trickster.utility import gymic
 
-envs = [gymic.rwd_scaled_env("CartPole-v1") for _ in range(32)]
+envs = [gymic.rwd_scaled_env("CartPole-v1") for _ in range(8)]
 input_shape = envs[0].observation_space.shape
 num_actions = envs[0].action_space.n
 

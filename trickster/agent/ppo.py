@@ -143,8 +143,11 @@ class PPO(RLAgentBase):
         action_onehot = K.placeholder(shape=(None, len(self.action_space)), name="Action_onehot")
         old_predictions = K.placeholder(shape=(None, len(self.action_space)), name="Old_predictions")
 
-        advantages = advantages - K.mean(advantages)
-        advantages = advantages / K.std(advantages)
+        adv_mean = K.mean(advantages)
+        adv_std = K.std(advantages)
+
+        advantages = advantages - adv_mean
+        advantages = advantages / adv_std
 
         old_probabilities = K.sum(action_onehot * old_predictions, axis=1)
         old_log_prob = K.log(old_probabilities)

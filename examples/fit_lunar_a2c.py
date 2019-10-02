@@ -14,7 +14,8 @@ actor, critic = mlp.wide_pg_actor_critic(input_shape, num_actions, actor_lr=1e-4
 agent = A2C(actor,
             critic,
             action_space=num_actions,
-            discount_factor_gamma=0.99)
+            discount_factor_gamma=0.99,
+            entropy_penalty_coef=0.01)
 
 rollout = Rolling(agent, env, RolloutConfig(max_steps=200))
 test_rollout = Trajectory(agent, test_env)

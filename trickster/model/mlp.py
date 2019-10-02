@@ -5,7 +5,6 @@ Deep Reinforcement Learning.
 
 import keras
 
-
 K = keras.backend
 
 
@@ -31,10 +30,14 @@ def _wide_ddgp_critic(input_shape, output_dim, adam_lr, batch_norm):
     state_input = keras.Input(input_shape)
     action_input = keras.Input([output_dim])
     x = keras.layers.concatenate([state_input, action_input])
-    q = _wide_mlp_layers(inputs=x, output_dim=output_dim, output_activation="linear", batch_norm=batch_norm)
+    q = _wide_mlp_layers(inputs=x, output_dim=1, output_activation="linear", batch_norm=batch_norm)
     critic = keras.Model([state_input, action_input], q)
     critic.compile(keras.optimizers.Adam(adam_lr), loss="mse")
     return critic
+
+
+def _wide_categorical_action_critic(input_shape, action_dim):
+    ...
 
 
 def wide_mlp_actor_categorical(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
@@ -58,7 +61,7 @@ def wide_mlp_actor_continuous(input_shape, output_dim, adam_lr=1e-3, activation=
     return model
 
 
-def wide_mlp_critic_network(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
+def wide_mlp_critic(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
     state_input = keras.Input(input_shape)
     output = _wide_mlp_layers(state_input, output_dim, output_activation="linear", batch_norm=batch_norm)
     model = keras.Model(state_input, output)
@@ -68,7 +71,7 @@ def wide_mlp_critic_network(input_shape, output_dim, adam_lr=1e-3, batch_norm=Fa
 
 def wide_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4, batch_norm=False):
     actor = wide_mlp_actor_categorical(input_shape, output_dim, actor_lr, batch_norm)
-    critic = wide_mlp_critic_network(input_shape, 1, critic_lr, batch_norm)
+    critic = wide_mlp_critic(input_shape, 1, critic_lr, batch_norm)
     return actor, critic
 
 

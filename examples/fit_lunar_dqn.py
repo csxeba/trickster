@@ -9,7 +9,7 @@ test_env = gymic.rwd_scaled_env("LunarLander-v2")
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
 
-model = mlp.wide_mlp_critic_network(input_shape, num_actions, adam_lr=1e-3)
+model = mlp.wide_mlp_critic(input_shape, num_actions, adam_lr=1e-3)
 
 agent = DQN(model,
             action_space=env.action_space,

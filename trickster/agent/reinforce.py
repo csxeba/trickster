@@ -41,8 +41,9 @@ class REINFORCE(RLAgentBase):
         S_ = np.array(self.states[1:] + [state])
         A = np.array(self.actions)
         R = np.array(self.rewards[1:] + [reward])
-        R = discount(R, self.gamma)
         F = np.array(self.dones[1:] + [done])
+
+        R = discount(R, F, self.gamma)
 
         self._reset_direct_memory()
 
