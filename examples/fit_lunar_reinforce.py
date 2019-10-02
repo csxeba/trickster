@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 
 from trickster.agent import REINFORCE
 from trickster.rollout import Trajectory

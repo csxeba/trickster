@@ -1,7 +1,7 @@
 from typing import List
 
 import numpy as np
-import keras
+from tensorflow import keras
 
 from .ddpg import DDPG
 from ..utility import kerasic

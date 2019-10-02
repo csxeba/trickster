@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 import gym
 
 from trickster.agent import DDPG

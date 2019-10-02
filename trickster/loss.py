@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 
 
 def policy_gradient(action_advantages, action_log_probabilities):

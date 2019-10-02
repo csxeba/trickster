@@ -1,8 +1,8 @@
 import numpy as np
-import keras
+from tensorflow import keras
 
 from ..abstract import RLAgentBase
-from ..utility import kerasic, symbolic
+from ..utility from tensorflow import kerasic, symbolic
 
 
 class SAC(RLAgentBase):
@@ -21,11 +21,6 @@ class SAC(RLAgentBase):
                  memory=None,
                  discount_factor_gamma=0.99,
                  state_preprocessor=None,
-                 action_noise_sigma=2.,
-                 action_noise_sigma_decay=0.9999,
-                 min_action_noise_sigma=0.1,
-                 action_minima=-np.inf,
-                 action_maxima=np.inf,
                  entropy_weight_alpha=0.1,
                  polyak_rate=0.01):
 
@@ -35,14 +30,19 @@ class SAC(RLAgentBase):
         self.q_net1 = q_net1
         self.q_net2 = q_net2
         self.value_target = kerasic.copy_model(value_net)
-        self.action_noise_sigma = action_noise_sigma
-        self.action_noise_sigma_decay = action_noise_sigma_decay
-        self.min_action_noise_sigma = min_action_noise_sigma
-        self.action_minima = action_minima
-        self.action_maxima = action_maxima
         self.polyak_rate = polyak_rate
         self.entropy_alpha = entropy_weight_alpha
         self._combo_model = None  # type: keras.Model
+
+    def sample(self, state, reward, done):
+        state = self.preprocess(state)
+        probabilities = self.actor.predict(state[None, ...])[0]
+        if self.learning:
+            action = np.random.choice(self.action_space, p=probabilities)
+        else:
+            action = np.argmax(probabilities)
+
+        self._push_step_to_direct_memory_if_learning(state, action, reward, done)
 
     def _actor_entropy(self):
         return ...

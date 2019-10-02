@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 
 
 def entropy(action_onehots, action_log_probabilities):

@@ -1,5 +1,5 @@
 import numpy as np
-import keras
+from tensorflow import keras
 
 from ..abstract import RLAgentBase
 from ..utility import kerasic

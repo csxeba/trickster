@@ -1,8 +1,7 @@
 from typing import List
 
 import numpy as np
-from keras.models import Model
-from keras import backend as K
+from tensorflow import keras
 
 from ..abstract import RLAgentBase
 from ..experience import Experience, ExperienceSampler
@@ -12,7 +11,7 @@ from ..utility import kerasic
 class Actor(RLAgentBase):
 
     def __init__(self,
-                 model: Model,
+                 model: keras.Model,
                  action_space,
                  memory: Experience=None,
                  discount_factor_gamma=0.99,
@@ -43,8 +42,8 @@ class A2C(RLAgentBase):
                     "values", "advantages", "critic_loss"]
 
     def __init__(self,
-                 actor: Model,
-                 critic: Model,
+                 actor: keras.Model,
+                 critic: keras.Model,
                  action_space,
                  absolute_memory_limit=10000,
                  discount_factor_gamma=0.99,
@@ -99,6 +98,7 @@ class A2C(RLAgentBase):
         self.memory_sampler = None
 
     def _make_actor_train_function(self):
+        K = keras.backend
         advantages = K.placeholder(shape=(None,))
         softmaxes = self.actor_learner.output
         actions = K.argmax(softmaxes, axis=-1)
