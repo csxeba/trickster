@@ -1,5 +1,5 @@
 import numpy as np
-import keras
+from tensorflow import keras
 
 from ..utility import tensoric
 from ..rollout import Trajectory

@@ -1,6 +1,6 @@
-import keras
+from tensorflow import keras
 
-from ..utility import kerasic
+from ..utility from tensorflow import kerasic
 
 
 def _conv(x, width, ds=True, activate=True, batch_norm=True):
@@ -75,7 +75,7 @@ def cnn_policy_continuous(input_shape, output_dim,
 
 def cnn_critic(input_shape, output_dim, adam_lr=1e-4, batch_norm=False):
     model = _cnn(input_shape, output_dim, output_activation="linear", batch_norm=batch_norm)
-    model.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="categorical_crossentropy")
+    model.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="mse")
     return model
 
 
@@ -92,7 +92,7 @@ def _cnn_ddpg_critic(input_shape, action_dim, adam_lr=1e-4, batch_norm=False):
 
 
 def cnn_pg_actor_critic(input_shape, output_dim, actor_lr=1e-4, critic_lr=1e-4, batch_norm=False):
-    actor = cnn_policy_categorical(input_shape, output_dim, actor_lr, batch_norm)
+    actor = cnn_policy_categorical(input_shape, output_dim, adam_lr=actor_lr, batch_norm=batch_norm)
     critic = cnn_critic(input_shape, output_dim=1, adam_lr=critic_lr, batch_norm=batch_norm)
     return actor, critic
 

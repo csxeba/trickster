@@ -1,10 +1,10 @@
 from grund.match import MatchConfig, Match
 
-from trickster.agent import A2C
+from trickster.agent import PPO
 from trickster.rollout import MultiRolling, Trajectory, RolloutConfig
 from trickster.model import mlp
 
-NUM_ENVS = 16
+NUM_ENVS = 4
 
 cfg = MatchConfig(canvas_size=(128, 128), players_per_side=2,
                   learning_type=MatchConfig.LEARNING_TYPE_SINGLE_AGENT,
@@ -18,7 +18,7 @@ actor, critic = mlp.wide_pg_actor_critic(envs[0].observation_space.shape,
                                          actor_lr=1e-4,
                                          critic_lr=1e-4)
 
-agent = A2C(actor, critic, test_env.action_space, entropy_penalty_coef=1e-4)
+agent = PPO(actor, critic, test_env.action_space, entropy_penalty_coef=1e-4)
 
 rcfg = RolloutConfig(max_steps=256)
 

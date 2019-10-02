@@ -3,7 +3,7 @@ This module contains some basic MLP architectures, which are more-or-less standa
 Deep Reinforcement Learning.
 """
 
-import keras
+from tensorflow import keras
 
 K = keras.backend
 

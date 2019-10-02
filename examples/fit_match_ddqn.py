@@ -1,8 +1,14 @@
+from tensorflow import keras
 from grund.match import MatchConfig, Match
 
 from trickster.agent import DoubleDQN
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.model import mlp
+
+
+def ql2(y_true, y_pred):
+    return keras.backend.mean(keras.backend.square(y_pred), axis=-1)
+
 
 cfg = MatchConfig(canvas_size=(128, 128), players_per_side=2,
                   learning_type=MatchConfig.LEARNING_TYPE_SINGLE_AGENT,
@@ -13,6 +19,7 @@ env = Match(cfg)
 test_env = Match(cfg)
 
 ann = mlp.wide_dueling_q_network(env.observation_space.shape, env.action_space.n, adam_lr=1e-4, batch_norm=True)
+ann.add_loss(ql2)
 
 agent = DoubleDQN(ann,
                   env.action_space,

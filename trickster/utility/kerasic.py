@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 
 
 def copy_model(model: keras.Model, rename_to=None, copy_weights=True):

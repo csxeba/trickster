@@ -1,5 +1,5 @@
 import numpy as np
-from keras.models import Model
+from tensorflow import keras
 
 from ..abstract import RLAgentBase
 from ..experience import Experience
@@ -11,7 +11,7 @@ class DQN(RLAgentBase):
     history_keys = ["loss", "Qs", "epsilon"]
 
     def __init__(self,
-                 model: Model,
+                 model: keras.Model,
                  action_space,
                  memory: Experience=None,
                  discount_factor_gamma=0.99,
