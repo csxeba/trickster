@@ -1,6 +1,6 @@
 from typing import List
 
-from ..abstract import RLAgentBase
+from trickster.agent.abstract import RLAgentBase
 
 
 class RolloutConfig:

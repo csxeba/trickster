@@ -23,7 +23,6 @@ def meld_weights(target_model: keras.Model, online_model: keras.Model, mix_in_ra
         W.append(w)
         d += ((w - new) ** 2.).sum()
     target_model.set_weights(W)
-    # online_model.set_weights(W)
     return d
 
 

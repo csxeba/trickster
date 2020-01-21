@@ -1,5 +1,5 @@
 import numpy as np
-from keras.models import Model
+import tensorflow as tf
 
 from ..experience import Experience
 from .dqn import DQN
@@ -8,14 +8,14 @@ from .dqn import DQN
 class DoubleDQN(DQN):
 
     def __init__(self,
-                 model: Model,
+                 model: tf.keras.Model,
                  action_space,
                  memory: Experience=None,
                  discount_factor_gamma=0.99,
                  epsilon=0.99,
                  epsilon_decay=1.,
                  epsilon_min=0.1,
-                 state_preprocessor=None):
+                 polyak_factor=0.01):
 
         super().__init__(model=model,
                          action_space=action_space,
@@ -24,8 +24,8 @@ class DoubleDQN(DQN):
                          epsilon=epsilon,
                          epsilon_decay=epsilon_decay,
                          epsilon_min=epsilon_min,
-                         state_preprocessor=state_preprocessor,
-                         use_target_network=True)
+                         use_target_network=True,
+                         polyak_factor=polyak_factor)
 
     def fit(self, updates=1, batch_size=32, polyak_rate=0.1):
 

@@ -9,14 +9,19 @@ class TestExperienceSample(unittest.TestCase):
 
     def setUp(self):
         SIZE = 100
-        self.xp = Experience(max_length=SIZE)
+        self.xp = Experience(["state", "next_state", "done"], max_length=SIZE)
         self.sampler = ExperienceSampler(self.xp)
         self.states = np.arange(SIZE)
         self.final_state = SIZE
-        self.dones = np.zeros(SIZE)
+        self.dones = np.zeros(SIZE+1)
 
     def test_sampling_of_next_states(self):
-        self.xp.remember(self.states, dones=self.dones, final_state=self.final_state)
+        last_state = None
+        for state, done in zip(self.states, self.dones[:-1]):
+            if last_state is not None:
+                self.xp.store_transition(state=last_state, next_state=state, done=done)
+            last_state = state
+        self.xp.finalize_trajectory(state=self.final_state, done=self.dones[-1])
         states, next_states, dones = self.sampler.sample(10)
 
         diff = next_states - states
@@ -25,14 +30,14 @@ class TestExperienceSample(unittest.TestCase):
 
     def test_sampling_when_samples_are_fewer_than_sample_size(self):
         SAMPLE_SIZE = 200
-        self.xp.remember(self.states, dones=self.dones, final_state=self.final_state)
+        self.xp.store_trajectory(self.states, dones=self.dones, final_state=self.final_state)
         states, next_states, dones = self.sampler.sample(SAMPLE_SIZE)
 
         self.assertTrue(len(states) == len(self.states))
         self.assertTrue(len(next_states) == len(self.states))
 
     def test_last_state_doesnt_get_sampled(self):
-        self.xp.remember(self.states, dones=self.dones, final_state=self.final_state)
+        self.xp.store_trajectory(self.states, dones=self.dones, final_state=self.final_state)
         states, next_states, dones = self.sampler.sample(200)
 
         self.assertNotIn(self.final_state, states)
@@ -52,7 +57,7 @@ class TestMultiExperienceSetup(unittest.TestCase):
         for i, xp in enumerate(xps, start=0):
             aa = a+10*i
             bb = b+10*i
-            xp.remember(aa, bb, dones=dones, final_state=final)
+            xp.store_trajectory(aa, bb, dones=dones, final_state=final)
 
         self.sampler = ExperienceSampler(xps)
 

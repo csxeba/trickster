@@ -2,7 +2,7 @@ import numpy as np
 
 from .trajectory import Trajectory
 from .abstract import MultiRolloutBase
-from ..abstract import RLAgentBase
+from trickster.agent.abstract import RLAgentBase
 
 
 class MultiTrajectory(MultiRolloutBase):

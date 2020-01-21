@@ -4,7 +4,7 @@ import numpy as np
 from tensorflow import keras
 
 from .ddpg import DDPG
-from ..utility import kerasic
+from ..utility import keras_utils
 
 
 class TD3(DDPG):
@@ -32,7 +32,7 @@ class TD3(DDPG):
                  polyak_rate=0.01):
 
         self.critic_dupe = critics[1]
-        self.critic_dupe_target = kerasic.copy_model(self.critic_dupe)
+        self.critic_dupe_target = keras_utils.copy_model(self.critic_dupe)
         self.target_noise_sigma = target_noise_sigma
         self.target_noise_clip = target_noise_clip
 
@@ -136,7 +136,7 @@ class TD3(DDPG):
 
     def update_critic_target(self):
         super().update_critic_target()
-        kerasic.meld_weights(self.critic_dupe_target, self.critic_dupe, self.polyak_rate)
+        keras_utils.meld_weights(self.critic_dupe_target, self.critic_dupe, self.polyak_rate)
 
     def get_savables(self) -> dict:
         return {"TD3_actor": self.actor, "TD3_critic": self.critic, "TD3_critic2": self.critic_dupe}

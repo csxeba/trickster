@@ -1,6 +1,6 @@
-from ..abstract import RLAgentBase
+from trickster.agent.abstract import RLAgentBase
 from .abstract import RolloutBase, RolloutConfig
-from ..utility import history, visual
+from ..utility import history, visual, progress_utils
 
 
 class Trajectory(RolloutBase):
@@ -33,7 +33,7 @@ class Trajectory(RolloutBase):
             step += 1
             if render:
                 self.env.render()
-            action = self.worker.sample(state, reward, done)
+            action = self.worker.sample(state.astype("float32"), reward, done)
             state, reward, done, info = self.env.step(action)
             reward_sum += reward
             if verbose:
@@ -41,7 +41,7 @@ class Trajectory(RolloutBase):
         if verbose:
             print()
         if push_experience:
-            self.worker.push_experience(state, reward, done)
+            self.worker.memory.finalize_trajectory(state, reward, done)
         self.worker.set_learning_mode(False)
 
         return {"reward_sum": reward_sum, "steps": step}
@@ -52,54 +52,58 @@ class Trajectory(RolloutBase):
             done = done or current_step >= self.cfg.max_steps
         return done
 
-    def fit(self, episodes, rollouts_per_update=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True,
+    def fit(self, epochs, rollouts_per_epoch=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True,
             render_every=100):
 
         """
         Orchestrates a basic learning scheme.
-        :param episodes: int
-            How many episodes to learn for
-        :param rollouts_per_update: int
-            How many updates an episode consits of
+        :param epochs: int
+            The major unit of learning. Determines the frequency of metric logging.
+        :param rollouts_per_epoch: int
+            How many rollouts (or episodes) an epoch consits of.
         :param update_batch_size: int
-            If set to -1, the complete experience buffer will be used as a single batch
+            If set to -1, the complete experience buffer will be used in a single parameter update.
         :param smoothing_window_size: int
-            Used together with the argument <plot_curves>
+            Metric smoothing for console output readability. Defined in epochs.
         :param plot_curves: bool
-            Whether to plot the agent's metrics
+            Whether to plot the agent's metrics. smoothing_window_size will also be applied.
+        :param render_every: int
+            Frequency of rendering a trajectory. Defined in epochs.
         :return: History
             A History object aggregating the learning metrics
         """
 
-        logger = history.History("reward_sum", *self.agent.history_keys)
-        logger.print_header()
+        train_history = history.History("reward_sum", *self.agent.history_keys)
+        progress_logger = progress_utils.ProgressPrinter(keys=train_history.keys)
+        progress_logger.print_header()
 
-        for episode in range(1, episodes+1):
-            for update in range(rollouts_per_update):
+        for epoch in range(1, epochs+1):
+            for roll in range(rollouts_per_epoch):
                 rollout_history = self.rollout(verbose=0, push_experience=True)
-                logger.buffer(reward_sum=rollout_history["reward_sum"])
+                train_history.buffer(reward_sum=rollout_history["reward_sum"])
 
             agent_history = self.agent.fit(batch_size=update_batch_size)
 
-            logger.push_buffer()
-            logger.record(**agent_history)
-            logger.print(average_last=smoothing_window_size, return_carriege=True)
+            train_history.push_buffer()
+            train_history.append(**agent_history)
+            progress_logger.print(train_history, average_last=smoothing_window_size, return_carriege=True)
 
-            if episode % smoothing_window_size == 0:
+            if epoch % smoothing_window_size == 0:
                 print()
 
-            if episode % (smoothing_window_size*10) == 0:
+            if epoch % (smoothing_window_size*10) == 0:
                 print()
-                logger.print_header()
+                progress_logger.print_header()
 
-            if episode % render_every == 0:
-                print()
-                self.rollout(verbose=1, push_experience=False, render=True)
+            if render_every > 0:
+                if epoch % render_every == 0:
+                    print()
+                    self.render()
 
         if plot_curves:
-            visual.plot_history(logger, smoothing_window_size, skip_first=0, show=True)
+            visual.plot_history(train_history, smoothing_window_size, skip_first=0, show=True)
 
-        return logger
+        return train_history
 
     def render(self, repeats=1, verbose=1):
         for r in range(repeats):

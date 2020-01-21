@@ -42,7 +42,7 @@ def _wide_categorical_action_critic(input_shape, action_dim):
 
 def wide_mlp_actor_categorical(input_shape, output_dim, adam_lr=1e-3, batch_norm=False):
     state_input = keras.Input(input_shape)
-    actions = _wide_mlp_layers(state_input, output_dim, output_activation="softmax", batch_norm=batch_norm)
+    actions = _wide_mlp_layers(state_input, output_dim, output_activation="linear", batch_norm=batch_norm)
     actor = keras.Model(state_input, actions)
     actor.compile(optimizer=keras.optimizers.Adam(adam_lr), loss="categorical_crossentropy")
     return actor

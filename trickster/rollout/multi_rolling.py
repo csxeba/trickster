@@ -3,7 +3,7 @@ import numpy as np
 from .abstract import MultiRolloutBase
 from .rolling import Rolling
 from .trajectory import Trajectory
-from ..abstract import RLAgentBase
+from trickster.agent.abstract import RLAgentBase
 from ..utility import training_ops
 
 
@@ -18,7 +18,7 @@ class MultiRolling(MultiRolloutBase):
         rewards = np.empty(self.num_rollouts)
 
         for i, rolling in enumerate(self.rollouts):
-            roll_history = rolling.roll(steps, verbose=0, push_experience=push_experience)
+            roll_history = rolling.roll(steps, verbose=0, learning=push_experience)
             rewards[i] = roll_history["mean_reward"]
             if verbose:
                 print("Rolled in env #{}, got total reward of {:.4f}".format(i, rewards[i]))

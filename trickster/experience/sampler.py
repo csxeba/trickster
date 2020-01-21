@@ -1,5 +1,5 @@
 from typing import List, Union
-from .experience import Experience
+from .replay_buffer import Experience
 
 import numpy as np
 
@@ -10,6 +10,10 @@ class ExperienceSampler:
         if isinstance(memories, Experience):
             memories = [memories]
         self.memories = memories
+        self.keys = memories[0].keys
+        self.width = len(self.keys)
+        if any(memory.keys != self.keys for memory in memories):
+            raise ValueError("Keys differ in supplied memory buffers")
 
     def reset(self):
         for memory in self.memories:
@@ -21,12 +25,12 @@ class ExperienceSampler:
 
     def sample(self, size=32):
         if self.N == 0:
-            return [[]] * (self.width+1)
-        if size <= 0:
-            size = self.N
+            return [[]] * self.width
         valid_indices = self._get_valid_indices()
         num_valid = len(valid_indices)
         size = min(size, num_valid)
+        if size <= 0:
+            size = num_valid
         if size < num_valid:
             idx = valid_indices[np.random.randint(0, num_valid, size=size)]
         else:
@@ -51,7 +55,7 @@ class ExperienceSampler:
             valid_indices.extend([[i, j] for j in self.memories[i].get_valid_indices()])
         return np.array(valid_indices)
 
-    def _sample_data(self, indices: np.ndarray):
+    def _sample_data(self, indices: np.ndarray, as_dict=False):
         sample = [[] for _ in range(self.width)]
 
         for i, memory in enumerate(self.memories):
@@ -60,17 +64,11 @@ class ExperienceSampler:
             idx = indices[indices[:, 0] == i][:, 1]
             if len(idx) == 0:
                 continue
-            for j, tensor in enumerate(memory.memoirs):
+            for j, key in enumerate(self.keys):
+                tensor = memory.memoirs[key]
                 sample[j].append(tensor[idx])
 
         sample = [np.concatenate(s, axis=0) for s in sample]
+        if as_dict:
+            sample = dict(zip(self.keys, sample))
         return sample
-
-    @property
-    def width(self):
-        w = None
-        for m in self.memories:
-            w = m.width
-            if w > 0:
-                break
-        return w

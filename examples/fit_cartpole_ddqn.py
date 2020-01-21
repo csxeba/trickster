@@ -2,10 +2,10 @@ from trickster.agent import DoubleDQN
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
 from trickster.experience import Experience
 from trickster.model import mlp
-from trickster.utility import gymic
+from trickster.utility import gym_utils
 
-env = gymic.rwd_scaled_env("CartPole-v1")
-test_env = gymic.rwd_scaled_env("CartPole-v1")
+env = gym_utils.rwd_scaled_env("CartPole-v1")
+test_env = gym_utils.rwd_scaled_env("CartPole-v1")
 
 input_shape = env.observation_space.shape
 num_actions = env.action_space.n
@@ -24,6 +24,6 @@ agent = DoubleDQN(ann,
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
 test_rollout = Trajectory(agent, test_env)
 
-rollout.fit(episodes=500, updates_per_episode=32, step_per_update=2, update_batch_size=32,
+rollout.fit(epochs=500, updates_per_epoch=32, step_per_update=2, update_batch_size=32,
             testing_rollout=test_rollout, plot_curves=True)
 test_rollout.render(repeats=10)

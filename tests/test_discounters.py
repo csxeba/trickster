@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from matplotlib import pyplot as plt
 
-from trickster.utility import numeric
+from trickster.utility import advantage_utils
 
 
 class TestNumericDiscounters(unittest.TestCase):
@@ -24,14 +24,14 @@ class TestNumericDiscounters(unittest.TestCase):
 
     def test_discounting(self):
         GAMMA = 0.99
-        LAMBDA = 0.95
-        drwd = numeric.discount(self.rwds[1:], self.dones[1:], gamma=GAMMA)
-        gae = numeric.compute_gae(self.rwds[1:], self.values[:-1], self.values[1:], self.dones[1:], GAMMA, LAMBDA)
+        LAMBDA = 0.97
+        drwd = advantage_utils.discount(self.rwds[1:], self.dones[1:], gamma=GAMMA)
+        advantages = advantage_utils.compute_gae(self.rwds[1:], self.values[:-1], self.values[1:], self.dones[1:], GAMMA, LAMBDA)
+        gae_returns = advantages + self.values[:-1]
         plt.figure(figsize=(16, 9))
-        plt.plot(self.rwds[1:], "r-", label="Rewards")
-        plt.plot(drwd, "g-", label="DRwd")
-        plt.plot(gae, "b-", label="GAE")
-        plt.plot(gae2, "y-", label="GAE2")
+        plt.plot(self.rwds[1:], "r-", label="Rewards", alpha=0.7)
+        plt.plot(drwd, "g-", label="DRwd", alpha=0.7)
+        plt.plot(gae_returns, "b-", label="GAE", alpha=0.7)
         plt.xticks(np.arange(0, 100, step=10))
         plt.tight_layout()
         plt.grid()

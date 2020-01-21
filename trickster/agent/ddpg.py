@@ -1,8 +1,8 @@
 import numpy as np
 from tensorflow import keras
 
-from ..abstract import RLAgentBase
-from ..utility import kerasic
+from trickster.agent.abstract import RLAgentBase
+from ..utility import keras_utils
 
 
 class DDPG(RLAgentBase):
@@ -17,8 +17,8 @@ class DDPG(RLAgentBase):
         super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
         self.actor = actor
         self.critic = critic
-        self.actor_target = kerasic.copy_model(actor)
-        self.critic_target = kerasic.copy_model(critic)
+        self.actor_target = keras_utils.copy_model(actor)
+        self.critic_target = keras_utils.copy_model(critic)
         self.action_noise_sigma = action_noise_sigma
         self.action_noise_sigma_decay = action_noise_sigma_decay
         self.min_action_noise_sigma = min_action_noise_sigma
@@ -119,10 +119,10 @@ class DDPG(RLAgentBase):
         return result
 
     def update_critic_target(self):
-        return kerasic.meld_weights(self.critic_target, self.critic, self.polyak_rate)
+        return keras_utils.meld_weights(self.critic_target, self.critic, self.polyak_rate)
 
     def update_actor_target(self):
-        return kerasic.meld_weights(self.actor_target, self.actor, self.polyak_rate)
+        return keras_utils.meld_weights(self.actor_target, self.actor, self.polyak_rate)
 
     def update_targets(self):
         actor_d = self.update_actor_target()

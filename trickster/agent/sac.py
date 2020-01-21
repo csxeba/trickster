@@ -1,8 +1,8 @@
 import numpy as np
-import keras
+import tensorflow as tf
 
-from ..abstract import RLAgentBase
-from ..utility import kerasic
+from trickster.agent.abstract import RLAgentBase
+from ..utility import keras_utils
 
 
 class SAC(RLAgentBase):
@@ -13,10 +13,10 @@ class SAC(RLAgentBase):
     history_keys = ["q1_loss", "q2_loss", "v_loss", "v_dist", "actor_loss", "sigma"]
 
     def __init__(self,
-                 actor: keras.Model,
-                 value_net: keras.Model,
-                 q_net1: keras.Model,
-                 q_net2: keras.Model,
+                 actor: tf.keras.Model,
+                 value_net: tf.keras.Model,
+                 q_net1: tf.keras.Model,
+                 q_net2: tf.keras.Model,
                  action_space,
                  memory=None,
                  discount_factor_gamma=0.99,
@@ -34,7 +34,7 @@ class SAC(RLAgentBase):
         self.value_net = value_net
         self.q_net1 = q_net1
         self.q_net2 = q_net2
-        self.value_target = kerasic.copy_model(value_net)
+        self.value_target = keras_utils.copy_model(value_net)
         self.action_noise_sigma = action_noise_sigma
         self.action_noise_sigma_decay = action_noise_sigma_decay
         self.min_action_noise_sigma = min_action_noise_sigma
@@ -45,11 +45,11 @@ class SAC(RLAgentBase):
         self._combo_model = None
 
     def _build_model_combination(self):
-        input_tensor = keras.Input(self.actor.input_shape[-1:])
+        input_tensor = tf.keras.Input(self.actor.input_shape[-1:])
         actor_out = self.actor(input_tensor)
-        # noisy = keras.layers.Lambda(self._add_noise)(actor_out)
+        # noisy = tf.keras.layers.Lambda(self._add_noise)(actor_out)
         critic_out = self.q_net1([input_tensor, actor_out])
-        self._combo_model = keras.Model(input_tensor, critic_out)
+        self._combo_model = tf.keras.Model(input_tensor, critic_out)
         self.q_net1.trainable = False
         self._combo_model.compile(self.actor.optimizer.from_config(self.actor.optimizer.get_config()),
                                   loss=lambda _, y_pred: -y_pred)
@@ -96,7 +96,7 @@ class SAC(RLAgentBase):
         return actor_loss.mean()
 
     def update_value_target(self):
-        return kerasic.meld_weights(self.value_target, self.value_net, mix_in_ratio=self.polyak_rate)
+        return keras_utils.meld_weights(self.value_target, self.value_net, mix_in_ratio=self.polyak_rate)
 
     def fit(self, updates=1, batch_size=32):
         actor_losses = []
