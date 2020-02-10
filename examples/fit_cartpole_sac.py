@@ -20,6 +20,6 @@ agent = SAC(actor,
 rollout = Rolling(agent, env, config=RolloutConfig(max_steps=200))
 test_rollout = Trajectory(agent, test_env)
 
-rollout.fit(epochs=1000, updates_per_epoch=16, step_per_update=4, testing_rollout=test_rollout, plot_curves=True,
+rollout.fit(epochs=1000, updates_per_epoch=16, steps_per_update=4, testing_rollout=test_rollout, plot_curves=True,
             render_every=100)
 test_rollout.render(repeats=100)

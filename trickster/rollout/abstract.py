@@ -21,7 +21,7 @@ class RolloutBase:
         self.cfg = config or RolloutConfig()
 
     def reset_memory(self):
-        self.agent.memory.reset()
+        self.agent.transition_memory.reset()
 
 
 class MultiRolloutBase:

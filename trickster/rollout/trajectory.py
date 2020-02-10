@@ -28,20 +28,22 @@ class Trajectory(RolloutBase):
         reward = self.cfg.initial_reward
         done = False
         reward_sum = 0.
-        step = 0
-        while not self._finished(done, step):
-            step += 1
+        step = 1
+        while 1:
             if render:
                 self.env.render()
             action = self.worker.sample(state.astype("float32"), reward, done)
+            if self._finished(done, step):
+                break
             state, reward, done, info = self.env.step(action)
             reward_sum += reward
             if verbose:
                 print("\rStep: {} total reward: {:.4f}".format(step, reward_sum), end="")
+            step += 1
         if verbose:
             print()
-        if push_experience:
-            self.worker.memory.finalize_trajectory(state, reward, done)
+        if not done:
+            self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
 
         return {"reward_sum": reward_sum, "steps": step}
@@ -74,6 +76,8 @@ class Trajectory(RolloutBase):
         """
 
         train_history = history.History("reward_sum", *self.agent.history_keys)
+
+        print()
         progress_logger = progress_utils.ProgressPrinter(keys=train_history.keys)
         progress_logger.print_header()
 

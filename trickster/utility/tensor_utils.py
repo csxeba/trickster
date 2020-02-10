@@ -1,8 +1,8 @@
 import tensorflow as tf
 
 
-@tf.function
-def normalize(tensor):
+@tf.function(experimental_relax_shapes=True)
+def safe_normalize(tensor):
     tensor_mean = tf.reduce_mean(tensor)
     tensor_std = tf.math.reduce_std(tensor)
     tensor = tensor - tensor_mean

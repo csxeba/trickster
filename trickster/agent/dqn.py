@@ -1,96 +1,108 @@
+import gym
 import numpy as np
 import tensorflow as tf
 
-from .abstract import RLAgentBase
-from ..experience import Experience
-from ..utility import keras_utils, action_utils
+from .off_policy import OffPolicy
+from ..utility import model_utils, action_utils
+from ..model import arch
 
 
-class DQN(RLAgentBase):
+class DQN(OffPolicy):
 
     history_keys = ["loss", "Q", "epsilon"]
-    memory_keys = ["state", "state_next", "action", "reward", "done"]
 
     def __init__(self,
                  model: tf.keras.Model,
-                 action_space,
-                 memory: Experience=None,
-                 discount_factor_gamma=0.99,
-                 epsilon=0.99,
-                 epsilon_decay=1.,
-                 epsilon_min=0.1,
-                 polyak_factor=0.01,
-                 use_target_network=True):
+                 discount_gamma: float = 0.99,
+                 epsilon: float = 0.99,
+                 epsilon_decay: float = 1.,
+                 epsilon_min: float = 0.1,
+                 polyak_tau: float = 0.01,
+                 memory_buffer_size: int = 10000,
+                 target_network: tf.keras.Model = None):
 
-        if memory is None:
-            memory = Experience(self.memory_keys)
-        super().__init__(action_space, memory)
+        super().__init__(memory_buffer_size)
         self.model = model
         self.epsilon_greedy = action_utils.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
-        self.target_network = self.model
-        if use_target_network:
-            self.target_network = keras_utils.copy_model(self.model)
-        self.gamma = discount_factor_gamma
-        self.polyak = polyak_factor
-        self.has_target_network = use_target_network
-        self.num_actions = len(self.action_space)
-        self.previous_state = None
+        self.target_network = target_network
+        self.gamma = discount_gamma
+        self.polyak = polyak_tau
+        self.has_target_network = self.target_network is not None
+        self.num_actions = int(self.model.num_outputs)
+
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         model: tf.keras.Model = None,
+                         discount_gamma: float = 0.99,
+                         epsilon: float = 0.99,
+                         epsilon_decay: float = 1.,
+                         epsilon_min: float = 0.1,
+                         polyak_tau: float = 0.01,
+                         use_target_network: bool = True,
+                         target_network: tf.keras.Model = None,
+                         memory_buffer_size: int = 10000):
+
+        if model is None:
+            model = arch.Q(env.observation_space, env.action_space)
+        if use_target_network and target_network is None:
+            target_network = arch.Q(env.observation_space, env.action_space)
+        return cls(model, discount_gamma, epsilon, epsilon_decay, epsilon_min,
+                   polyak_tau, memory_buffer_size, target_network)
 
     def sample(self, state, reward, done):
         state = state.astype("float32")
         Q = self.model(state[None, ...])[0]
+        action = self.epsilon_greedy.sample(Q, do_update=False)
         if self.learning:
-            action = self.epsilon_greedy.sample(Q, update=True)
-            if self.previous_state is not None:
-                self.memory.store_data(
-                    state=self.previous_state, state_next=state, action=action, reward=reward, done=done)
-            self.previous_state = state
+            self._set_transition(state, action, reward, done)
         else:
             action = np.argmax(Q)
-        if done:
-            self.previous_state = None
         return action
+
+    def end_trajectory(self):
+        if self.learning:
+            self.epsilon_greedy.update()
 
     @tf.function
     def train_step_q(self, state, state_next, action, reward, done):
-        done = tf.cast(done, tf.float32)
-        reward = tf.cast(reward, tf.float32)
-        state = tf.cast(state, tf.float32)
-        state_next = tf.cast(state_next, tf.float32)
-
-        action_mask = tf.one_hot(action, depth=self.num_actions)
-        action_mask = tf.stop_gradient(action_mask)
-
-        Q_target = self.model(state_next)
-        bellman_reserve = tf.reduce_max(Q_target, axis=1) * self.gamma * (1 - done) + reward
+        if self.has_target_network:
+            Q_target = self.target_network(state_next)
+        else:
+            Q_target = self.model(state_next)
+        bellman_target = self.gamma * tf.reduce_max(Q_target, axis=1) * (1 - done) + reward
+        canvas = tf.one_hot(action, self.num_actions, dtype=tf.float32)
+        inverse_canvas = 1 - canvas
         with tf.GradientTape() as tape:
             Q = self.model(state)
-            Q_action = tf.reduce_sum(Q * action_mask, axis=1)
-            delta = bellman_reserve - Q_action
-            loss = tf.reduce_mean(tf.square(delta))
+            target = canvas * bellman_target[:, None] + inverse_canvas * Q
+            target = tf.stop_gradient(target)
+            loss = tf.reduce_mean(tf.square(target - Q))
         grads = tape.gradient(loss, self.model.trainable_weights)
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-        return loss, tf.reduce_mean(Q_action)
+        return {"loss": loss, "Q": tf.reduce_mean(tf.reduce_max(Q, axis=1))}
 
-    def fit(self, batch_size=32, updates=1):
-        S, S_, A, R, F = self.memory_sampler.sample(batch_size)
-        loss, Q = self.train_step_q(S, S_, A, R, F)
+    def fit(self, batch_size=32):
+        data = self.memory_sampler.sample(batch_size)
+        data = {k: tf.convert_to_tensor(data[k], dtype="float32") if k != "action" else data[k]
+                for k in ["state", "state_next", "action", "reward", "done"]}
+
+        history = self.train_step_q(data["state"], data["state_next"], data["action"], data["reward"], data["done"])
+        history["epsilon"] = self.epsilon_greedy.epsilon
 
         if self.has_target_network:
             self.meld_weights(mix_in_ratio=self.polyak)
 
-        return {"loss": loss, "Q": Q, "epsilon": self.epsilon_greedy.epsilon}
+        return history
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())
 
     def meld_weights(self, mix_in_ratio=1.):
-
         if mix_in_ratio == 1.:
             self.push_weights()
             return
-
-        keras_utils.meld_weights(self.target_network, self.model, mix_in_ratio)
+        model_utils.meld_weights(self.target_network, self.model, mix_in_ratio)
 
     def get_savables(self):
         return {"DQN_model": self.model}

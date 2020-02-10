@@ -39,10 +39,10 @@ class _DummyEnv:
 
 class _DummyAgent(RLAgentBase):
 
-    memory_keys = ["state", "state_next", "action", "reward", "done"]
+    transition_memory_keys = ["state", "state_next", "action", "reward", "done"]
 
     def __init__(self):
-        super().__init__(action_space=10, memory=Experience(self.memory_keys, max_length=100))
+        super().__init__(action_space=10, training_memory=Experience(self.memory_keys, max_length=100))
 
     def sample(self, state, reward, done):
         action = state % 10
@@ -96,7 +96,7 @@ class TestRollingRollout(unittest.TestCase):
 
         rollout.roll(steps=STEPS, learning=True)
 
-        self.assertEqual(agent.memory.N, 1)
+        self.assertEqual(agent.transition_memory.N, 1)
         self.assertEqual(env.pointer, STEPS)
 
     def test_rolling_for_multiple_steps(self):
@@ -108,7 +108,7 @@ class TestRollingRollout(unittest.TestCase):
 
         rollout.roll(steps=STEPS, learning=True)
 
-        self.assertEqual(agent.memory.N, STEPS)
+        self.assertEqual(agent.transition_memory.N, STEPS)
         self.assertEqual(env.pointer, STEPS)
 
     def test_agent_memory_is_reseted(self):
@@ -120,7 +120,7 @@ class TestRollingRollout(unittest.TestCase):
 
         rollout.roll(steps=STEPS, learning=True)
 
-        mem = agent.memory
+        mem = agent.transition_memory
         mem.reset()
 
         for key in mem.keys:
@@ -135,9 +135,9 @@ class TestRollingRollout(unittest.TestCase):
 
         rollout.roll(steps=STEPS, learning=True)
 
-        np.testing.assert_array_equal(agent.memory.memoirs["state"], np.arange(STEPS))
-        np.testing.assert_array_equal(agent.memory.memoirs["reward"], np.arange(STEPS))
-        np.testing.assert_array_equal(agent.memory.memoirs["done"], np.zeros(STEPS, dtype=bool))
+        np.testing.assert_array_equal(agent.transition_memory.memoirs["state"], np.arange(STEPS))
+        np.testing.assert_array_equal(agent.transition_memory.memoirs["reward"], np.arange(STEPS))
+        np.testing.assert_array_equal(agent.transition_memory.memoirs["done"], np.zeros(STEPS, dtype=bool))
 
     def test_everything_is_stored_when_done_flag_is_reached(self):
         STEPS = 12
@@ -151,7 +151,7 @@ class TestRollingRollout(unittest.TestCase):
         dones = np.zeros(STEPS, dtype=bool)
         dones[9] = True
 
-        np.testing.assert_array_equal(dones, agent.memory.memoirs["done"])
+        np.testing.assert_array_equal(dones, agent.transition_memory.memoirs["done"])
         self.assertEqual(2, env.pointer)
 
 

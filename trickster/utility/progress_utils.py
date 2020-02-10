@@ -24,8 +24,14 @@ class ProgressPrinter:
 
         if average_last > 1:
             values = [np.mean(history[key][-average_last:]) for key in self.keys]
+            for key in self.keys:
+                data = history[key][-average_last:]
+                if not data:
+                    values.append("None")
+                    continue
+                values.append(np.mean(data))
         else:
-            values = [history[key][-1] for key in self.keys]
+            values = [history[key][-1] if history[key] else "None" for key in self.keys]
 
         keys = [self.prefix] + self.keys
         values = [len(history)] + values

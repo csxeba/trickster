@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Dict, Any
 
 import numpy as np
 
@@ -22,8 +22,11 @@ class Transition:
     def ready(self):
         return self.fields_set == set(self.data.keys())
 
-    def read(self):
+    def reset(self):
         self.fields_set = set()
+
+    def read(self):
+        self.reset()
         return self.data
 
 
@@ -33,44 +36,57 @@ class Experience:
                  memory_keys: List[str] = None,
                  max_length: Union[int, None] = 10000):
 
-        self.keys = memory_keys
-        self.memoirs = None
-        self.width = None
-        self.max_length = max_length
-        self.final_state = None
-        self.N = 0
+        self.keys: List[str] = memory_keys
+        self.memoirs: Dict[str, np.ndarray] = {key: None for key in self.keys}
+        self.width: int = len(self.keys)
+        self.max_length: int = max_length
+        self.N: int = 0
 
-    def initialize(self, algo):
+    def _sanitize(self, data: Union[Dict[str, Any], Transition]) -> Dict[str, np.ndarray]:
+        as_dict = {}
+        if isinstance(data, Transition):
+            data = data.read()
+            if not data:
+                raise ValueError("Transition not completely set!")
+            for key, value in data.items():
+                if isinstance(value, np.ndarray):
+                    as_dict[key] = value[None, ...]
+                else:
+                    as_dict[key] = np.array([value])
+        else:
+            Ns = set(list(map(len, data.values())))
+            if len(Ns) != 1:
+                raise ValueError("All data elements must be the same length!")
+            as_dict = data
+        for key, value in data.items():
+            if key not in self.keys:
+                raise ValueError(f"Memory element not in available keys: '{key}' not in {self.keys}")
+        return as_dict
+
+    def store(self, data: Union[Dict[str, Any], Transition]):
         if self.keys is None:
-            self.keys = algo.memory_keys
-        self.memoirs = {key: None for key in self.keys}
-        self.width = len(self.keys)
+            raise RuntimeError("Uninitialized replay buffer")
+        data = self._sanitize(data)
+        for key, element in data.items():
+            if self.memoirs[key] is not None:
+                element = np.concatenate((self.memoirs[key], element), axis=0)
+            self.memoirs[key] = element
+            if self.max_length is not None:
+                self.memoirs[key] = self.memoirs[key][-self.max_length:]
+            self.N = len(self.memoirs[key])
 
-    @staticmethod
-    def _sanitize(kwargs):
-        Ns = set(list(map(len, kwargs.values())))
-        if len(Ns) != 1:
-            raise ValueError("All arrays passed to remember() must be the same length!")
+    def pop(self):
+        data = {}
+        for key, value in self.memoirs.items():
+            data[key] = value[-1]
+            self.memoirs[key] = value[:-1]
+        return data
 
     def reset(self):
         self.memoirs = {key: None for key in self.keys}
 
-    def _remember(self, element, key):
-        element = np.array(element, copy=False)
-        if self.memoirs[key] is not None:
-            element = np.concatenate((self.memoirs[key], element), axis=0)
-        self.memoirs[key] = element
-        if self.max_length is not None:
-            self.memoirs[key] = self.memoirs[key][-self.max_length:]
-        self.N = len(self.memoirs[key])
-
-    def store_data(self, **kwargs):
-        if self.keys is None:
-            raise RuntimeError("Uninitialized replay buffer")
-        as_trajectories = {key: np.array([element])for key, element in kwargs.items()}
-        self._sanitize(as_trajectories)
-        for key, element in as_trajectories.items():
-            self._remember(element, key)
-
     def get_valid_indices(self):
         return list(range(0, self.N))
+
+    def as_dict(self) -> Dict[str, np.ndarray]:
+        return self.memoirs

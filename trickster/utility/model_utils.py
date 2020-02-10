@@ -1,20 +1,20 @@
-from tensorflow import keras
+import tensorflow as tf
 
 
-def copy_model(model: keras.Model, rename_to=None, copy_weights=True):
+def copy_model(model: tf.keras.Model, rename_to=None, copy_weights=True):
     arch = model.to_json()
     if rename_to is not None:
         import json
         arch_json = json.loads(arch)
         arch_json["config"]["name"] = rename_to
         arch = json.dumps(arch_json)
-    new_model = keras.models.model_from_json(arch)
+    new_model = tf.keras.models.model_from_json(arch)
     if copy_weights:
         new_model.set_weights(model.get_weights())
     return new_model
 
 
-def meld_weights(target_model: keras.Model, online_model: keras.Model, mix_in_ratio: float):
+def meld_weights(target_model: tf.keras.Model, online_model: tf.keras.Model, mix_in_ratio: float):
     W = []
     mix_in_inverse = 1. - mix_in_ratio
     d = 0.

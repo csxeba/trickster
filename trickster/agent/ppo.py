@@ -1,56 +1,82 @@
-from collections import defaultdict
-
+import gym
 import tensorflow as tf
+import tensorflow_probability as tfp
 
-from ..experience import Experience
-from ..utility import advantage_utils, keras_utils, policy_utils, history
+from ..utility import history
+from ..model import arch
 from .policy_gradient import PolicyGradient
 
 
 class PPO(PolicyGradient):
 
+    actor_history_keys = PolicyGradient.actor_history_keys + ["clip_rate"]
+
     def __init__(self,
-                 action_space,
                  actor: tf.keras.Model,
                  critic: tf.keras.Model,
-                 memory: Experience = None,
                  update_batch_size=32,
-                 discount_factor_gamma=0.99,
+                 discount_gamma=0.99,
                  gae_lambda=0.95,
-                 entropy_penalty_beta=0.005,
-                 ratio_clip_epsilon=0.2,
+                 entropy_beta=0.005,
+                 clip_epsilon=0.2,
                  target_kl_divergence=0.01,
+                 normalize_advantages=True,
+                 memory_buffer_size=10000,
                  actor_updates=10,
                  critic_updates=10):
 
-        super().__init__(action_space, actor, critic, memory, discount_factor_gamma, gae_lambda, entropy_penalty_beta)
-        self.epsilon = ratio_clip_epsilon
+        super().__init__(actor, critic, discount_gamma, gae_lambda, normalize_advantages, entropy_beta,
+                         memory_buffer_size)
+        self.epsilon = clip_epsilon
         self.target_kl = target_kl_divergence
         self.actor_updates = actor_updates
         self.critic_updates = critic_updates
         self.batch_size = update_batch_size
 
-    def train_step_actor(self, state, action, advantage, old_logits):
-        adv_mean = tf.reduce_mean(advantage)
-        adv_std = tf.math.reduce_std(advantage)
-        advantages = advantage - adv_mean
-        if adv_std > 0:
-            advantages = advantages / adv_std
-        selection = tf.cast(advantages > 0, tf.float32)
-        min_adv = (1+self.epsilon) * advantages * selection + (1-self.epsilon) * advantages * (1-selection)
+    # noinspection PyMethodOverriding
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         actor: tf.keras.Model = "default",
+                         critic: tf.keras.Model = "default",
+                         update_batch_size=32,
+                         discount_gamma=0.99,
+                         gae_lambda=0.95,
+                         normalize_advantages=True,
+                         entropy_beta=0.005,
+                         clip_epsilon=0.2,
+                         target_kl_divergence=0.01,
+                         memory_buffer_size=10000,
+                         actor_updates=10,
+                         critic_updates=10):
 
-        old_log_prob = -self.negative_log_probability_loss(action, old_logits)
+        if actor == "default":
+            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=True)
+        if critic == "default":
+            critic = arch.ValueCritic(env.observation_space)
+
+        return cls(actor, critic, update_batch_size, discount_gamma, gae_lambda,
+                   entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
+                   actor_updates, critic_updates)
+
+    @tf.function
+    def train_step_actor(self, state, action, advantage, old_probabilities):
+
+        selection = tf.cast(advantage > 0, tf.float32)
+        min_adv = ((1+self.epsilon) * selection + (1-self.epsilon) * (1-selection)) * advantage
+
+        old_log_prob = tf.math.log(old_probabilities)
 
         with tf.GradientTape() as tape:
-            new_logits = self.actor(state)
-            new_log_prob = -self.negative_log_probability_loss(action, new_logits)
+            distribution: tfp.distributions.Distribution = self.actor(state)
+            new_log_prob = distribution.log_prob(action)
             ratio = tf.exp(new_log_prob - old_log_prob)
-            utilities = -tf.minimum(ratio*advantages, min_adv)
+            utilities = -tf.minimum(ratio*advantage, min_adv)
             utility = tf.reduce_mean(utilities)
 
             entropy = -tf.reduce_mean(new_log_prob)
 
-            loss = -entropy * self.beta + utility
+            loss = utility - entropy * self.beta
 
         gradients = tape.gradient(loss, self.actor.trainable_weights,
                                   unconnected_gradients=tf.UnconnectedGradients.ZERO)
@@ -58,34 +84,38 @@ class PPO(PolicyGradient):
 
         kld = tf.reduce_mean(old_log_prob - new_log_prob)
         utility_std = tf.math.reduce_std(utilities)
+        clip_rate = tf.reduce_mean(tf.cast(-utilities == min_adv, tf.float32))
 
         return {"actor_loss": loss,
                 "actor_utility": utility,
                 "actor_utility_std": utility_std,
                 "actor_entropy": entropy,
                 "actor_kld": kld,
-                "advantage": adv_mean,
-                "advantage_std": adv_std}
+                "clip_rate": clip_rate}
 
     def fit(self, batch_size=None) -> dict:
-        state, action, reward, done, old_logits = self.memory_sampler.sample(size=-1)
-        state = state.astype("float32")
-        num_samples = len(state)
+        # states, actions, returns, advantages, old_probabilities
+        data = self.memory_sampler.sample(size=-1)
+        num_samples = self.memory_sampler.N
 
-        returns, advantages = self._finalize_trajectory(state, reward, done, self.memory.final_state)
+        self.memory_sampler.reset()
 
-        datasets = tuple(map(tf.data.Dataset.from_tensor_slices, [state, action, advantages, old_logits, returns]))
+        datasets = {key: tf.data.Dataset.from_tensor_slices(data[key].astype("float32"))
+                    for key in self.training_memory_keys}
         local_history = history.History(*self.history_keys)
 
-        critic_ds = tf.data.Dataset.zip((datasets[0], datasets[-1])).shuffle(num_samples).repeat()
-        critic_ds = critic_ds.batch(self.batch_size).prefetch(min(3, self.actor_updates))
+        critic_ds = tf.data.Dataset.zip((datasets["state"], datasets["returns"]))
+        critic_ds.shuffle(num_samples).repeat()
+        critic_ds = critic_ds.batch(self.batch_size).prefetch(min(3, self.critic_updates))
         for update, data in enumerate(critic_ds, start=1):
             logs = self.train_step_critic(*data)
             local_history.buffer(**logs)
             if update == self.critic_updates:
                 break
 
-        actor_ds = tf.data.Dataset.zip(datasets[:4]).shuffle(num_samples).repeat()
+        actor_ds = tf.data.Dataset.zip((
+            datasets["state"], datasets["action"], datasets["advantages"], datasets["probability"]))
+        actor_ds.shuffle(num_samples).repeat()
         actor_ds = actor_ds.batch(self.batch_size).prefetch(min(3, self.actor_updates))
         for update, data in enumerate(actor_ds, start=1):
             logs = self.train_step_actor(*data)

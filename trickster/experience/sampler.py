@@ -25,7 +25,7 @@ class ExperienceSampler:
 
     def sample(self, size=32):
         if self.N == 0:
-            return [[]] * self.width
+            return {key: [] for key in self.keys}
         valid_indices = self._get_valid_indices()
         num_valid = len(valid_indices)
         size = min(size, num_valid)
@@ -55,7 +55,7 @@ class ExperienceSampler:
             valid_indices.extend([[i, j] for j in self.memories[i].get_valid_indices()])
         return np.array(valid_indices)
 
-    def _sample_data(self, indices: np.ndarray, as_dict=False):
+    def _sample_data(self, indices: np.ndarray, as_dict=True):
         sample = [[] for _ in range(self.width)]
 
         for i, memory in enumerate(self.memories):

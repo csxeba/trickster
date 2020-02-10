@@ -14,23 +14,23 @@ class MultiRolling(MultiRolloutBase):
         self.rollouts = [Rolling(agent, env, config) for env, config in
                          zip(envs, self.rollout_configs)]
 
-    def roll(self, steps, verbose=0, push_experience=True):
+    def roll(self, steps, verbose=0, learning=True):
         rewards = np.empty(self.num_rollouts)
 
         for i, rolling in enumerate(self.rollouts):
-            roll_history = rolling.roll(steps, verbose=0, learning=push_experience)
+            roll_history = rolling.roll(steps, verbose=0, learning=learning)
             rewards[i] = roll_history["mean_reward"]
             if verbose:
                 print("Rolled in env #{}, got total reward of {:.4f}".format(i, rewards[i]))
 
         return {"mean_reward": rewards.mean(), "rewards": rewards}
 
-    def fit(self, episodes, updates_per_episode=32, steps_per_update=32, update_batch_size=-1,
+    def fit(self, epochs, updates_per_epoch=32, steps_per_update=32, update_batch_size=-1,
             testing_rollout: Trajectory=None, plot_curves=True, render_every=0):
 
             training_ops.fit(self,
-                             episodes=episodes,
-                             updates_per_episode=updates_per_episode,
+                             episodes=epochs,
+                             updates_per_episode=updates_per_epoch,
                              steps_per_update=steps_per_update,
                              update_batch_size=update_batch_size,
                              testing_rollout=testing_rollout,

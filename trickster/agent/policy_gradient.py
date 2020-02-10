@@ -1,72 +1,114 @@
-import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 import gym
 
 from ..experience import replay_buffer
-from ..utility import space_utils, advantage_utils
+from ..processing import RewardShaper
+from ..model import arch
+from ..utility import numeric_utils
 from .abstract import RLAgentBase
 
 
 class PolicyGradient(RLAgentBase):
 
-    memory_keys = ["state", "action", "reward", "done", "logits"]
+    transition_memory_keys = ["state", "action", "probability", "reward", "done"]
+    training_memory_keys = ["state", "action", "returns", "advantages", "probability"]
     critic_history_keys = ["critic_loss", "value"]
-    actor_history_keys = ["actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld",
-                          "advantage", "advantage_std"]
+    actor_history_keys = ["actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld"]
 
     def __init__(self,
-                 action_space: gym.spaces.Space,
-                 actor: tf.keras.Model,
+                 actor: tf.keras.Model = "default",
                  critic: tf.keras.Model = None,
-                 memory: replay_buffer.Experience = None,
-                 discount_factor_gamma: float = 0.99,
+                 discount_gamma: float = 0.99,
                  gae_lambda: float = None,
-                 entropy_penalty_beta: float = 0.):
+                 normalize_advantages=True,
+                 entropy_beta: float = 0.,
+                 memory_buffer_size: int = 10000,
+                 update_actor: int = 1,
+                 update_critic: int = 1):
 
-        if memory is None:
-            memory = replay_buffer.Experience(self.memory_keys, max_length=None)
-        super().__init__(action_space, memory)
+        super().__init__(memory_buffer_size, separate_training_memory=True)
+
         self.actor = actor
         self.critic = critic
-        self.gamma = discount_factor_gamma
-        self.lambda_ = gae_lambda
-        self.beta = entropy_penalty_beta
-        if isinstance(self.action_space, str):
-            if self.action_space == space_utils.CONTINUOUS:
-                raise NotImplementedError("Continuous action spaces is not yet implemented for policy gradient algorithms")
-        self.negative_log_probability_loss = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True,
-            reduction=tf.keras.losses.Reduction.NONE,
-            name="PolicyLogProbability")
+        self.beta = entropy_beta
         self.history_keys = self.actor_history_keys.copy()
         if self.critic is not None:
             self.history_keys += self.critic_history_keys.copy()
         if gae_lambda is not None and self.critic is None:
             raise RuntimeError("GAE can only be used if a critic network is available")
-        self.transition = replay_buffer.Transition(keys=self.memory_keys)
-        self.timestep = 0
+        self.reward_shaper = RewardShaper(discount_gamma, gae_lambda)
+        self.normalize_advantages = normalize_advantages
+        self.do_gae = gae_lambda is not None
+        self.update_actor = update_actor
+        self.update_critic = update_critic
+
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         actor: tf.keras.Model = "default",
+                         critic: tf.keras.Model = None,
+                         transition_memory: replay_buffer.Experience = None,
+                         discount_gamma: float = 0.99,
+                         gae_lambda: float = None,
+                         normalize_advantages: bool = True,
+                         entropy_beta: float = 0.,
+                         memory_buffer_size: int = 10000):
+
+        if actor == "default":
+            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=True)
+        if critic == "default":
+            critic = arch.ValueCritic(env.observation_space)
+        return cls(actor, critic, discount_gamma, gae_lambda, normalize_advantages, entropy_beta, memory_buffer_size)
+
+    def _finalize_trajectory(self, final_state=None):
+        data = self.transition_memory.as_dict()
+        self.transition_memory.reset()
+
+        if self.do_gae:
+            critic_input = tf.concat([data["state"], final_state[None, ...]], axis=0)
+            values = self.critic(critic_input)[..., 0].numpy()  # tangling dimension due to Dense(1)
+            advantages, returns = self.reward_shaper.compute_gae(data["reward"], values[:-1], values[1:], data["done"])
+        else:
+            returns = self.reward_shaper.discount(data["reward"], data["done"])
+            advantages = returns.copy()
+        if self.normalize_advantages:
+            advantages = numeric_utils.safe_normalize(advantages)
+        training_data = dict(state=data["state"], action=data["action"], probability=data["probability"],
+                             returns=returns, advantages=advantages)
+        self.training_memory.store(training_data)
+
+    def _set_transition(self, state, reward, done, probability, action):
+        if self.timestep > 0:
+            self.transition.set(reward=reward, done=done)
+            self.transition_memory.store(self.transition)
+        self.timestep += 1
+        if not done:
+            self.transition.set(state=state, probability=probability, action=action)
+        else:
+            self.timestep = 0
+            self.episodes += 1
+            self._finalize_trajectory(final_state=state)
 
     def sample(self, state, reward, done):
-        logits = self.actor(state[None, ...])
-        probability = tf.keras.activations.softmax(logits)[0].numpy()
-        probability = np.squeeze(probability)
+        distribution: tfp.distributions.Distribution = self.actor(state[None, ...])
+        action = distribution.sample(sample_shape=1).numpy()[0, 0]
         if self.learning:
-            action = np.squeeze(np.random.choice(self.action_space, p=probability))
-            if self.timestep > 0:
-                self.transition.set(reward=reward, done=done)
-                self.memory.store_data(**self.transition.read())
-            self.timestep += 1
-            if not done:
-                self.transition.set(state=state, logits=logits, action=action)
-            else:
-                self.timestep = 0
-        else:
-            action = np.squeeze(np.argmax(probability))
-
+            probability = distribution.prob(action[None, ...])[0].numpy()
+            self._set_transition(state, reward, done, probability, action)
         return action
 
-    @tf.function
-    def train_step_critic(self, state, target):
+    def end_trajectory(self):
+        if self.learning:
+            if self.do_gae:
+                final_state = self.transition_memory.pop()[self.transition_memory_keys[0]]
+            else:
+                final_state = None
+            self._finalize_trajectory(final_state)
+
+    @tf.function(experimental_relax_shapes=True)
+    def train_step_critic(self, state: tf.Tensor, target: tf.Tensor):
+        tf.assert_equal(len(target.shape), 1)
         with tf.GradientTape() as tape:
             value = self.critic(state)[..., 0]
             loss = tf.reduce_mean(tf.square(value - target))
@@ -75,18 +117,11 @@ class PolicyGradient(RLAgentBase):
         return {"critic_loss": loss,
                 "value": tf.reduce_mean(value)}
 
-    @tf.function
-    def train_step_actor(self, state, action, advantages, old_probability):
-
-        adv_mean = tf.reduce_mean(advantages)
-        adv_std = tf.math.reduce_std(advantages)
-        advantages = advantages - adv_mean
-        if adv_std > 0:
-            advantages = advantages / adv_std
+    def train_step_actor(self, state, action, advantages, old_probabilities):
 
         with tf.GradientTape() as tape:
-            logits = self.actor(state)
-            log_probability = -self.negative_log_probability_loss(action, logits)
+            distribution: tfp.distributions.Distribution = self.actor(state)
+            log_probability = distribution.log_prob(action)
             entropy = -tf.reduce_mean(log_probability)
             utilities = -log_probability * advantages
             utility = tf.reduce_mean(utilities)
@@ -95,7 +130,7 @@ class PolicyGradient(RLAgentBase):
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
 
-        old_log_probability = -self.negative_log_probability_loss(action, old_probability)
+        old_log_probability = tf.math.log(old_probabilities)
         utility_std = tf.math.reduce_std(utilities)
         kld = tf.reduce_mean(old_log_probability - log_probability)
 
@@ -103,36 +138,22 @@ class PolicyGradient(RLAgentBase):
                 "actor_utility": utility,
                 "actor_utility_std": utility_std,
                 "actor_entropy": entropy,
-                "actor_kld": kld,
-                "advantage": adv_mean,
-                "advantage_std": adv_std}
-
-    def _finalize_trajectory(self, state, reward, done, final_state):
-        if self.lambda_ is None:
-            returns = advantage_utils.discount(reward, done, self.gamma).astype("float32")
-            advantage = returns
-        else:
-            value = self.critic(tf.concat([state, final_state[None, ...]], axis=0))[..., 0]
-            advantage = advantage_utils.compute_gae(
-                reward, value[:-1], value[1:], done, self.gamma, self.lambda_).astype("float32")
-            returns = advantage + value[:-1]
-        return returns, advantage
+                "actor_kld": kld}
 
     def fit(self, batch_size=None) -> dict:
 
-        state, action, reward, done, logits = self.memory_sampler.sample(size=-1)
-        state = state.astype("float32")
+        data = self.memory_sampler.sample(size=-1)
+        self.memory_sampler.reset()
 
-        returns, advantage = self._finalize_trajectory(state, reward, done)
+        data = {k: tf.convert_to_tensor(v, dtype="float32") for k, v in data.items()}
 
         history = {}
-        if self.critic is not None:
-            critic_history = self.train_step_critic(state, returns)
+        if self.critic is not None and self.update_critic:
+            critic_history = self.train_step_critic(data["state"], data["returns"])
             history.update(critic_history)
-        actor_history = self.train_step_actor(state, action, advantage, logits)
-        history.update(actor_history)
-
-        self.memory_sampler.reset()
+        if self.update_actor:
+            actor_history = self.train_step_actor(data["state"], data["action"], data["advantages"], data["probability"])
+            history.update(actor_history)
 
         return history
 
