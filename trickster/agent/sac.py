@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from .off_policy import OffPolicy
-from ..utility import model_utils, action_utils
+from ..processing import action_smoothing
 
 
 class SAC(OffPolicy):
@@ -30,7 +30,7 @@ class SAC(OffPolicy):
 
         super().__init__(actor, None, critic, critic_target, critic2, critic2_target,
                          memory_buffer_size, discount_gamma, polyak_tau)
-        self.smoother = action_utils.ContinuousActionSmoother(
+        self.smoother = action_smoothing.ContinuousActionSmoother(
             action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min, action_minima, action_maxima)
         self.beta = entropy_beta
 

@@ -12,7 +12,6 @@ class StochasticDiscreete(tf.keras.Model):
         self.logits = tfl.Dense(units=num_actions, activation="linear")
         self.num_outputs = num_actions
 
-    @tf.function(experimental_relax_shapes=True)
     def call(self, x, *args, **kwargs):
         logits = self.logits(x)
         output = tfp.distributions.Categorical(logits)
@@ -40,15 +39,15 @@ class StochasticContinuous(tf.keras.Model):
             self.bijector = tfp.bijectors.Tanh()
         self.num_outputs = num_actions
 
+    @tf.function(experimental_relax_shapes=True)
     def _parallelizable_part(self, inputs):
-        batch_size = len(inputs)
         mean = self.mean_predictor(inputs)
-        stdev = tf.stack([tf.exp(self.log_stdev)] * batch_size, axis=0)
-        return mean, stdev
+        return mean
 
     def call(self, inputs, *args, **kwargs):
-        mean, stdev = self._parallelizable_part(inputs)
-        output = tfp.distributions.MultivariateNormalDiag(loc=mean, scale_diag=stdev)
+        mean = self._parallelizable_part(inputs)
+        std = tf.exp(self.log_stdev)[None, ...]
+        output = tfp.distributions.MultivariateNormalDiag(loc=mean, scale_diag=std)
         if self.squash:
             output = self.bijector(output)
         return output

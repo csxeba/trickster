@@ -3,13 +3,14 @@ import numpy as np
 import tensorflow as tf
 
 from .off_policy import OffPolicy
-from ..utility import action_utils
+from ..processing import action_smoothing
 from ..model import arch
 
 
 class DDPG(OffPolicy):
 
-    history_keys = ["actor_loss", "action_norm", "target_action", "critic_loss", "Q", "target_Q", "sigma"]
+    history_keys = ["actor_loss", "action_mean", "action_std", "target_action_m", "target_action_s",
+                    "critic_loss", "Q", "target_Q", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -31,7 +32,7 @@ class DDPG(OffPolicy):
                          discount_gamma=discount_gamma,
                          polyak_tau=polyak_tau)
 
-        self.action_smoother = action_utils.ContinuousActionSmoother(
+        self.action_smoother = action_smoothing.ContinuousActionSmoother(
             action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min, action_minima, action_maxima)
 
     @classmethod
@@ -89,7 +90,8 @@ class DDPG(OffPolicy):
         grads = tape.gradient(loss, self.critic.trainable_weights)
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
         return {"critic_loss": loss, "Q": tf.reduce_mean(Q), "target_Q": tf.reduce_mean(target_Q),
-                "target_action": tf.reduce_mean(tf.linalg.norm(action_target, axis=1))}
+                "target_action_m": tf.reduce_mean(action_target),
+                "target_action_s": tf.math.reduce_std(action_target)}
 
     @tf.function
     def update_actor(self, state):
@@ -99,8 +101,9 @@ class DDPG(OffPolicy):
             loss = -tf.reduce_mean(Q)
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
-        action_norm = tf.reduce_mean(tf.linalg.norm(actions, axis=1))
-        return {"actor_loss": loss, "action_norm": action_norm}
+        action_mean  = tf.reduce_mean(actions)
+        action_std = tf.math.reduce_std(actions)
+        return {"actor_loss": loss, "action_mean": action_mean, "action_std": action_std}
 
     def fit(self, batch_size=32):
         data = self.memory_sampler.sample(batch_size)

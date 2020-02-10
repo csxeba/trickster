@@ -59,7 +59,6 @@ class PPO(PolicyGradient):
                    entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
                    actor_updates, critic_updates)
 
-    @tf.function
     def train_step_actor(self, state, action, advantage, old_probabilities):
 
         selection = tf.cast(advantage > 0, tf.float32)
@@ -77,6 +76,9 @@ class PPO(PolicyGradient):
             entropy = -tf.reduce_mean(new_log_prob)
 
             loss = utility - entropy * self.beta
+
+        if tf.reduce_any(tf.math.is_nan(loss)):
+            raise RuntimeError
 
         gradients = tape.gradient(loss, self.actor.trainable_weights,
                                   unconnected_gradients=tf.UnconnectedGradients.ZERO)

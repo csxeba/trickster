@@ -117,6 +117,7 @@ class PolicyGradient(RLAgentBase):
         return {"critic_loss": loss,
                 "value": tf.reduce_mean(value)}
 
+    @tf.function(experimental_relax_shapes=True)
     def train_step_actor(self, state, action, advantages, old_probabilities):
 
         with tf.GradientTape() as tape:
