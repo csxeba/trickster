@@ -1,23 +1,21 @@
+import gym
+
 from trickster.agent import PPO
-from trickster.rollout import Rolling, Trajectory, RolloutConfig
-from trickster.model import mlp
-from trickster.utility import gymic
+from trickster.rollout import Trajectory, RolloutConfig
 
-env = gymic.rwd_scaled_env()
-input_shape = env.observation_space.shape
-num_actions = env.action_space.n
+env = gym.make("CartPole-v1")
 
-actor, critic = mlp.wide_pg_actor_critic(input_shape, num_actions)
+agent = PPO.from_environment(
+    env,
+    discount_gamma=0.99,
+    gae_lambda=0.97,
+    entropy_beta=0.001,
+    clip_epsilon=0.3,
+    target_kl_divergence=0.01,
+    actor_updates=80,
+    critic_updates=80)
 
-agent = PPO(actor,
-            critic,
-            action_space=env.action_space,
-            discount_factor_gamma=0.98,
-            entropy_penalty_coef=0.05)
+rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=200))
 
-rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Trajectory(agent, gymic.rwd_scaled_env())
-
-rollout.fit(episodes=1000, updates_per_episode=4, step_per_update=128, update_batch_size=32,
-            testing_rollout=test_rollout, plot_curves=True)
-test_rollout.render(repeats=10)
+rollout.fit(epochs=300, rollouts_per_epoch=100, update_batch_size=32, plot_curves=True, render_every=0)
+rollout.render(repeats=100)

@@ -1,29 +1,24 @@
+import gym
+
 from trickster.agent import DoubleDQN
 from trickster.rollout import Rolling, Trajectory, RolloutConfig
-from trickster.experience import Experience
-from trickster.model import mlp
-from trickster.utility import gymic
 
-env = gymic.rwd_scaled_env("CartPole-v1")
-test_env = gymic.rwd_scaled_env("CartPole-v1")
+env = gym.make("CartPole-v1")
+test_env = gym.make("CartPole-v1")
 
-input_shape = env.observation_space.shape
-num_actions = env.action_space.n
+agent = DoubleDQN.from_environment(
+    env,
+    discount_gamma=0.98,
+    epsilon=1.,
+    epsilon_decay=0.999,
+    epsilon_min=0.1)
 
-ann = mlp.wide_mlp_critic_network(input_shape, num_actions, adam_lr=1e-3)
+rollout = Rolling(agent, env, config=RolloutConfig(max_steps=200))
+test_rollout = Trajectory(agent, test_env, config=RolloutConfig(max_steps=200))
 
-agent = DoubleDQN(ann,
-                  action_space=env.action_space,
-                  memory=Experience(max_length=10000),
-                  epsilon=1.,
-                  epsilon_decay=0.99995,
-                  epsilon_min=0.1,
-                  discount_factor_gamma=0.98)
+rollout.roll(steps=1000, verbose=0, learning=True)  # Collect some random trajectories
+agent.epsilon_greedy.reset()
 
-
-rollout = Rolling(agent, env, config=RolloutConfig(max_steps=300))
-test_rollout = Trajectory(agent, test_env)
-
-rollout.fit(episodes=500, updates_per_episode=32, step_per_update=2, update_batch_size=32,
-            testing_rollout=test_rollout, plot_curves=True)
+rollout.fit(epochs=300, updates_per_epoch=64, steps_per_update=1, update_batch_size=32,
+            testing_rollout=test_rollout, plot_curves=True, render_every=0)
 test_rollout.render(repeats=10)

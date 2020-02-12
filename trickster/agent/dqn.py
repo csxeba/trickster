@@ -1,96 +1,109 @@
+import gym
 import numpy as np
-from keras.models import Model
+import tensorflow as tf
 
-from ..abstract import RLAgentBase
-from ..experience import Experience
-from ..utility import kerasic
+from .off_policy import OffPolicy
+from ..utility import model_utils
+from ..processing import action_smoothing
+from ..model import arch
 
 
-class DQN(RLAgentBase):
+class DQN(OffPolicy):
 
-    history_keys = ["loss", "Qs", "epsilon"]
+    history_keys = ["loss", "Q", "epsilon"]
 
     def __init__(self,
-                 model: Model,
-                 action_space,
-                 memory: Experience=None,
-                 discount_factor_gamma=0.99,
-                 epsilon=0.99,
-                 epsilon_decay=1.,
-                 epsilon_min=0.1,
-                 state_preprocessor=None,
-                 use_target_network=True):
+                 model: tf.keras.Model,
+                 discount_gamma: float = 0.99,
+                 epsilon: float = 0.99,
+                 epsilon_decay: float = 1.,
+                 epsilon_min: float = 0.1,
+                 polyak_tau: float = 0.01,
+                 memory_buffer_size: int = 10000,
+                 target_network: tf.keras.Model = None):
 
-        super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
+        super().__init__(memory_buffer_size)
         self.model = model
-        self.epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
-        self.epsilon_min = epsilon_min
-        self.target_network = None
-        if use_target_network:
-            self.target_network = kerasic.copy_model(self.model)
+        self.epsilon_greedy = action_smoothing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
+        self.target_network = target_network
+        self.gamma = discount_gamma
+        self.polyak = polyak_tau
+        self.has_target_network = self.target_network is not None
+        self.num_actions = int(self.model.num_outputs)
 
-    def _maybe_decay_epsilon(self):
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-        else:
-            self.epsilon = self.epsilon_min
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         model: tf.keras.Model = None,
+                         discount_gamma: float = 0.99,
+                         epsilon: float = 0.99,
+                         epsilon_decay: float = 1.,
+                         epsilon_min: float = 0.1,
+                         polyak_tau: float = 0.01,
+                         use_target_network: bool = True,
+                         target_network: tf.keras.Model = None,
+                         memory_buffer_size: int = 10000):
+
+        if model is None:
+            model = arch.Q(env.observation_space, env.action_space)
+        if use_target_network and target_network is None:
+            target_network = arch.Q(env.observation_space, env.action_space)
+        return cls(model, discount_gamma, epsilon, epsilon_decay, epsilon_min,
+                   polyak_tau, memory_buffer_size, target_network)
 
     def sample(self, state, reward, done):
-        if self.learning and np.random.random() < self.epsilon:
-            action = np.random.choice(self.action_space)
-            self._maybe_decay_epsilon()
+        state = state.astype("float32")
+        Q = self.model(state[None, ...])[0]
+        action = self.epsilon_greedy.sample(Q, do_update=False)
+        if self.learning:
+            self._set_transition(state, action, reward, done)
         else:
-            Q = self.model.predict(self.preprocess(state)[None, ...])[0]
             action = np.argmax(Q)
-
-        self._push_direct_experience(state, action, reward, done)
-
         return action
 
-    def fit(self, updates=1, batch_size=32, polyak_rate=0.01):
-        losses = []
-        max_q_predictions = []
-        for update in range(1, updates+1):
-            S, S_, A, R, F = self.memory_sampler.sample(batch_size)
+    def end_trajectory(self):
+        if self.learning:
+            self.epsilon_greedy.update()
 
-            m = len(S)
+    @tf.function
+    def train_step_q(self, state, state_next, action, reward, done):
+        if self.has_target_network:
+            Q_target = self.target_network(state_next)
+        else:
+            Q_target = self.model(state_next)
+        bellman_target = self.gamma * tf.reduce_max(Q_target, axis=1) * (1 - done) + reward
+        canvas = tf.one_hot(action, self.num_actions, dtype=tf.float32)
+        inverse_canvas = 1 - canvas
+        with tf.GradientTape() as tape:
+            Q = self.model(state)
+            target = canvas * bellman_target[:, None] + inverse_canvas * Q
+            target = tf.stop_gradient(target)
+            loss = tf.reduce_mean(tf.square(target - Q))
+        grads = tape.gradient(loss, self.model.trainable_weights)
+        self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        return {"loss": loss, "Q": tf.reduce_mean(tf.reduce_max(Q, axis=1))}
 
-            if self.target_network is None:
-                target_Qs = self.model.predict(S_).max(axis=1)
-            else:
-                target_Qs = self.target_network.predict(S_).max(axis=1)
+    def fit(self, batch_size=32):
+        data = self.memory_sampler.sample(batch_size)
+        data = {k: tf.convert_to_tensor(data[k], dtype="float32") if k != "action" else data[k]
+                for k in ["state", "state_next", "action", "reward", "done"]}
 
-            bellman_reserve = R + self.gamma * target_Qs
+        history = self.train_step_q(data["state"], data["state_next"], data["action"], data["reward"], data["done"])
+        history["epsilon"] = self.epsilon_greedy.epsilon
 
-            bellman_targets = self.model.predict(S)
-            max_q_predictions.append(bellman_targets.max(axis=1))
+        if self.has_target_network:
+            self.meld_weights(mix_in_ratio=self.polyak)
 
-            bellman_targets[range(m), A] = bellman_reserve
-            bellman_targets[F, A[F]] = R[F]
-
-            loss = self.model.train_on_batch(S, bellman_targets)
-            losses.append(loss)
-
-        if self.target_network is not None:
-            self.meld_weights(mix_in_ratio=polyak_rate)
-
-        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions), "epsilon": self.epsilon}
+        return history
 
     def push_weights(self):
         self.target_network.set_weights(self.model.get_weights())
 
     def meld_weights(self, mix_in_ratio=1.):
-        """
-        :param mix_in_ratio: mix_in_ratio * new_weights + (1. - mix_in_ratio) * old_weights
-        :return:
-        """
-
         if mix_in_ratio == 1.:
             self.push_weights()
             return
-
-        kerasic.meld_weights(self.target_network, self.model, mix_in_ratio)
+        model_utils.meld_weights(self.target_network, self.model, mix_in_ratio)
 
     def get_savables(self):
-        return {"model": self.model}
+        return {"DQN_model": self.model}

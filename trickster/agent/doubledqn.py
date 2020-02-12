@@ -1,61 +1,63 @@
+import gym
 import numpy as np
-from keras.models import Model
+import tensorflow as tf
 
-from ..experience import Experience
 from .dqn import DQN
 
 
 class DoubleDQN(DQN):
 
-    history_keys = ["loss", "Qs"]
-
     def __init__(self,
-                 model: Model,
-                 action_space,
-                 memory: Experience,
-                 discount_factor_gamma=0.99,
-                 epsilon=0.99,
-                 epsilon_decay=1.,
-                 epsilon_min=0.1,
-                 state_preprocessor=None):
+                 model: tf.keras.Model,
+                 target_network: tf.keras.Model,
+                 discount_gamma: float = 0.99,
+                 epsilon: float = 1.,
+                 epsilon_decay: float = 0.999,
+                 epsilon_min: float = 0.1,
+                 polyak_tau: float = 0.01,
+                 memory_buffer_size: int = 10000):
 
-        super().__init__(model=model,
-                         action_space=action_space,
-                         memory=memory,
-                         discount_factor_gamma=discount_factor_gamma,
-                         epsilon=epsilon,
-                         epsilon_decay=epsilon_decay,
-                         epsilon_min=epsilon_min,
-                         state_preprocessor=state_preprocessor,
-                         use_target_network=True)
+        super().__init__(model, discount_gamma, epsilon, epsilon_decay, epsilon_min, polyak_tau,
+                         memory_buffer_size, target_network)
+        assert self.has_target_network
 
-    def fit(self, updates=1, batch_size=32, polyak_rate=0.1):
+    # noinspection PyMethodOverriding
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         model: tf.keras.Model = None,
+                         target_network: tf.keras.Model = None,
+                         discount_gamma: float = 0.99,
+                         epsilon: float = 1.,
+                         epsilon_decay: float = 0.99,
+                         epsilon_min: float = 0.1,
+                         polyak_tau: float = 0.01,
+                         memory_buffer_size: int = 10000):
 
-        losses = []
-        max_q_predictions = []
+        return DQN.from_environment(env, model, discount_gamma, epsilon, epsilon_decay, epsilon_min, polyak_tau,
+                                    use_target_network=True,
+                                    target_network=target_network,
+                                    memory_buffer_size=memory_buffer_size)
 
-        for update in range(1, updates+1):
+    @tf.function
+    def train_step_q(self, state, state_next, action, reward, done):
 
-            S, S_, A, R, F = self.memory_sampler.sample(batch_size)
+        Q_target = self.target_network(state_next)
+        target_action = tf.argmax(Q_target)
+        canvas = tf.one_hot(target_action, self.num_actions, dtype=tf.float32)
+        inverse_canvas = 1 - canvas
 
-            m = len(S)
-            x_index = np.arange(m)
+        with tf.GradientTape() as tape:
 
-            Qs = self.model.predict(S_)
-            next_state_actions = Qs.argmax(axis=1)
-            max_q_predictions.append(Qs[x_index, next_state_actions])
+            Q_model = self.model(state)
 
-            target_Qs = self.target_network.predict(S_)
-            bellman_reserve = target_Qs[x_index, next_state_actions]
+            bellman_target = self.gamma * tf.gather(Q_model, target_action) * (1 - done) + reward
+            target = canvas * bellman_target[:, None] + inverse_canvas * Q_model
+            target = tf.stop_gradient(target)
 
-            bellman_target = self.model.predict(S)
-            bellman_target[x_index, A] = bellman_reserve * self.gamma + R
-            bellman_target[F, A[F]] = R[F]
+            loss = tf.reduce_mean(tf.square(target - Q_model))
 
-            loss = self.model.train_on_batch(S, bellman_target)
-            losses.append(loss)
+        grads = tape.gradient(loss, self.model.trainable_weights)
+        self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        if polyak_rate:
-            self.meld_weights(mix_in_ratio=polyak_rate)
-
-        return {"loss": np.mean(losses), "Qs": np.mean(max_q_predictions), "epsilon": self.epsilon}
+        return {"loss": loss, "Q": tf.reduce_mean(Q_model)}

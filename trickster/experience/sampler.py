@@ -1,5 +1,5 @@
 from typing import List, Union
-from .experience import Experience
+from .replay_buffer import Experience
 
 import numpy as np
 
@@ -10,6 +10,10 @@ class ExperienceSampler:
         if isinstance(memories, Experience):
             memories = [memories]
         self.memories = memories
+        self.keys = memories[0].keys
+        self.width = len(self.keys)
+        if any(memory.keys != self.keys for memory in memories):
+            raise ValueError("Keys differ in supplied memory buffers")
 
     def reset(self):
         for memory in self.memories:
@@ -21,12 +25,12 @@ class ExperienceSampler:
 
     def sample(self, size=32):
         if self.N == 0:
-            return [[]] * (self.width+1)
-        if size <= 0:
-            size = self.N
+            return {key: [] for key in self.keys}
         valid_indices = self._get_valid_indices()
         num_valid = len(valid_indices)
         size = min(size, num_valid)
+        if size <= 0:
+            size = num_valid
         if size < num_valid:
             idx = valid_indices[np.random.randint(0, num_valid, size=size)]
         else:
@@ -51,19 +55,8 @@ class ExperienceSampler:
             valid_indices.extend([[i, j] for j in self.memories[i].get_valid_indices()])
         return np.array(valid_indices)
 
-    @staticmethod
-    def _generate_next_states(idx, memory):
-        next_states = []
-        for i in idx:
-            if i+1 < memory.N:
-                next_states.append(memory.memoirs[0][i+1])
-            else:
-                next_states.append(memory.final_state)
-        return np.array(next_states)
-
-    def _sample_data(self, indices: np.ndarray):
-        sample = {"states": [], "next_states": []}
-        sample.update({i: [] for i in range(1, self.width)})
+    def _sample_data(self, indices: np.ndarray, as_dict=True):
+        sample = [[] for _ in range(self.width)]
 
         for i, memory in enumerate(self.memories):
             if memory.N == 0:
@@ -71,18 +64,11 @@ class ExperienceSampler:
             idx = indices[indices[:, 0] == i][:, 1]
             if len(idx) == 0:
                 continue
-            sample["states"].append(memory.memoirs[0][idx])
-            sample["next_states"].append(self._generate_next_states(idx, memory))
-            for j, tensor in enumerate(memory.memoirs[1:], start=1):
+            for j, key in enumerate(self.keys):
+                tensor = memory.memoirs[key]
                 sample[j].append(tensor[idx])
-            pass
 
-        sample = {key: np.concatenate(value, axis=0) for key, value in sample.items()}
-        result = [sample["states"], sample["next_states"]]
-        if self.width > 1:
-            result += [sample[i] for i in range(1, self.width)]
-        return result
-
-    @property
-    def width(self):
-        return self.memories[0].width
+        sample = [np.concatenate(s, axis=0) for s in sample]
+        if as_dict:
+            sample = dict(zip(self.keys, sample))
+        return sample

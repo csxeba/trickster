@@ -1,125 +1,117 @@
+import gym
 import numpy as np
-import keras
+import tensorflow as tf
 
-from ..abstract import RLAgentBase
-from ..utility import kerasic
+from .off_policy import OffPolicy
+from ..processing import action_smoothing
+from ..model import arch
 
 
-class DDPG(RLAgentBase):
+class DDPG(OffPolicy):
 
-    history_keys = ["actor_loss", "actor_preds", "Qs", "critic_loss"]
+    history_keys = ["actor_loss", "action_mean", "action_std", "target_action_m", "target_action_s",
+                    "critic_loss", "Q", "target_Q", "sigma"]
 
-    def __init__(self, actor: keras.Model, critic: keras.Model,
-                 action_space, memory=None, discount_factor_gamma=0.99, state_preprocessor=None,
-                 action_noise_sigma=2., action_noise_sigma_decay=0.9999, min_action_noise_sigma=0.1,
-                 action_minima=-np.inf, action_maxima=np.inf, polyak_rate=0.01):
+    def __init__(self,
+                 actor: tf.keras.Model,
+                 critic: tf.keras.Model,
+                 actor_target: tf.keras.Model,
+                 critic_target: tf.keras.Model,
+                 discount_gamma: float = 0.99,
+                 action_noise_sigma: float = 2.,
+                 action_noise_sigma_decay: float = 0.9999,
+                 action_noise_sigma_min: float = 0.1,
+                 action_minima: np.ndarray = None,
+                 action_maxima: np.ndarray = None,
+                 polyak_tau: float = 0.01,
+                 memory_buffer_size: int = 10000):
 
-        super().__init__(action_space, memory, discount_factor_gamma, state_preprocessor)
-        self.actor = actor
-        self.critic = critic
-        self.actor_target = kerasic.copy_model(actor)
-        self.critic_target = kerasic.copy_model(critic)
-        self.action_noise_sigma = action_noise_sigma
-        self.action_noise_sigma_decay = action_noise_sigma_decay
-        self.min_action_noise_sigma = min_action_noise_sigma
-        self.action_minima = action_minima
-        self.action_maxima = action_maxima
-        self.polyak_rate = polyak_rate
-        self._combo_model = None  # type: keras.Model
-        self._build_model_combination()
+        super().__init__(actor=actor, actor_target=actor_target,
+                         critic=critic, critic_target=critic_target,
+                         memory_buffer_size=memory_buffer_size,
+                         discount_gamma=discount_gamma,
+                         polyak_tau=polyak_tau)
 
-    def _build_model_combination(self):
-        input_tensor = keras.Input(self.actor.input_shape[-1:])
-        actor_out = self.actor(input_tensor)
-        critic_out = self.critic([input_tensor, actor_out])
-        self._combo_model = keras.Model(input_tensor, critic_out)
-        self.critic.trainable = False
-        self._combo_model.compile(self.actor.optimizer.from_config(self.actor.optimizer.get_config()),
-                                  loss=lambda _, y_pred: -y_pred)
-        self.critic.trainable = True
+        self.action_smoother = action_smoothing.ContinuousActionSmoother(
+            action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min, action_minima, action_maxima)
+
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         actor: tf.keras.Model = None,
+                         critic: tf.keras.Model = None,
+                         actor_target: tf.keras.Model = None,
+                         critic_target: tf.keras.Model = None,
+                         discount_gamma: float = 0.99,
+                         action_noise_sigma: float = 2.,
+                         action_noise_sigma_decay: float = 0.9999,
+                         action_noise_sigma_min: float = 0.1,
+                         polyak_tau: float = 0.01,
+                         memory_buffer_size: int = 10000):
+
+        action_minima = env.action_space.low
+        action_maxima = env.action_space.high
+
+        assert all(abs(mini) == abs(maxi) for mini, maxi in zip(action_minima, action_maxima))
+
+        if actor is None:
+            actor = arch.Policy(env.observation_space, env.action_space,
+                                stochastic=False, squash_continuous=True, action_scaler=action_maxima)
+        if actor_target is None:
+            actor_target = arch.Policy(env.observation_space, env.action_space,
+                                       stochastic=False, squash_continuous=True, action_scaler=action_maxima)
+        if critic is None:
+            critic = arch.QCritic(env.observation_space)
+        if critic_target is None:
+            critic_target = arch.QCritic(env.observation_space)
+
+        return cls(actor, critic, actor_target, critic_target, discount_gamma,
+                   action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min,
+                   action_minima, action_maxima, polyak_tau, memory_buffer_size)
 
     def sample(self, state, reward, done):
-        state = self.preprocess(state)
-        action = self.actor.predict(state[None, ...])[0]
+        action = self.actor(state[None, ...])[0]
 
         if self.learning:
-            noise = np.random.normal(loc=0.0, scale=self.action_noise_sigma)
-            if self.action_noise_sigma > self.min_action_noise_sigma:
-                self.action_noise_sigma *= self.action_noise_sigma_decay
-            else:
-                self.action_noise_sigma = self.min_action_noise_sigma
+            action = self.action_smoother.sample(action, do_update=False)
 
-            action += noise
-            action = np.clip(action, self.action_minima, self.action_maxima)
-
-        self._push_direct_experience(state, action, reward, done)
+        self._set_transition(state, action, reward, done)
 
         return action
 
-    def update_critic(self, *, batch_size=None, data=None):
-        if data is None and batch_size is None:
-            raise ValueError("Please either supply learning data or a batch size for sampling!")
-        if batch_size is not None:
-            data = self.memory_sampler.sample(batch_size)
-        S, S_, A, R, F = data
-        A_ = self.actor_target.predict(S_)
-        target_Qs = self.critic_target.predict([S_, A_])[..., 0]
-        bellman_target = R + self.gamma * target_Qs
-        bellman_target[F] = R[F]
-        critic_loss = self.critic.train_on_batch([S, A], bellman_target)
-        if self.polyak_rate:
-            self.update_critic_target()
-        return critic_loss, target_Qs.mean()
+    @tf.function
+    def update_critic(self, state, action, reward, done, state_next):
+        action_target = self.actor_target(state_next)
+        target_Q = self.critic_target([state_next, action_target])[..., 0]
+        bellman_target = reward + self.gamma * target_Q * (1 - done)
+        with tf.GradientTape() as tape:
+            Q = self.critic([state, action])[..., 0]
+            loss = tf.reduce_mean(tf.square(Q - bellman_target))
+        grads = tape.gradient(loss, self.critic.trainable_weights)
+        self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
+        return {"critic_loss": loss, "Q": tf.reduce_mean(Q), "target_Q": tf.reduce_mean(target_Q),
+                "target_action_m": tf.reduce_mean(action_target),
+                "target_action_s": tf.math.reduce_std(action_target)}
 
-    def update_actor(self, *, batch_size=None, data=None):
-        if data is None and batch_size is None:
-            raise ValueError("Please either supply learning data or a batch size for sampling!")
-        if batch_size is not None:
-            data = self.memory_sampler.sample(batch_size)
-        S, *_ = data
-        self.critic.trainable = False
-        actor_loss = self._combo_model.train_on_batch(S, S)
-        actions = self.actor.predict(S)
-        self.critic.trainable = True
-        if self.polyak_rate:
-            self.update_actor_target()
-        return actor_loss, np.linalg.norm(actions, axis=-1).mean()
+    @tf.function
+    def update_actor(self, state):
+        with tf.GradientTape() as tape:
+            actions = self.actor(state)
+            Q = self.critic([state, actions])
+            loss = -tf.reduce_mean(Q)
+        grads = tape.gradient(loss, self.actor.trainable_weights)
+        self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
+        action_mean  = tf.reduce_mean(actions)
+        action_std = tf.math.reduce_std(actions)
+        return {"actor_loss": loss, "action_mean": action_mean, "action_std": action_std}
 
-    def fit(self, updates=1, batch_size=32, fit_actor=True, fit_critic=True):
-        actor_losses = []
-        critic_losses = []
-        actor_preds = []
-        Qs = []
-
-        for i in range(1, updates+1):
-            if fit_critic:
-                critic_loss, Q = self.update_critic(data=self.memory_sampler.sample(batch_size))
-                critic_losses.append(critic_loss)
-                Qs.append(Q)
-            if fit_actor:
-                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size))
-                actor_losses.append(actor_loss)
-                actor_preds.append(actor_pred)
-
-        result = {}
-        if fit_actor:
-            result["actor_loss"] = np.mean(actor_losses)
-            result["actor_preds"] = np.mean(actor_preds)
-        if fit_critic:
-            result["critic_loss"] = np.mean(critic_losses)
-            result["Qs"] = np.mean(Qs)
-
-        return result
-
-    def update_critic_target(self):
-        kerasic.meld_weights(self.critic_target, self.critic, self.polyak_rate)
-
-    def update_actor_target(self):
-        kerasic.meld_weights(self.actor_target, self.actor, self.polyak_rate)
-
-    def update_targets(self):
-        self.update_actor_target()
-        self.update_critic_target()
-
-    def get_savables(self) -> dict:
-        return {"DDPG_actor": self.actor, "DDPG_critic": self.critic}
+    def fit(self, batch_size=32):
+        data = self.memory_sampler.sample(batch_size)
+        data = {key: tf.convert_to_tensor(value, dtype=tf.float32) for key, value in data.items()}
+        history = self.update_critic(data["state"], data["action"], data["reward"], data["done"], data["state_next"])
+        actor_history = self.update_actor(data["state"])
+        history.update(actor_history)
+        history["sigma"] = self.action_smoother.sigma
+        self.action_smoother.update()
+        self.update_targets()
+        return history

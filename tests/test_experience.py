@@ -7,46 +7,45 @@ from trickster.experience import Experience
 
 class TestExperienceConstructor(unittest.TestCase):
 
-    def test_experience_constructor_creates_empty_object(self):
-        xp = Experience()
-
-        self.assertIsNone(xp.memoirs)
-        self.assertEqual(xp.N, 0)
-
     def test_experience_constructor_considers_max_size_argument(self):
-        xp = Experience(max_length=3)
-
+        xp = Experience(["state"], max_length=3)
         self.assertEqual(xp.max_length, 3)
+
+    def test_experience_width_is_set_right(self):
+        xp = Experience("state, action, reward, done".split(", "))
+        self.assertEqual(xp.width, 4)
+        self.assertEqual(len(xp.memoirs), 4)
 
 
 class TestExperienceRemember(unittest.TestCase):
 
-    def test_experience_remembers_array(self):
-        xp = Experience()
-        xp.remember(np.arange(100))
+    def test_experience_remembers_dictionary_transition(self):
+        xp = Experience(["state", "reward", "done"])
+        states = np.arange(10)
+        rewards = np.arange(10)
+        dones = np.random.random(size=10) < 0.5
 
-        self.assertEqual(xp.N, 100)
-        self.assertListEqual(xp.memoirs[0].tolist(), list(range(100)))
+        for state, reward, done in zip(states, rewards, dones):
+            data = dict(state=state, reward=reward, done=done)
+            xp.store(data)
 
-    def test_remember_considers_max_size(self):
-        xp = Experience(max_length=100)
-        xp.remember(np.arange(120))
+        self.assertEqual(xp.N, 10)
 
-        self.assertTrue(xp.N, 100)
-        self.assertListEqual(xp.memoirs[0].tolist(), list(range(20, 120)))
+        np.testing.assert_equal(xp.memoirs["state"], states)
+        np.testing.assert_equal(xp.memoirs["reward"], rewards)
+        np.testing.assert_equal(xp.memoirs["done"], dones)
 
-    def test_remember_handles_multiple_arrays(self):
-        xp = Experience()
-        a = np.arange(100)
-        b = a - 10
-        c = a / 10
+    def test_experience_remembers_dictionary_data(self):
+        xp = Experience(["state", "reward", "done"])
+        states = np.arange(10)
+        rewards = np.arange(10)
+        dones = np.random.random(size=10) < 0.5
 
-        xp.remember(a, b, c)
+        xp.store(dict(state=states, reward=rewards, done=dones))
 
-        self.assertEqual(len(xp.memoirs), 3)
-        for source, target in zip(xp.memoirs, [a, b, c]):
-            self.assertListEqual(source.tolist(), target.tolist())
+        self.assertEqual(xp.N, 10)
 
+        np.testing.assert_equal(xp.memoirs["state"], states)
+        np.testing.assert_equal(xp.memoirs["reward"], rewards)
+        np.testing.assert_equal(xp.memoirs["done"], dones)
 
-if __name__ == '__main__':
-    unittest.main()
