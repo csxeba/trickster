@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 from .trajectory import Trajectory
@@ -76,8 +78,6 @@ class Rolling(RolloutBase):
         self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
 
-        return {"mean_reward": np.mean(rewards), "rewards": np.array(rewards)}
-
     def _reset(self):
         self.reward = self.cfg.initial_reward
         self.info = {}
@@ -100,7 +100,7 @@ class Rolling(RolloutBase):
             testing_rollout: Trajectory = None,
             plot_curves: bool = True,
             render_every: int = 0,
-            warmup_buffer: bool = False):
+            warmup_buffer: Union[bool, int] = False):
 
         """
         Orchestrates a basic learning scheme.
@@ -123,8 +123,10 @@ class Rolling(RolloutBase):
         :return: None
         """
 
-        if warmup_buffer:
+        if warmup_buffer is True:
             self.roll(steps=update_batch_size, verbose=0, learning=True)
+        elif warmup_buffer:
+            self.roll(steps=warmup_buffer, verbose=0, learning=True)
 
         training_ops.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
                          testing_rollout, plot_curves, render_every)

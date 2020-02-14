@@ -1,6 +1,5 @@
 import gym
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 from ..utility import history
 from ..model import arch
@@ -51,7 +50,7 @@ class PPO(PolicyGradient):
                          critic_updates=10):
 
         if actor == "default":
-            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=True)
+            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=False)
         if critic == "default":
             critic = arch.ValueCritic(env.observation_space)
 
@@ -67,17 +66,18 @@ class PPO(PolicyGradient):
         old_log_prob = tf.math.log(old_probabilities)
 
         with tf.GradientTape() as tape:
-            distribution: tfp.distributions.Distribution = self.actor(state)
-            new_log_prob = distribution.log_prob(action)
+            new_log_prob, entropy = self.actor.get_training_outputs(state, action)
+            new_log_prob = tf.reduce_mean(new_log_prob)
+            entropy = tf.reduce_mean(entropy)
             ratio = tf.exp(new_log_prob - old_log_prob)
             utilities = -tf.minimum(ratio*advantage, min_adv)
             utility = tf.reduce_mean(utilities)
 
-            entropy = -tf.reduce_mean(new_log_prob)
-
             loss = utility - entropy * self.beta
 
-        if tf.reduce_any(tf.math.is_nan(loss)):
+        if tf.reduce_any(tf.math.is_nan(utility)):
+            raise RuntimeError
+        if tf.reduce_any(tf.math.is_nan(entropy)):
             raise RuntimeError
 
         gradients = tape.gradient(loss, self.actor.trainable_weights,

@@ -91,11 +91,13 @@ class PolicyGradient(RLAgentBase):
             self._finalize_trajectory(final_state=state)
 
     def sample(self, state, reward, done):
-        distribution: tfp.distributions.Distribution = self.actor(state[None, ...])
-        action = distribution.sample(sample_shape=1).numpy()[0, 0]
+        result = self.actor(state[None, ...], training=True)
         if self.learning:
-            probability = distribution.prob(action[None, ...])[0].numpy()
+            action = result[0][0, 0]
+            probability = result[1][0].numpy()
             self._set_transition(state, reward, done, probability, action)
+        else:
+            action = result
         return action
 
     def end_trajectory(self):
@@ -108,7 +110,6 @@ class PolicyGradient(RLAgentBase):
 
     @tf.function(experimental_relax_shapes=True)
     def train_step_critic(self, state: tf.Tensor, target: tf.Tensor):
-        tf.assert_equal(len(target.shape), 1)
         with tf.GradientTape() as tape:
             value = self.critic(state)[..., 0]
             loss = tf.reduce_mean(tf.square(value - target))
@@ -121,9 +122,9 @@ class PolicyGradient(RLAgentBase):
     def train_step_actor(self, state, action, advantages, old_probabilities):
 
         with tf.GradientTape() as tape:
-            distribution: tfp.distributions.Distribution = self.actor(state)
-            log_probability = distribution.log_prob(action)
-            entropy = -tf.reduce_mean(log_probability)
+            log_probability, entropy = self.actor.get_training_outputs(state, action)
+            log_probability = tf.reduce_mean(log_probability)
+            entropy = tf.reduce_mean(entropy)
             utilities = -log_probability * advantages
             utility = tf.reduce_mean(utilities)
             loss = utility - self.beta * entropy

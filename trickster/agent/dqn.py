@@ -4,7 +4,7 @@ import tensorflow as tf
 
 from .off_policy import OffPolicy
 from ..utility import model_utils
-from ..processing import action_smoothing
+from ..processing import action_processing
 from ..model import arch
 
 
@@ -24,7 +24,7 @@ class DQN(OffPolicy):
 
         super().__init__(memory_buffer_size)
         self.model = model
-        self.epsilon_greedy = action_smoothing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
+        self.epsilon_greedy = action_processing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
         self.target_network = target_network
         self.gamma = discount_gamma
         self.polyak = polyak_tau

@@ -63,12 +63,15 @@ class SimpleCNN(CNN):
         super().__init__(num_blocks=3, block_depth=1, width_base=8)
 
 
-def factory(observation_space: gym.spaces.Space):
+def factory(observation_space: gym.spaces.Space, wide=False):
 
     if len(observation_space.shape) == 3:
         backbone = SimpleCNN()
     elif len(observation_space.shape) == 1:
-        backbone = SlimMLP()
+        if wide:
+            backbone = WideMLP()
+        else:
+            backbone = SlimMLP()
     else:
         raise RuntimeError(f"Weird observation space dimensionality: {observation_space.shape}")
 

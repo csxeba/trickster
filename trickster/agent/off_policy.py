@@ -6,7 +6,7 @@ from ..utility import model_utils
 
 class OffPolicy(RLAgentBase):
 
-    transition_memory_keys = ["state", "state_next", "action", "reward", "done"]
+    transition_memory_keys = ["state", "action", "reward", "done", "state_next"]
 
     def __init__(self,
                  actor: tf.keras.Model = None,
@@ -47,6 +47,7 @@ class OffPolicy(RLAgentBase):
         self.tau = polyak_tau
 
     def _set_transition(self, state, action, reward, done):
+        assert self.learning
         if self.timestep > 0:
             self.transition.set(state_next=state, reward=reward, done=done)
             assert self.transition.ready
@@ -83,3 +84,8 @@ class OffPolicy(RLAgentBase):
 
     def fit(self, batch_size=None):
         raise NotImplementedError
+
+    def _get_sample(self, batch_size):
+        data = self.memory_sampler.sample(batch_size)
+        data = {key: tf.convert_to_tensor(value, dtype=tf.float32) for key, value in data.items()}
+        return data
