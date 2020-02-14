@@ -75,6 +75,3 @@ def add_clipped_noise(action, sigma, noise_clip, action_minima, action_maxima):
     smoothed_action = tf.maximum(smoothed_action, action_minima)
     smoothed_action = tf.minimum(smoothed_action, action_maxima)
     return smoothed_action
-
-
-def scale(action: tf.Tensor, new_minima: tf.Tensor, new_maxima: tf.Tensor):
