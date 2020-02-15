@@ -19,7 +19,7 @@ class Architecture(tf.keras.Model):
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
         self.num_outputs = head_model.num_outputs
 
-    @tf.function(experimental_relax_shapes=True)
+    # @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):
         x = self.backbone_model(x)
         x = self.head_model(x, training)

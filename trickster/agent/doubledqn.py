@@ -1,8 +1,8 @@
 import gym
-import numpy as np
 import tensorflow as tf
 
 from .dqn import DQN
+from ..utility import off_policy_utils
 
 
 class DoubleDQN(DQN):
@@ -11,8 +11,8 @@ class DoubleDQN(DQN):
                  model: tf.keras.Model,
                  target_network: tf.keras.Model,
                  discount_gamma: float = 0.99,
-                 epsilon: float = 1.,
-                 epsilon_decay: float = 0.999,
+                 epsilon: float = 0.1,
+                 epsilon_decay: float = 1.0,
                  epsilon_min: float = 0.1,
                  polyak_tau: float = 0.01,
                  memory_buffer_size: int = 10000):
@@ -25,37 +25,38 @@ class DoubleDQN(DQN):
     @classmethod
     def from_environment(cls,
                          env: gym.Env,
-                         model: tf.keras.Model = None,
-                         target_network: tf.keras.Model = None,
+                         model: tf.keras.Model = "default",
+                         target_network: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         epsilon: float = 1.,
-                         epsilon_decay: float = 0.99,
+                         epsilon: float = 0.1,
+                         epsilon_decay: float = 1.0,
                          epsilon_min: float = 0.1,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = 10000):
 
-        return DQN.from_environment(env, model, discount_gamma, epsilon, epsilon_decay, epsilon_min, polyak_tau,
-                                    use_target_network=True,
-                                    target_network=target_network,
-                                    memory_buffer_size=memory_buffer_size)
+        model, target_network = off_policy_utils.sanitize_models_discreete(
+            env, model, target_network, use_target_network=True
+        )
 
-    @tf.function
-    def train_step_q(self, state, state_next, action, reward, done):
+        return cls(model, target_network, discount_gamma, epsilon, epsilon_decay, epsilon_min,
+                   polyak_tau, memory_buffer_size)
 
+    # @tf.function(experimental_relax_shapes=True)
+    def update_q(self, state, state_next, action, reward, done):
+
+        Q_next = self.model(state_next)
         Q_target = self.target_network(state_next)
-        target_action = tf.argmax(Q_target)
-        canvas = tf.one_hot(target_action, self.num_actions, dtype=tf.float32)
-        inverse_canvas = 1 - canvas
+
+        action_indices = tf.stack([tf.range(0, len(action)), action], axis=1)
+        target_action_mask = Q_next == tf.reduce_max(Q_next, axis=1, keepdims=True)
+
+        bellman_target = Q_target[target_action_mask] * self.gamma * (1 - done) + reward
 
         with tf.GradientTape() as tape:
-
             Q_model = self.model(state)
-
-            bellman_target = self.gamma * tf.gather(Q_model, target_action) * (1 - done) + reward
-            target = canvas * bellman_target[:, None] + inverse_canvas * Q_model
-            target = tf.stop_gradient(target)
-
-            loss = tf.reduce_mean(tf.square(target - Q_model))
+            Q = tf.gather_nd(Q_model, action_indices)
+            squared_error = tf.square(bellman_target - Q)
+            loss = tf.reduce_mean(squared_error)
 
         grads = tape.gradient(loss, self.model.trainable_weights)
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))

@@ -4,7 +4,7 @@ long_description = open("Readme.md").read()
 
 setup(
     name='trickster',
-    version='0.0.1',
+    version='0.1.0',
     packages=find_packages(),
     url='https://github.com/csxeba/trickster.git',
     license='MIT',

@@ -8,7 +8,7 @@ from ..utility import off_policy_utils
 
 class DDPG(td3.TD3):
 
-    history_keys = ["actor_loss", "action", "target_action", "critic_loss", "Q", "sigma"]
+    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -57,7 +57,7 @@ class DDPG(td3.TD3):
         action_minima = env.action_space.low
         action_maxima = env.action_space.high
 
-        actor, actor_target, critic, critic_target, _, _ = off_policy_utils.sanitize_models(
+        actor, actor_target, critic, critic_target, _, _ = off_policy_utils.sanitize_models_continuous(
             env, actor, actor_target, critic, critic_target, None, None
         )
 

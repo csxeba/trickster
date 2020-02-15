@@ -40,10 +40,10 @@ class PPO(PolicyGradient):
                          critic: tf.keras.Model = "default",
                          update_batch_size=32,
                          discount_gamma=0.99,
-                         gae_lambda=0.95,
+                         gae_lambda=0.97,
                          normalize_advantages=True,
-                         entropy_beta=0.005,
-                         clip_epsilon=0.2,
+                         entropy_beta=0.0,
+                         clip_epsilon=0.3,
                          target_kl_divergence=0.01,
                          memory_buffer_size=10000,
                          actor_updates=10,
@@ -58,27 +58,22 @@ class PPO(PolicyGradient):
                    entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
                    actor_updates, critic_updates)
 
-    def train_step_actor(self, state, action, advantage, old_probabilities):
+    @tf.function(experimental_relax_shapes=True)
+    def train_step_actor(self, state, action, advantage, old_log_prob):
 
         selection = tf.cast(advantage > 0, tf.float32)
         min_adv = ((1+self.epsilon) * selection + (1-self.epsilon) * (1-selection)) * advantage
 
-        old_log_prob = tf.math.log(old_probabilities)
-
         with tf.GradientTape() as tape:
             new_log_prob, entropy = self.actor.get_training_outputs(state, action)
-            new_log_prob = tf.reduce_mean(new_log_prob)
-            entropy = tf.reduce_mean(entropy)
+
             ratio = tf.exp(new_log_prob - old_log_prob)
             utilities = -tf.minimum(ratio*advantage, min_adv)
             utility = tf.reduce_mean(utilities)
 
-            loss = utility - entropy * self.beta
+            entropy = tf.reduce_mean(entropy)
 
-        if tf.reduce_any(tf.math.is_nan(utility)):
-            raise RuntimeError
-        if tf.reduce_any(tf.math.is_nan(entropy)):
-            raise RuntimeError
+            loss = utility - entropy * self.beta
 
         gradients = tape.gradient(loss, self.actor.trainable_weights,
                                   unconnected_gradients=tf.UnconnectedGradients.ZERO)
@@ -96,7 +91,7 @@ class PPO(PolicyGradient):
                 "clip_rate": clip_rate}
 
     def fit(self, batch_size=None) -> dict:
-        # states, actions, returns, advantages, old_probabilities
+        # states, actions, returns, advantages, old_log_prob
         data = self.memory_sampler.sample(size=-1)
         num_samples = self.memory_sampler.N
 
@@ -116,7 +111,7 @@ class PPO(PolicyGradient):
                 break
 
         actor_ds = tf.data.Dataset.zip((
-            datasets["state"], datasets["action"], datasets["advantages"], datasets["probability"]))
+            datasets["state"], datasets["action"], datasets["advantages"], datasets["log_prob"]))
         actor_ds.shuffle(num_samples).repeat()
         actor_ds = actor_ds.batch(self.batch_size).prefetch(min(3, self.actor_updates))
         for update, data in enumerate(actor_ds, start=1):

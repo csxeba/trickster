@@ -6,14 +6,14 @@ import tensorflow as tf
 from ..model import arch
 
 
-def sanitize_models(env: gym.Env,
-                    actor: tf.keras.Model,
-                    actor_target: Union[tf.keras.Model, None],
-                    critic1: tf.keras.Model,
-                    critic1_target: tf.keras.Model,
-                    critic2: Union[tf.keras.Model, None],
-                    critic2_target: Union[tf.keras.Model, None],
-                    stochastic_actor: bool = False):
+def sanitize_models_continuous(env: gym.Env,
+                               actor: tf.keras.Model,
+                               actor_target: Union[tf.keras.Model, None],
+                               critic1: tf.keras.Model,
+                               critic1_target: tf.keras.Model,
+                               critic2: Union[tf.keras.Model, None],
+                               critic2_target: Union[tf.keras.Model, None],
+                               stochastic_actor: bool = False):
 
     action_maxima = env.action_space.high
 
@@ -35,3 +35,18 @@ def sanitize_models(env: gym.Env,
         critic2_target = arch.QCritic(env.observation_space)
 
     return actor, actor_target, critic1, critic1_target, critic2, critic2_target
+
+
+def sanitize_models_discreete(env: gym.Env,
+                              model: tf.keras.Model,
+                              target_network: tf.keras.Model,
+                              use_target_network: bool = True):
+    if model == "default":
+        model = arch.Q(env.observation_space, env.action_space)
+
+    if use_target_network:
+        if target_network == "default" or target_network is None:
+            target_network = arch.Q(env.observation_space, env.action_space)
+    if not use_target_network:
+        target_network = None
+    return model, target_network

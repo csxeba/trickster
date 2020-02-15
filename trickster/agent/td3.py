@@ -67,7 +67,7 @@ class TD3(off_policy.OffPolicy):
         action_minima = env.action_space.low
         action_maxima = env.action_space.high
 
-        actor, actor_target, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models(
+        actor, actor_target, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
             env, actor, actor_target, critic1, critic1_target, critic2, critic2_target
         )
 

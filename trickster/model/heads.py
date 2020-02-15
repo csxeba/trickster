@@ -15,19 +15,20 @@ class StochasticDiscreete(tf.keras.Model):
         self.num_outputs = num_actions
 
     @tf.function(experimental_relax_shapes=True)
-    def call(self, x, training=True, **kwargs):
+    def call(self, x, training=None, **kwargs):
         m = len(x)
         logits = self.logits(x)
         if training:
             distribution = tfp.distributions.Categorical(logits)
             action = distribution.sample(m)
-            return action, distribution.prob(action)
+            return action, distribution.log_prob(action)
         else:
             return tf.argmax(logits, axis=1)
 
     @tf.function(experimental_relax_shapes=True)
     def get_training_outputs(self, inputs, actions):
-        distribution = self(inputs)
+        logits = self.logits(inputs)
+        distribution = tfp.distributions.Categorical(logits)
         entropy = distribution.entropy()
         log_prob = distribution.log_prob(actions)
         return log_prob, entropy
@@ -84,7 +85,7 @@ class StochasticContinuous(tf.keras.Model):
             if self.squash:
                 distribution = self.bijector(distribution)
             action = distribution.sample()
-            return action, distribution.prob(action)
+            return action, distribution.log_prob(action)
         else:
             if self.squash:
                 mean = tf.tanh(mean)
