@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 from ..processing import RewardShaper
@@ -49,7 +50,7 @@ class PolicyGradient(RLAgentBase):
                 critic_input = tf.concat([critic_input, final_state[None, ...]], axis=0)
             values = self.critic(critic_input)[..., 0].numpy()  # tangling dimension due to Dense(1)
             if final_state is None:
-                values = tf.concat([values, [0.]], axis=0)
+                values = np.concatenate([values, [0.]], axis=0)
             advantages, returns = self.reward_shaper.compute_gae(data["reward"], values[:-1], values[1:], data["done"])
         else:
             returns = self.reward_shaper.discount(data["reward"], data["done"])

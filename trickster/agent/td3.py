@@ -57,11 +57,11 @@ class TD3(off_policy.OffPolicy):
                          discount_gamma: float = 0.99,
                          memory_buffer_size: int = 10000,
                          polyak_tau: float = 0.01,
-                         action_noise_sigma: float = 2.,
-                         action_noise_sigma_decay: float = 0.9999,
+                         action_noise_sigma: float = 0.1,
+                         action_noise_sigma_decay: float = 1.,
                          action_noise_sigma_min: float = 0.1,
-                         target_action_noise_sigma: float = 2.,
-                         target_action_noise_clip: float = 1.,
+                         target_action_noise_sigma: float = 0.2,
+                         target_action_noise_clip: float = 0.5,
                          update_actor_every: int = 2):
 
         action_minima = env.action_space.low
@@ -86,6 +86,7 @@ class TD3(off_policy.OffPolicy):
             self._set_transition(state, action, reward, done)
         return action
 
+    # noinspection DuplicatedCode
     @tf.function
     def update_critic(self, state, action, reward, done, state_next):
 
@@ -99,6 +100,7 @@ class TD3(off_policy.OffPolicy):
         if self.td3:
             Q2 = self.critic2_target([state_next, action_target])[..., 0]
             target_Q = tf.minimum(target_Q, Q2)
+
         bellman_target = reward + self.gamma * target_Q * (1 - done)
 
         history = {"t_action": tf.reduce_mean(action_target)}

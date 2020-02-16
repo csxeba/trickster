@@ -48,8 +48,8 @@ class DDPG(td3.TD3):
                          actor_target: tf.keras.Model = "default",
                          critic_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         action_noise_sigma: float = 2.,
-                         action_noise_sigma_decay: float = 0.9999,
+                         action_noise_sigma: float = 0.1,
+                         action_noise_sigma_decay: float = 1.0,
                          action_noise_sigma_min: float = 0.1,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = 10000):
