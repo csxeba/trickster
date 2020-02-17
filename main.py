@@ -17,6 +17,8 @@ parser.add_argument("--batch-size", type=int, default=32,
 parser.add_argument("--render-frequency", type=int, default=100,
                     help="During training, interpreted as epoch frequency. Default: 100")
 parser.add_argument("--gpu", help="Which GPU to use. Defaults to no GPU (-1).", type=int, default=-1)
+parser.add_argument("--do-plot", help="Whether to plot learning curves.", type=bool, default=False)
+parser.add_argument("--render-final", help="Run the agent with rendering at the end.", type=bool, default=False)
 
 arg = parser.parse_args()
 
@@ -66,12 +68,16 @@ cfg = T.rollout.RolloutConfig(max_steps=arg.max_steps)
 if arg.algo in on_policy:
     rollout = T.rollout.Trajectory(algo, env, cfg)
     batch_size = arg.batch_size if arg.algo.lower() == "ppo" else -1
-    rollout.fit(arg.train_epochs, rollouts_per_epoch=1, update_batch_size=batch_size, render_every=arg.render_frequency)
-    rollout.render(repeats=100)
+    rollout.fit(arg.train_epochs, rollouts_per_epoch=1, update_batch_size=batch_size, render_every=arg.render_frequency,
+                plot_curves=arg.do_plot)
+    if arg.render_final:
+        rollout.render(repeats=100)
 else:
     test_env = gym.make(arg.env)
     test_rollout = T.rollout.Trajectory(algo, test_env, cfg)
     rollout = T.rollout.Rolling(algo, env, cfg)
     rollout.fit(arg.train_epochs, updates_per_epoch=64, steps_per_update=1, update_batch_size=arg.batch_size,
-                testing_rollout=test_rollout, render_every=arg.render_frequency, warmup_buffer=True)
-    test_rollout.render(repeats=100)
+                testing_rollout=test_rollout, render_every=arg.render_frequency, warmup_buffer=True,
+                plot_curves=arg.do_plot)
+    if arg.render_final:
+        test_rollout.render(repeats=100)

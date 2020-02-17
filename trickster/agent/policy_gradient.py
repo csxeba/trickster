@@ -78,11 +78,15 @@ class PolicyGradient(RLAgentBase):
     def sample(self, state, reward, done):
         result = self.actor(state[None, ...], training=self.learning)
         if self.learning:
-            action = result[0][0].numpy()
-            log_prob = result[1][0].numpy()
+            action, log_prob = map(lambda ar: ar[0].numpy(), result)
+            if np.issubdtype(action.dtype, np.integer):
+                action = np.squeeze(action)
+            log_prob = np.squeeze(log_prob)
             self._set_transition(state, reward, done, log_prob, action)
         else:
             action = result[0].numpy()
+            if isinstance(action.dtype, np.integer):
+                action = np.squeeze(action)
         return action
 
     def end_trajectory(self):

@@ -71,3 +71,4 @@ target/
 models/
 experiments/
 artifacts/
+smoke/

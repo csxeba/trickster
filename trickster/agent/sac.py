@@ -35,7 +35,7 @@ class SAC(OffPolicy):
                          critic2: tf.keras.Model = "default",
                          critic2_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         entropy_beta: float = 0.1,
+                         entropy_beta: float = 0.01,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = int(1e4)):
 
@@ -56,8 +56,8 @@ class SAC(OffPolicy):
     def update_critic(self, state, action, reward, done, state_next):
 
         # Obtain stochastic actions
-        action_target, action_prob = self.actor(state_next, training=True)
-        log_prob = tf.math.log(action_prob)
+        action_target, _ = self.actor(state_next, training=True)
+        log_prob, entropy = self.actor.get_training_outputs(state, action)
 
         # Calculate Q target
         Q1_target = self.critic_target([state_next, action_target])[..., 0]
@@ -86,9 +86,9 @@ class SAC(OffPolicy):
     @tf.function
     def update_actor(self, state):
         with tf.GradientTape() as tape:
-            action, prob = self.actor(state, training=True)
+            action, log_prob = self.actor(state, training=True)
             Q = tf.minimum(self.critic([state, action]), self.critic2([state, action]))
-            loss = tf.reduce_mean(tf.math.log(prob) - Q)
+            loss = tf.reduce_mean(self.beta * log_prob - Q)
 
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))

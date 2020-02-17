@@ -4,7 +4,7 @@ from trickster.agent import REINFORCE, A2C, PPO
 from trickster.rollout import Trajectory, RolloutConfig
 
 ENV_NAME = "CartPole-v1"
-ALGO = "PPO"
+ALGO = "REINFORCE"
 TRAJECTORY_MAX_STEPS = 200
 EPOCHS = 300
 ROLLOUTS_PER_EPOCH = 10
