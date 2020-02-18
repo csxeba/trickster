@@ -5,13 +5,13 @@ import numpy as np
 import tensorflow as tf
 
 from . import off_policy
-from ..utility import off_policy_utils
+from ..utility import off_policy_utils, tensor_utils
 from ..processing import action_processing
 
 
 class TD3(off_policy.OffPolicy):
 
-    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "critic2_loss", "Q2", "sigma"]
+    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "critic2_loss", "Q2", "Q_y", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -87,7 +87,7 @@ class TD3(off_policy.OffPolicy):
         return action
 
     # noinspection DuplicatedCode
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def update_critic(self, state, action, reward, done, state_next):
 
         action_target = self.actor_target(state_next)
@@ -107,18 +107,19 @@ class TD3(off_policy.OffPolicy):
 
         with tf.GradientTape() as tape:
             Q = self.critic([state, action])[..., 0]
-            loss = tf.reduce_mean(tf.square(Q - bellman_target))
+            loss = tf.reduce_mean(tensor_utils.huber_loss(bellman_target, Q))
         grads = tape.gradient(loss, self.critic.trainable_weights)
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
 
         history["critic_loss"] = loss
         history["Q"] = Q
+        history["Q_y"] = tf.reduce_mean(bellman_target)
 
         if self.td3:
 
             with tf.GradientTape() as tape:
                 Q2 = self.critic2([state, action])[..., 0]
-                loss2 = tf.reduce_mean(tf.square(Q2 - bellman_target))
+                loss2 = tf.reduce_mean(tensor_utils.huber_loss(bellman_target, Q2))
             grads = tape.gradient(loss2, self.critic2.trainable_weights)
             self.critic2.optimizer.apply_gradients(zip(grads, self.critic2.trainable_weights))
 

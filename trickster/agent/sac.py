@@ -69,15 +69,15 @@ class SAC(OffPolicy):
 
         with tf.GradientTape() as tape:
             Q1 = self.critic([state, action])[..., 0]
-            loss1 = tf.reduce_mean(tf.square(Q1 - critic_target))
-        grads = tape.gradient(loss1, self.critic.trainable_weights)
-        self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
-
-        with tf.GradientTape() as tape:
             Q2 = self.critic2([state, action])[..., 0]
+            loss1 = tf.reduce_mean(tf.square(Q1 - critic_target))
             loss2 = tf.reduce_mean(tf.square(Q2 - critic_target))
-        grads = tape.gradient(loss2, self.critic2.trainable_weights)
-        self.critic2.optimizer.apply_gradients(zip(grads, self.critic2.trainable_weights))
+            loss = loss1 + loss2
+
+        grads = tape.gradient(
+            loss, self.critic.trainable_weights + self.critic2.trainable_weights)
+        self.critic.optimizer.apply_gradients(
+            zip(grads, self.critic.trainable_weights + self.critic2.trainable_weights))
 
         return {"Q1": tf.reduce_mean(Q1), "Q2": tf.reduce_mean(Q2),
                 "Q1_loss": loss1, "Q2_loss": loss2,

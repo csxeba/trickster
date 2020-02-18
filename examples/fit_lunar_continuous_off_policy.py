@@ -4,12 +4,12 @@ from trickster.agent import DDPG, TD3, SAC
 from trickster.rollout import Trajectory, Rolling, RolloutConfig
 
 ENV_NAME = "LunarLanderContinuous-v2"
-ALGO = "DDPG"
-TRAJECTORY_MAX_STEPS = 200
+ALGO = "TD3"
+TRAJECTORY_MAX_STEPS = 300
 STEPS_PER_UPDATE = 1
-UPDATES_PER_EPOCH = 64
+UPDATES_PER_EPOCH = 32
 EPOCHS = 200
-UPDATE_BATCH_SIZE = 100
+UPDATE_BATCH_SIZE = 64
 
 env = gym.make(ENV_NAME)
 test_env = gym.make(ENV_NAME)
@@ -18,7 +18,8 @@ algo = {"DDPG": DDPG,
         "TD3": TD3,
         "SAC": SAC}[ALGO]
 
-agent = algo.from_environment(env)
+agent = algo.from_environment(env, discount_gamma=0.8)
+agent.actor.optimizer.learning_rate = 1e-4
 
 cfg = RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS)
 

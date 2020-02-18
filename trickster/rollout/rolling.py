@@ -32,18 +32,25 @@ class Rolling(RolloutBase):
         self.reward = None
         self.info = None
         self.done = None
+        self.random_actions = False
         self.worker = agent.create_worker()
         self._rolling_worker = None
 
     def _sample_action(self):
         return self.worker.sample(self.state, self.reward, self.done)
 
+    def _random_action(self):
+        return self.env.action_space.sample()
+
     def _rolling_job(self):
         while 1:
             self._reset()
             while 1:
                 yield self.step
-                self.action = self._sample_action()
+                if self.random_actions:
+                    self.action = self._random_action()
+                else:
+                    self.action = self._sample_action()
                 if self._finished():
                     break
                 assert not self.done
@@ -51,20 +58,24 @@ class Rolling(RolloutBase):
                 self.state, self.reward, self.done, self.info = self.env.step(self.action)
                 self.step += 1
 
-    def roll(self, steps, verbose=0, learning=True):
+    def roll(self, steps, verbose=0, learning=True, random_actions=False):
         """
         Executes a given number of steps in the environment.
         :param steps: int
-            How many steps to execute
+            How many steps to execute.
         :param verbose: int
-            How much info to print
+            How much info to print.
         :param learning: bool
-            Whether to save the experience for future learning
+            Whether to save the experience for future learning.
+        :param random_actions: bool
+            Whether to take random actions or use the policy.
         :return: dict
             With keys: "rewards" and "mean_reward"
         """
         if self._rolling_worker is None:
             self._rolling_worker = self._rolling_job()
+
+        self.random_actions = random_actions
 
         rewards = []
 
@@ -77,6 +88,7 @@ class Rolling(RolloutBase):
                 break
         self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
+        self.random_actions = False
 
     def _reset(self):
         self.reward = self.cfg.initial_reward
@@ -104,6 +116,7 @@ class Rolling(RolloutBase):
 
         """
         Orchestrates a basic learning scheme.
+
         :param epochs: int
             How many episodes to learn for
         :param updates_per_epoch: int
@@ -124,9 +137,9 @@ class Rolling(RolloutBase):
         """
 
         if warmup_buffer is True:
-            self.roll(steps=update_batch_size, verbose=0, learning=True)
+            self.roll(steps=update_batch_size, verbose=0, learning=True, random_actions=False)
         elif warmup_buffer:
-            self.roll(steps=warmup_buffer, verbose=0, learning=True)
+            self.roll(steps=warmup_buffer, verbose=0, learning=True, random_actions=False)
 
         training_ops.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
                          testing_rollout, plot_curves, render_every)

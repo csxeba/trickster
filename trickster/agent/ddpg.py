@@ -8,7 +8,7 @@ from ..utility import off_policy_utils
 
 class DDPG(td3.TD3):
 
-    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "sigma"]
+    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "Q_y", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,

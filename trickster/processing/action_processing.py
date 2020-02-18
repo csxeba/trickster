@@ -67,7 +67,7 @@ class NumericContinuousActionSmoother:
         self.sigma = self.initial_sigma
 
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
 def add_clipped_noise(action, sigma, noise_clip, action_minima, action_maxima):
     noise = tf.random.normal(shape=action.shape, mean=0.0, stddev=sigma)
     noise = tf.clip_by_value(noise, -noise_clip, noise_clip)

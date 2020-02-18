@@ -1,7 +1,6 @@
 import math
 
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 
 @tf.function(experimental_relax_shapes=True)
@@ -14,10 +13,8 @@ def safe_normalize(tensor):
     return tensor
 
 
-def entropy(distribution: tfp.distributions.Distribution):
-    if isinstance(distribution, tfp.distributions.MultivariateNormalDiag):
-        return 0.5 * tf.math.log(2 * math.pi * math.e * distribution.variance())
-    elif isinstance(distribution, tfp.distributions.Categorical):
-        return distribution.entropy()
-    else:
-        raise NotImplementedError
+@tf.function(experimental_relax_shapes=True)
+def huber_loss(y_true, y_pred):
+    l1 = tf.abs(y_true - y_pred)
+    l2 = 0.5 * tf.square(y_true - y_pred)
+    return tf.minimum(l1, l2)

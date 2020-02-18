@@ -40,10 +40,11 @@ class Policy(Architecture):
                  stochastic=True,
                  squash_continuous=True,
                  action_scaler=None,
-                 sigma_predicted=False):
+                 sigma_predicted=False,
+                 wide=False):
 
         self.stochastic = stochastic
-        backbone_model = backbones.factory(observation_space, wide=False)
+        backbone_model = backbones.factory(observation_space, wide=wide)
         head_model = heads.factory(action_space, stochastic, squash_continuous, action_scaler, sigma_predicted)
         super().__init__(backbone_model, head_model)
 
@@ -82,7 +83,7 @@ class QCritic(Architecture):
         head_model = heads.DeterministicContinuous(1, squash=False)
         super().__init__(backbone_model, head_model)
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=None, mask=None):
         state, action = inputs
         features = self.backbone_model(state)

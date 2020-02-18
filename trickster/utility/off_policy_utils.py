@@ -20,10 +20,11 @@ def sanitize_models_continuous(env: gym.Env,
     if actor == "default":
         actor = arch.Policy(env.observation_space, env.action_space,
                             stochastic=stochastic_actor,
-                            squash_continuous=True, action_scaler=action_maxima, sigma_predicted=True)
+                            squash_continuous=True, action_scaler=action_maxima, sigma_predicted=True, wide=True)
     if actor_target == "default":
         actor_target = arch.Policy(env.observation_space, env.action_space,
-                                   stochastic=stochastic_actor, squash_continuous=True, action_scaler=action_maxima)
+                                   stochastic=stochastic_actor, squash_continuous=True,
+                                   action_scaler=action_maxima, wide=True)
     if critic1 == "default":
         critic1 = arch.QCritic(env.observation_space)
     if critic1_target == "default":
