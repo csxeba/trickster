@@ -110,11 +110,11 @@ class PolicyGradient(RLAgentBase):
         tf.assert_equal(len(advantages.shape), 1)
 
         with tf.GradientTape() as tape:
-            log_prob, entropy = self.actor.get_training_outputs(state, action)
+            log_prob = self.actor.log_prob(state, action)
             utilities = -log_prob * advantages
             utility = tf.reduce_mean(utilities)
 
-            entropy = tf.reduce_mean(entropy)
+            entropy = -tf.reduce_mean(log_prob)
 
             loss = utility - self.beta * entropy
 

@@ -20,7 +20,7 @@ class SAC(OffPolicy):
                  discount_gamma: float = 0.99,
                  entropy_beta: float = 0.1,
                  polyak_tau: float = 0.01,
-                 memory_buffer_size: int = 10000):
+                 memory_buffer_size: int = int(1e4)):
 
         super().__init__(actor, None, critic, critic_target, critic2, critic2_target,
                          memory_buffer_size, discount_gamma, polyak_tau)
@@ -35,7 +35,7 @@ class SAC(OffPolicy):
                          critic2: tf.keras.Model = "default",
                          critic2_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         entropy_beta: float = 0.01,
+                         entropy_beta: float = 0.1,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = int(1e4)):
 
@@ -51,13 +51,11 @@ class SAC(OffPolicy):
             self._set_transition(state, action, reward, done)
         return action
 
-    # noinspection DuplicatedCode
     @tf.function
     def update_critic(self, state, action, reward, done, state_next):
 
         # Obtain stochastic actions
-        action_target, _ = self.actor(state_next, training=True)
-        log_prob, entropy = self.actor.get_training_outputs(state, action)
+        action_target, log_prob = self.actor(state_next, training=True)
 
         # Calculate Q target
         Q1_target = self.critic_target([state_next, action_target])[..., 0]
@@ -65,7 +63,7 @@ class SAC(OffPolicy):
         Q_target = tf.minimum(Q1_target, Q2_target)
 
         # Bellman target for critic Q-networks
-        critic_target = reward + self.gamma * (Q_target * (1 - done) - self.beta * log_prob)
+        critic_target = reward + self.gamma * (1 - done) * (Q_target - self.beta * log_prob)
 
         with tf.GradientTape() as tape:
             Q1 = self.critic([state, action])[..., 0]
@@ -87,7 +85,7 @@ class SAC(OffPolicy):
     def update_actor(self, state):
         with tf.GradientTape() as tape:
             action, log_prob = self.actor(state, training=True)
-            Q = tf.minimum(self.critic([state, action]), self.critic2([state, action]))
+            Q = tf.minimum(self.critic([state, action]), self.critic2([state, action]))[..., 0]
             loss = tf.reduce_mean(self.beta * log_prob - Q)
 
         grads = tape.gradient(loss, self.actor.trainable_weights)

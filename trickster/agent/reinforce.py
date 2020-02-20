@@ -2,7 +2,7 @@ import tensorflow as tf
 import gym
 
 from .policy_gradient import PolicyGradient
-from ..model import arch
+from ..model import policy
 
 
 class REINFORCE(PolicyGradient):
@@ -34,7 +34,8 @@ class REINFORCE(PolicyGradient):
                          memory_buffer_size: int = 10000):
 
         if actor == "default":
-            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=True)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
+
         return cls(actor=actor,
                    discount_gamma=discount_gamma,
                    gae_lambda=None,

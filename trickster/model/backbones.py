@@ -50,10 +50,11 @@ class CNN(_LayerStack):
         hiddens = []
         for block in range(1, num_blocks+1):
             for layer_num in range(1, block_depth+1):
-                self.hiddens.append(
+                hiddens.append(
                     tfl.Conv2D(width_base*block, kernel_size=3, strides=1, padding="same", activation="relu")
                 )
             hiddens.append(tfl.MaxPool2D())
+        hiddens.append(tfl.GlobalAveragePooling2D())
         super().__init__(hiddens)
 
 

@@ -61,8 +61,6 @@ class DDPG(td3.TD3):
             env, actor, actor_target, critic, critic_target, None, None
         )
 
-        assert all(abs(mini) == abs(maxi) for mini, maxi in zip(action_minima, action_maxima))
-
         return cls(actor, critic, actor_target, critic_target, discount_gamma,
                    action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min,
                    action_minima, action_maxima, polyak_tau, memory_buffer_size)

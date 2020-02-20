@@ -2,7 +2,7 @@ import tensorflow as tf
 import gym
 
 from .policy_gradient import PolicyGradient
-from ..model import arch
+from ..model import policy, value
 
 
 class A2C(PolicyGradient):
@@ -32,11 +32,10 @@ class A2C(PolicyGradient):
                          memory_buffer_size: int = 10000):
 
         if actor == "default":
-            actor = arch.Policy(env.observation_space,
-                                env.action_space,
-                                stochastic=True,
-                                squash_continuous=True)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
+
         if critic == "default":
-            critic = arch.ValueCritic(env.observation_space)
+            critic = value.ValueCritic(env.observation_space, wide=True)
+
         return cls(actor, critic, discount_gamma, gae_lambda, normalize_advantages,
                    entropy_beta, memory_buffer_size)

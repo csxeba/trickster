@@ -2,7 +2,7 @@ import gym
 import tensorflow as tf
 
 from ..utility import history
-from ..model import arch
+from ..model import policy, value
 from .policy_gradient import PolicyGradient
 
 
@@ -16,7 +16,7 @@ class PPO(PolicyGradient):
                  update_batch_size=32,
                  discount_gamma=0.99,
                  gae_lambda=0.95,
-                 entropy_beta=0.005,
+                 entropy_beta=0.0,
                  clip_epsilon=0.2,
                  target_kl_divergence=0.01,
                  normalize_advantages=True,
@@ -43,16 +43,16 @@ class PPO(PolicyGradient):
                          gae_lambda=0.97,
                          normalize_advantages=True,
                          entropy_beta=0.0,
-                         clip_epsilon=0.3,
+                         clip_epsilon=0.2,
                          target_kl_divergence=0.01,
                          memory_buffer_size=10000,
                          actor_updates=10,
                          critic_updates=10):
 
         if actor == "default":
-            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=False)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
         if critic == "default":
-            critic = arch.ValueCritic(env.observation_space)
+            critic = value.ValueCritic(env.observation_space, wide=True)
 
         return cls(actor, critic, update_batch_size, discount_gamma, gae_lambda,
                    entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
@@ -65,13 +65,13 @@ class PPO(PolicyGradient):
         min_adv = ((1+self.epsilon) * selection + (1-self.epsilon) * (1-selection)) * advantage
 
         with tf.GradientTape() as tape:
-            new_log_prob, entropy = self.actor.get_training_outputs(state, action)
+            new_log_prob = self.actor.log_prob(state, action)
 
             ratio = tf.exp(new_log_prob - old_log_prob)
             utilities = -tf.minimum(ratio*advantage, min_adv)
             utility = tf.reduce_mean(utilities)
 
-            entropy = tf.reduce_mean(entropy)
+            entropy = -tf.reduce_mean(new_log_prob)
 
             loss = utility - entropy * self.beta
 
