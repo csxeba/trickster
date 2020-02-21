@@ -14,31 +14,27 @@ class Pong(gym.ObservationWrapper):
 
     def __init__(self):
         super().__init__(env=ENV_NAME)
-        self.stack = np.empty([80, 80, 3], dtype="float32")
-        self.stack_counter = 0
-        self.blank = np.zeros_like(self.stack)
+        self.past = None
 
-    def push(self, I):
-        self.stack[..., -1] = I
-
-    def observation(self, I):
-
+    @staticmethod
+    def _process_frame(I):
         I = I[30:185]
-        I = I[::2, ::2, 0]  # 80 x 80
+        I = I[::2, ::2, 0].astype("float32")  # 80 x 80
         I[I == 144] = 0
         I[I == 109] = 0
         I[I != 0] = 1
+        return I
 
-        self.stack = np.concatenate([self.stack[..., 1:], I[..., None].astype("float32")], axis=-1)
-        if self.stack_counter < 3:
-            self.stack_counter += 1
-            return self.blank
-
-        return self.stack
+    def observation(self, I):
+        I = self._process_frame(I)
+        dif = self.past - I
+        self.past = I
+        return dif
 
     def reset(self, **kwargs):
-        self.stack_counter = 0
-        super().reset(**kwargs)
+        I = self.env.reset(**kwargs)
+        self.past = self._process_frame(I)
+        return self.past
 
 
 env = gym.make(ENV_NAME)
