@@ -7,18 +7,18 @@ from trickster.rollout import Trajectory, RolloutConfig
 ENV_NAME = "Pong-v0"
 TRAJECTORY_MAX_STEPS = None
 EPOCHS = 1000
-ROLLOUTS_PER_EPOCH = 16
+ROLLOUTS_PER_EPOCH = 1
 
 
 class Pong(gym.ObservationWrapper):
 
     def __init__(self):
-        super().__init__(env=ENV_NAME)
+        super().__init__(env=gym.make(ENV_NAME))
         self.past = None
 
     @staticmethod
     def _process_frame(I):
-        I = I[30:185]
+        I = I[27:185]
         I = I[::2, ::2, 0].astype("float32")  # 80 x 80
         I[I == 144] = 0
         I[I == 109] = 0
@@ -29,18 +29,18 @@ class Pong(gym.ObservationWrapper):
         I = self._process_frame(I)
         dif = self.past - I
         self.past = I
-        return dif
+        return dif[..., None]
 
     def reset(self, **kwargs):
         I = self.env.reset(**kwargs)
         self.past = self._process_frame(I)
-        return self.past
+        return self.past[..., None]
 
 
-env = gym.make(ENV_NAME)
+env = Pong()
 
-agent = PPO.from_environment(env, actor_updates=50, critic_updates=50)
+agent = PPO.from_environment(env, actor_updates=20, critic_updates=40, gae_lambda=0., normalize_advantages=True)
 rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS))
 
-rollout.fit(epochs=EPOCHS, rollouts_per_epoch=ROLLOUTS_PER_EPOCH, render_every=10)
+rollout.fit(epochs=EPOCHS, rollouts_per_epoch=ROLLOUTS_PER_EPOCH, render_every=100)
 rollout.render(repeats=10)

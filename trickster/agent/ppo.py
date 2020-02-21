@@ -15,7 +15,7 @@ class PPO(PolicyGradient):
                  critic: tf.keras.Model,
                  update_batch_size=32,
                  discount_gamma=0.99,
-                 gae_lambda=0.95,
+                 gae_lambda=0.97,
                  entropy_beta=0.0,
                  clip_epsilon=0.2,
                  target_kl_divergence=0.01,
