@@ -20,3 +20,13 @@ class Architecture(tf.keras.Model):
         x = self.backbone_model(x)
         x = self.head_model(x, training)
         return x
+
+
+class TestingModel(tf.keras.Model):
+
+    def __init__(self, output: tf.Tensor):
+        super().__init__()
+        self.output_tensor = output
+
+    def call(self, inputs, training=None, mask=None):
+        return self.output_tensor

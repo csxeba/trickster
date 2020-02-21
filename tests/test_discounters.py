@@ -11,18 +11,18 @@ class TestNumericDiscounters(unittest.TestCase):
     """Value: sum of future reward from given state"""
 
     def setUp(self):
-        self.rwds = np.ones(100)
+        self.rwds = np.zeros(100)
         self.dones = np.zeros_like(self.rwds)
         self.dones[-1] = 1.
 
-    def _test_discounting(self):
+    def test_discounting(self):
         GAMMA = 0.99
         LAMBDA = 0.97
         shaper = reward_shaping.RewardShaper(GAMMA, LAMBDA)
 
         drwd = shaper.discount(self.rwds[1:], self.dones[1:], gamma=GAMMA)
         values = np.concatenate([np.array([drwd[0]]), drwd], axis=0)
-        advantages = shaper.compute_gae(self.rwds[1:], values[:-1], values[1:], self.dones[1:])
+        returns, advantages = shaper.compute_gae(self.rwds[1:], values[:-1], values[1:], self.dones[1:])
         gae_returns = advantages + values[1:]
         plt.figure(figsize=(16, 9))
         plt.plot(self.rwds[1:], "r-", label="Rewards", alpha=0.7)

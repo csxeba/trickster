@@ -2,7 +2,7 @@ from . import history, visual, progress_utils
 
 
 def fit(rolling, episodes, updates_per_episode=32, steps_per_update=32, update_batch_size=-1,
-        testing_rollout=None, plot_curves=True, render_every=0):
+        testing_rollout=None, plot_curves=True, render_every=0, smoothing_window_size: int = 10):
 
     logger = history.History("reward_sum", *rolling.agent.history_keys)
     progress_tracker = progress_utils.ProgressPrinter(logger.keys)
@@ -22,15 +22,15 @@ def fit(rolling, episodes, updates_per_episode=32, steps_per_update=32, update_b
             test_history = testing_rollout.rollout(verbose=0, push_experience=False)
             logger.append(reward_sum=test_history["reward_sum"])
 
-        progress_tracker.print(logger, average_last=10, return_carriege=True)
+        progress_tracker.print(logger, average_last=smoothing_window_size, return_carriege=True)
 
-        if episode % 10 == 0:
+        if episode % smoothing_window_size == 0:
             print()
 
         if render_every and testing_rollout is not None and episode % render_every == 0:
             testing_rollout.render(repeats=5)
 
-        if episode % 100 == 0:
+        if episode % (smoothing_window_size*10) == 0:
             print()
             progress_tracker.print_header()
 

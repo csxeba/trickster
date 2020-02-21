@@ -15,8 +15,8 @@ def sanitize_models_continuous(env: gym.Env,
                                critic2_target: Union[tf.keras.Model, None],
                                stochastic_actor: bool = False):
 
-    actor_args = dict(env=env, stochastic=stochastic_actor, squash=True, wide=False)
-    critic_args = dict(observation_space=env.observation_space, action_space=env.action_space, wide=False)
+    actor_args = dict(env=env, stochastic=stochastic_actor, squash=False, wide=False)
+    critic_args = dict(observation_space=env.observation_space, action_space=env.action_space, wide=True)
 
     if actor == "default":
         actor = policy.factory(**actor_args)

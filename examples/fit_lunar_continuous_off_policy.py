@@ -18,7 +18,7 @@ algo = {"DDPG": DDPG,
         "TD3": TD3,
         "SAC": SAC}[ALGO]
 
-agent = algo.from_environment(env, entropy_beta=0.5)
+agent = algo.from_environment(env)
 
 cfg = RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS)
 

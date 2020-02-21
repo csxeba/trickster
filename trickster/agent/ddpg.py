@@ -1,3 +1,5 @@
+from typing import Union
+
 import gym
 import numpy as np
 import tensorflow as tf
@@ -8,7 +10,7 @@ from ..utility import off_policy_utils
 
 class DDPG(td3.TD3):
 
-    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "Q_y", "sigma"]
+    history_keys = ["actor_loss", "action", "t_action", "Q_loss", "Q", "Q_y", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -19,8 +21,8 @@ class DDPG(td3.TD3):
                  action_noise_sigma: float = 0.1,
                  action_noise_sigma_decay: float = 1.,
                  action_noise_sigma_min: float = 0.1,
-                 action_minima: np.ndarray = None,
-                 action_maxima: np.ndarray = None,
+                 action_minima: Union[np.ndarray, float] = None,
+                 action_maxima: Union[np.ndarray, float] = None,
                  polyak_tau: float = 0.01,
                  memory_buffer_size: int = 10000):
 
@@ -64,3 +66,16 @@ class DDPG(td3.TD3):
         return cls(actor, critic, actor_target, critic_target, discount_gamma,
                    action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min,
                    action_minima, action_maxima, polyak_tau, memory_buffer_size)
+
+    @tf.function
+    def update_critic(self, state, action, reward, done, state_next):
+        action_target = self.actor_target(state_next)
+        Q_target = self.critic_target([state_next, action_target])[..., 0]
+        bellman_target = reward + self.gamma * (1. - done) * Q_target
+        with tf.GradientTape() as tape:
+            Q = self.critic([state, action])[..., 0]
+            loss = tf.keras.losses.mean_squared_error(bellman_target, Q)
+        grads = tape.gradient(loss, self.critic.trainable_weights)
+        self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
+        return {"Q_loss": loss, "Q": tf.reduce_mean(Q), "Q_y": tf.reduce_mean(bellman_target),
+                "t_action": tf.reduce_mean(action_target)}

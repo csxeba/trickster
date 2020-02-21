@@ -5,9 +5,9 @@ from trickster.agent import PPO
 from trickster.rollout import Trajectory, RolloutConfig
 
 ENV_NAME = "Pong-v0"
-TRAJECTORY_MAX_STEPS = 300
+TRAJECTORY_MAX_STEPS = None
 EPOCHS = 1000
-ROLLOUTS_PER_EPOCH = 8
+ROLLOUTS_PER_EPOCH = 16
 
 
 class Pong(gym.ObservationWrapper):
@@ -43,8 +43,8 @@ class Pong(gym.ObservationWrapper):
 
 env = gym.make(ENV_NAME)
 
-agent = PPO.from_environment(env)
+agent = PPO.from_environment(env, actor_updates=50, critic_updates=50)
 rollout = Trajectory(agent, env, config=RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS))
 
-rollout.fit(epochs=EPOCHS, rollouts_per_epoch=ROLLOUTS_PER_EPOCH, render_every=0)
+rollout.fit(epochs=EPOCHS, rollouts_per_epoch=ROLLOUTS_PER_EPOCH, render_every=10)
 rollout.render(repeats=10)

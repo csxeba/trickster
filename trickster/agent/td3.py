@@ -5,13 +5,13 @@ import numpy as np
 import tensorflow as tf
 
 from . import off_policy
-from ..utility import off_policy_utils, tensor_utils
+from ..utility import off_policy_utils
 from ..processing import action_processing
 
 
 class TD3(off_policy.OffPolicy):
 
-    history_keys = ["actor_loss", "action", "t_action", "critic_loss", "Q", "critic2_loss", "Q2", "Q_y", "sigma"]
+    history_keys = ["actor_loss", "action", "t_action", "Q1_loss", "Q1", "Q2_loss", "Q2", "Q_y", "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -39,8 +39,12 @@ class TD3(off_policy.OffPolicy):
             action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min, action_minima, action_maxima)
         self.target_noise_sigma = target_action_noise_sigma
         self.target_noise_clip = target_action_noise_clip
-        self.action_minima = tf.convert_to_tensor(action_minima[None, ...])
-        self.action_maxima = tf.convert_to_tensor(action_maxima[None, ...])
+        if not isinstance(action_minima, np.ndarray):
+            action_minima = np.array([action_minima])
+        if not isinstance(action_maxima, np.ndarray):
+            action_maxima = np.array([action_maxima])
+        self.action_minima = tf.convert_to_tensor(action_minima[None, ...], dtype=tf.float32)
+        self.action_maxima = tf.convert_to_tensor(action_maxima[None, ...], dtype=tf.float32)
         self.update_actor_every = update_actor_every
         self.td3 = self.critic2 is not None
         self.update_step = 0
@@ -68,7 +72,7 @@ class TD3(off_policy.OffPolicy):
         action_maxima = env.action_space.high
 
         actor, actor_target, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
-            env, actor, actor_target, critic1, critic1_target, critic2, critic2_target
+            env, actor, actor_target, critic1, critic1_target, critic2, critic2_target, stochastic_actor=False
         )
 
         assert all(abs(mini) == abs(maxi) for mini, maxi in zip(action_minima, action_maxima))
@@ -80,58 +84,48 @@ class TD3(off_policy.OffPolicy):
                    update_actor_every)
 
     def sample(self, state, reward, done):
-        action = self.actor(state[None, ...])[0]
+        action = self.actor(state[None, ...])
+        action = np.clip(action, self.action_minima, self.action_maxima)[0]
         if self.learning:
             action = self.action_smoother.sample(action, do_update=False)
             self._set_transition(state, action, reward, done)
         return action
 
     # noinspection DuplicatedCode
-    @tf.function(experimental_relax_shapes=True)
+    # @tf.function
     def update_critic(self, state, action, reward, done, state_next):
 
         action_target = self.actor_target(state_next)
-
-        if self.td3:
+        if self.target_noise_sigma > 0.:
             action_target = action_processing.add_clipped_noise(
-                action, self.target_noise_sigma, self.target_noise_clip, self.action_minima, self.action_maxima)
+                action_target, self.target_noise_sigma, self.target_noise_clip, self.action_minima, self.action_maxima)
 
-        target_Q = self.critic_target([state_next, action_target])[..., 0]
-        if self.td3:
-            Q2 = self.critic2_target([state_next, action_target])[..., 0]
-            target_Q = tf.minimum(target_Q, Q2)
+        Q1_t = self.critic_target([state_next, action_target])[..., 0]
+        Q2_t = self.critic2_target([state_next, action_target])[..., 0]
+        target_Q = tf.minimum(Q1_t, Q2_t)
 
         bellman_target = reward + self.gamma * target_Q * (1 - done)
 
-        history = {"t_action": tf.reduce_mean(action_target)}
-
         with tf.GradientTape() as tape:
-            Q = self.critic([state, action])[..., 0]
-            loss = tf.reduce_mean(tensor_utils.huber_loss(bellman_target, Q))
-        grads = tape.gradient(loss, self.critic.trainable_weights)
-        self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
+            Q1 = self.critic([state, action])[..., 0]
+            Q2 = self.critic2([state, action])[..., 0]
+            loss1 = tf.reduce_mean(tf.keras.losses.mean_squared_error(bellman_target, Q1))
+            loss2 = tf.reduce_mean(tf.keras.losses.mean_squared_error(bellman_target, Q2))
+            loss = loss1 + loss2
 
-        history["critic_loss"] = loss
-        history["Q"] = Q
-        history["Q_y"] = tf.reduce_mean(bellman_target)
+        grads = tape.gradient(
+            loss, self.critic.trainable_weights + self.critic2.trainable_weights)
+        self.critic.optimizer.apply_gradients(
+            zip(grads, self.critic.trainable_weights + self.critic2.trainable_weights))
 
-        if self.td3:
-
-            with tf.GradientTape() as tape:
-                Q2 = self.critic2([state, action])[..., 0]
-                loss2 = tf.reduce_mean(tensor_utils.huber_loss(bellman_target, Q2))
-            grads = tape.gradient(loss2, self.critic2.trainable_weights)
-            self.critic2.optimizer.apply_gradients(zip(grads, self.critic2.trainable_weights))
-
-            history["critic2_loss"] = loss2
-            history["Q2"] = Q2
-
-        return history
+        return {"Q1_loss": loss1, "Q1": tf.reduce_mean(Q1), "Q2_loss": loss2, "Q2": tf.reduce_mean(Q2),
+                "Q_y": tf.reduce_mean(bellman_target), "t_action": tf.reduce_mean(action_target)}
 
     @tf.function
     def update_actor(self, state):
         with tf.GradientTape() as tape:
             actions = self.actor(state)
+            actions = tf.clip_by_value(actions, self.action_minima, self.action_maxima)
             Q = self.critic([state, actions])
             loss = -tf.reduce_mean(Q)
         grads = tape.gradient(loss, self.actor.trainable_weights)

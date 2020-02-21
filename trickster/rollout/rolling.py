@@ -112,7 +112,8 @@ class Rolling(RolloutBase):
             testing_rollout: Trajectory = None,
             plot_curves: bool = True,
             render_every: int = 0,
-            warmup_buffer: Union[bool, int] = False):
+            warmup_buffer: Union[bool, int] = False,
+            smoothing_window_size: int = 10):
 
         """
         Orchestrates a basic learning scheme.
@@ -142,4 +143,4 @@ class Rolling(RolloutBase):
             self.roll(steps=warmup_buffer, verbose=0, learning=True, random_actions=False)
 
         training_ops.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                         testing_rollout, plot_curves, render_every)
+                         testing_rollout, plot_curves, render_every, smoothing_window_size)
