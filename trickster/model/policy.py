@@ -21,6 +21,7 @@ class DeterministicContinuous(arch.Architecture):
         super().__init__(backbone_model, head_model)
         self.do_scaling = scaler is not None
         self.scaler = scaler
+        self.build(input_shape=(None,) + observation_space.shape)
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):
@@ -73,6 +74,7 @@ class StochasticContinuous(tf.keras.Model):
         self.sigma_predicted = sigma_predicted
         self.do_squash = squash
 
+        self.build(input_shape=(None,) + observation_space.shape)
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
 
     @tf.function(experimental_relax_shapes=True)
@@ -128,6 +130,7 @@ class StochasticDiscreete(arch.Architecture):
         head_model = heads.factory(action_space, activation="linear")
 
         super().__init__(backbone_model, head_model)
+        self.build(input_shape=(None,) + observation_space.shape)
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):

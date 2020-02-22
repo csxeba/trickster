@@ -18,6 +18,7 @@ class Q(arch.Architecture):
         backbone_model = backbones.factory(observation_space, wide=wide)
         head_model = heads.Head(action_space.n, activation="linear")
         super().__init__(backbone_model, head_model)
+        self.build((None,) + observation_space.shape)
 
 
 class QCritic(tf.keras.Model):
@@ -30,6 +31,7 @@ class QCritic(tf.keras.Model):
         self.action_backbone = backbones.factory(action_space, wide=wide)
         self.head = heads.Head(1, activation="linear")
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.build([(None,) + observation_space.shape, (None,) + action_space.shape])
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=None, mask=None):
@@ -49,3 +51,4 @@ class ValueCritic(arch.Architecture):
         backbone_model = backbones.factory(observation_space, wide=wide)
         head_model = heads.Head(1, activation="linear")
         super().__init__(backbone_model, head_model)
+        self.build((None,) + observation_space.shape)
