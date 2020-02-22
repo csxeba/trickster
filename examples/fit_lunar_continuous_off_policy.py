@@ -4,7 +4,7 @@ from trickster.agent import DDPG, TD3, SAC
 from trickster.rollout import Trajectory, Rolling, RolloutConfig
 
 ENV_NAME = "LunarLanderContinuous-v2"
-ALGO = "DDPG"
+ALGO = "SAC"
 TRAJECTORY_MAX_STEPS = 300
 STEPS_PER_UPDATE = 1
 UPDATES_PER_EPOCH = 32

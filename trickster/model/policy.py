@@ -36,7 +36,7 @@ class StochasticContinuous(tf.keras.Model):
                  observation_space: gym.spaces.Box,
                  action_space: gym.spaces.Box,
                  squash: bool = True,
-                 scaler: float = None,
+                 scaler: float = 1.,
                  wide: bool = False,
                  sigma_predicted: bool = False):
 
@@ -48,28 +48,30 @@ class StochasticContinuous(tf.keras.Model):
         self.mean_model = arch.Architecture(mean_backbone, mean_head)
 
         if sigma_predicted:
+            print(" [Trickster] - Sigma is predicted")
             log_sigma_backbone = backbones.factory(observation_space, wide)
             log_sigma_head = heads.factory(action_space, activation="linear")
 
             self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
                 arch.Architecture(log_sigma_backbone, log_sigma_head)
         else:
+            print(" [Trickster] - Sigma is optimized directly")
             self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
                 tf.Variable(initial_value=tf.ones(action_space.shape[0]))
 
         if squash:
             self.bijector = tfp.bijectors.Tanh()
+            print(" [Trickster] - Creating Bijector")
         else:
             self.bijector = None
 
-        if scaler is not None:
-            self.scaler = tfp.bijectors.Scale(scaler)
-        else:
-            self.scaler = None
+        if scaler is None:
+            scaler = 1.
+        print(" [Trickster] - Creating Scaler")
+        self.scaler = tfp.bijectors.Scale(scaler)
 
         self.sigma_predicted = sigma_predicted
         self.do_squash = squash
-        self.do_scale = scaler is not None
 
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
 
@@ -91,18 +93,16 @@ class StochasticContinuous(tf.keras.Model):
             distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
             if self.do_squash:
                 distribution = self.bijector(distribution)
-            if self.do_scale:
-                distribution = self.scaler(distribution)
+            distribution = self.scaler(distribution)
             sample = distribution.sample()
             log_prob = distribution.log_prob(sample)
 
             return sample, log_prob
 
         if self.do_squash:
-            mean = self.bijector.forward(mean)
-        if self.do_scale:
-            mean = self.scaler.forward(mean)
+            mean = self.bijector(mean)
 
+        mean = self.scaler(mean)
         return mean
 
     @tf.function(experimental_relax_shapes=True)
@@ -112,8 +112,7 @@ class StochasticContinuous(tf.keras.Model):
         distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
         if self.do_squash:
             distribution = self.bijector(distribution)
-        if self.do_scale:
-            distribution = self.scaler(distribution)
+        distribution = self.scaler(distribution)
         log_prob = distribution.log_prob(action)
         return log_prob
 
