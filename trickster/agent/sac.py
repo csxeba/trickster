@@ -41,7 +41,7 @@ class SAC(OffPolicy):
 
         actor, _, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
             env, actor, None, critic1, critic1_target, critic2, critic2_target,
-            stochastic_actor=True, squash_actions=True
+            stochastic_actor=True, squash_actions=True, sigma_predicted=True
         )
         return cls(actor, critic1, critic1_target, critic2, critic2_target, discount_gamma, entropy_beta, polyak_tau,
                    memory_buffer_size)

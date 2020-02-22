@@ -14,9 +14,11 @@ def sanitize_models_continuous(env: gym.Env,
                                critic2: Union[tf.keras.Model, None],
                                critic2_target: Union[tf.keras.Model, None],
                                stochastic_actor: bool = False,
-                               squash_actions: bool = False):
+                               squash_actions: bool = False,
+                               sigma_predicted: bool = False):
 
-    actor_args = dict(env=env, stochastic=stochastic_actor, squash=squash_actions, wide=False)
+    actor_args = dict(env=env, stochastic=stochastic_actor, squash=squash_actions, wide=False,
+                      sigma_predicted=sigma_predicted)
     critic_args = dict(observation_space=env.observation_space, action_space=env.action_space, wide=True)
 
     if actor == "default":

@@ -136,6 +136,8 @@ class Rolling(RolloutBase):
             Frequency of rendering, measured in epochs.
         :param warmup_buffer: int
             Whether to fill the memory buffer with data from full-epsilon.
+        :param smoothing_window_size: int
+            Size of the window used for mean and std calculations.
         :return: None
         """
 

@@ -1,4 +1,5 @@
 import gym
+import tensorflow as tf
 
 from trickster.agent import DDPG, TD3, SAC
 from trickster.rollout import Trajectory, Rolling, RolloutConfig
@@ -19,7 +20,7 @@ algo = {"DDPG": DDPG,
         "SAC": SAC}[ALGO]
 
 agent = algo.from_environment(env)
-agent.actor.optimizer.learning_rate = 3e-4
+agent.actor.optimizer = tf.keras.optimizers.RMSprop(3e-4)
 
 cfg = RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS)
 
