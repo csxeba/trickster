@@ -1,9 +1,8 @@
 import gym
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 from ..utility import history
-from ..model import arch
+from ..model import policy, value
 from .policy_gradient import PolicyGradient
 
 
@@ -16,8 +15,8 @@ class PPO(PolicyGradient):
                  critic: tf.keras.Model,
                  update_batch_size=32,
                  discount_gamma=0.99,
-                 gae_lambda=0.95,
-                 entropy_beta=0.005,
+                 gae_lambda=0.97,
+                 entropy_beta=0.0,
                  clip_epsilon=0.2,
                  target_kl_divergence=0.01,
                  normalize_advantages=True,
@@ -41,9 +40,9 @@ class PPO(PolicyGradient):
                          critic: tf.keras.Model = "default",
                          update_batch_size=32,
                          discount_gamma=0.99,
-                         gae_lambda=0.95,
+                         gae_lambda=0.97,
                          normalize_advantages=True,
-                         entropy_beta=0.005,
+                         entropy_beta=0.0,
                          clip_epsilon=0.2,
                          target_kl_divergence=0.01,
                          memory_buffer_size=10000,
@@ -51,24 +50,23 @@ class PPO(PolicyGradient):
                          critic_updates=10):
 
         if actor == "default":
-            actor = arch.Policy(env.observation_space, env.action_space, stochastic=True, squash_continuous=True)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
         if critic == "default":
-            critic = arch.ValueCritic(env.observation_space)
+            critic = value.ValueCritic(env.observation_space, wide=True)
 
         return cls(actor, critic, update_batch_size, discount_gamma, gae_lambda,
                    entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
                    actor_updates, critic_updates)
 
-    def train_step_actor(self, state, action, advantage, old_probabilities):
+    @tf.function(experimental_relax_shapes=True)
+    def train_step_actor(self, state, action, advantage, old_log_prob):
 
         selection = tf.cast(advantage > 0, tf.float32)
         min_adv = ((1+self.epsilon) * selection + (1-self.epsilon) * (1-selection)) * advantage
 
-        old_log_prob = tf.math.log(old_probabilities)
-
         with tf.GradientTape() as tape:
-            distribution: tfp.distributions.Distribution = self.actor(state)
-            new_log_prob = distribution.log_prob(action)
+            new_log_prob = self.actor.log_prob(state, action)
+
             ratio = tf.exp(new_log_prob - old_log_prob)
             utilities = -tf.minimum(ratio*advantage, min_adv)
             utility = tf.reduce_mean(utilities)
@@ -76,9 +74,6 @@ class PPO(PolicyGradient):
             entropy = -tf.reduce_mean(new_log_prob)
 
             loss = utility - entropy * self.beta
-
-        if tf.reduce_any(tf.math.is_nan(loss)):
-            raise RuntimeError
 
         gradients = tape.gradient(loss, self.actor.trainable_weights,
                                   unconnected_gradients=tf.UnconnectedGradients.ZERO)
@@ -96,7 +91,7 @@ class PPO(PolicyGradient):
                 "clip_rate": clip_rate}
 
     def fit(self, batch_size=None) -> dict:
-        # states, actions, returns, advantages, old_probabilities
+        # states, actions, returns, advantages, old_log_prob
         data = self.memory_sampler.sample(size=-1)
         num_samples = self.memory_sampler.N
 
@@ -116,7 +111,7 @@ class PPO(PolicyGradient):
                 break
 
         actor_ds = tf.data.Dataset.zip((
-            datasets["state"], datasets["action"], datasets["advantages"], datasets["probability"]))
+            datasets["state"], datasets["action"], datasets["advantages"], datasets["log_prob"]))
         actor_ds.shuffle(num_samples).repeat()
         actor_ds = actor_ds.batch(self.batch_size).prefetch(min(3, self.actor_updates))
         for update, data in enumerate(actor_ds, start=1):

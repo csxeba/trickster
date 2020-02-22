@@ -36,6 +36,8 @@ class Trajectory(RolloutBase):
             if self._finished(done, step):
                 break
             state, reward, done, info = self.env.step(action)
+            if not isinstance(reward, float):
+                reward = float(reward)
             reward_sum += reward
             if verbose:
                 print("\rStep: {} total reward: {:.4f}".format(step, reward_sum), end="")
@@ -95,14 +97,15 @@ class Trajectory(RolloutBase):
             if epoch % smoothing_window_size == 0:
                 print()
 
+            if render_every > 0:
+                if epoch % render_every == 0:
+                    print()
+                    self.render(repeats=3)
+
             if epoch % (smoothing_window_size*10) == 0:
                 print()
                 progress_logger.print_header()
 
-            if render_every > 0:
-                if epoch % render_every == 0:
-                    print()
-                    self.render()
 
         if plot_curves:
             visual.plot_history(train_history, smoothing_window_size, skip_first=0, show=True)
@@ -111,5 +114,8 @@ class Trajectory(RolloutBase):
 
     def render(self, repeats=1, verbose=1):
         for r in range(repeats):
+            if verbose:
+                print(f" --- Rendeding {r}/{repeats} runs ---")
             self.rollout(verbose, push_experience=False, render=True)
-            print()
+            if verbose:
+                print()

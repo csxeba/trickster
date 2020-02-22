@@ -1,3 +1,5 @@
+from typing import List, Dict
+
 import numpy as np
 
 from .history import History
@@ -5,7 +7,11 @@ from .history import History
 
 class ProgressPrinter:
 
-    def __init__(self, keys, formatters: dict=None, prefix="Epoch"):
+    def __init__(self,
+                 keys: List[str],
+                 formatters: Dict[str, str] = None,
+                 prefix: str = "Epoch"):
+
         self.keys = keys
         self.prefix = prefix
         self.strwidths = {key: max(len(key)+2, 11) for key in [prefix] + keys}

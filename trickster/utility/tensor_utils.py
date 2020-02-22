@@ -1,3 +1,5 @@
+import math
+
 import tensorflow as tf
 
 
@@ -9,3 +11,10 @@ def safe_normalize(tensor):
     if tensor_std > 0:
         tensor = tensor / tensor_std
     return tensor
+
+
+@tf.function(experimental_relax_shapes=True)
+def huber_loss(y_true, y_pred):
+    l1 = tf.abs(y_true - y_pred)
+    l2 = 0.5 * tf.square(y_true - y_pred)
+    return tf.minimum(l1, l2)

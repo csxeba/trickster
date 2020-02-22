@@ -3,9 +3,8 @@ import numpy as np
 import tensorflow as tf
 
 from .off_policy import OffPolicy
-from ..utility import model_utils
-from ..processing import action_smoothing
-from ..model import arch
+from ..utility import model_utils, off_policy_utils
+from ..processing import action_processing
 
 
 class DQN(OffPolicy):
@@ -20,42 +19,53 @@ class DQN(OffPolicy):
                  epsilon_min: float = 0.1,
                  polyak_tau: float = 0.01,
                  memory_buffer_size: int = 10000,
-                 target_network: tf.keras.Model = None):
+                 target_network: tf.keras.Model = None,
+                 action_space_n: int = None):
 
-        super().__init__(memory_buffer_size)
+        super().__init__(critic=model, critic_target=target_network, memory_buffer_size=memory_buffer_size,
+                         discount_gamma=discount_gamma, polyak_tau=polyak_tau)
+
         self.model = model
-        self.epsilon_greedy = action_smoothing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
+        self.epsilon_greedy = action_processing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
         self.target_network = target_network
-        self.gamma = discount_gamma
-        self.polyak = polyak_tau
         self.has_target_network = self.target_network is not None
-        self.num_actions = int(self.model.num_outputs)
+        if action_space_n is None:
+            if hasattr(self.model, "num_outputs"):
+                self.num_actions = int(self.model.num_outputs)
+            else:
+                raise RuntimeError("Please set 'action_space_n' if using a custom model with DQN")
+        else:
+            self.num_actions = action_space_n
 
     @classmethod
     def from_environment(cls,
                          env: gym.Env,
-                         model: tf.keras.Model = None,
+                         model: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         epsilon: float = 0.99,
+                         epsilon: float = 0.1,
                          epsilon_decay: float = 1.,
                          epsilon_min: float = 0.1,
                          polyak_tau: float = 0.01,
                          use_target_network: bool = True,
-                         target_network: tf.keras.Model = None,
-                         memory_buffer_size: int = 10000):
+                         target_network: tf.keras.Model = "default",
+                         memory_buffer_size: int = 10000,
+                         action_space_n: int = None):
 
-        if model is None:
-            model = arch.Q(env.observation_space, env.action_space)
-        if use_target_network and target_network is None:
-            target_network = arch.Q(env.observation_space, env.action_space)
+        model, target_network = off_policy_utils.sanitize_models_discreete(
+            env, model, target_network, use_target_network
+        )
+
+        if action_space_n is None:
+            action_space_n = env.action_space.n
+
         return cls(model, discount_gamma, epsilon, epsilon_decay, epsilon_min,
-                   polyak_tau, memory_buffer_size, target_network)
+                   polyak_tau, memory_buffer_size, target_network, action_space_n)
 
     def sample(self, state, reward, done):
         state = state.astype("float32")
         Q = self.model(state[None, ...])[0]
-        action = self.epsilon_greedy.sample(Q, do_update=False)
         if self.learning:
+            action = self.epsilon_greedy.sample(Q, do_update=False)
             self._set_transition(state, action, reward, done)
         else:
             action = np.argmax(Q)
@@ -65,15 +75,17 @@ class DQN(OffPolicy):
         if self.learning:
             self.epsilon_greedy.update()
 
-    @tf.function
-    def train_step_q(self, state, state_next, action, reward, done):
+    @tf.function(experimental_relax_shapes=True)
+    def update_q(self, state, state_next, action, reward, done):
         if self.has_target_network:
             Q_target = self.target_network(state_next)
         else:
             Q_target = self.model(state_next)
         bellman_target = self.gamma * tf.reduce_max(Q_target, axis=1) * (1 - done) + reward
+
         canvas = tf.one_hot(action, self.num_actions, dtype=tf.float32)
         inverse_canvas = 1 - canvas
+
         with tf.GradientTape() as tape:
             Q = self.model(state)
             target = canvas * bellman_target[:, None] + inverse_canvas * Q
@@ -88,22 +100,13 @@ class DQN(OffPolicy):
         data = {k: tf.convert_to_tensor(data[k], dtype="float32") if k != "action" else data[k]
                 for k in ["state", "state_next", "action", "reward", "done"]}
 
-        history = self.train_step_q(data["state"], data["state_next"], data["action"], data["reward"], data["done"])
+        history = self.update_q(data["state"], data["state_next"], data["action"], data["reward"], data["done"])
         history["epsilon"] = self.epsilon_greedy.epsilon
 
         if self.has_target_network:
-            self.meld_weights(mix_in_ratio=self.polyak)
+            model_utils.meld_weights(self.target_network, self.model, mix_in_ratio=self.tau)
 
         return history
-
-    def push_weights(self):
-        self.target_network.set_weights(self.model.get_weights())
-
-    def meld_weights(self, mix_in_ratio=1.):
-        if mix_in_ratio == 1.:
-            self.push_weights()
-            return
-        model_utils.meld_weights(self.target_network, self.model, mix_in_ratio)
 
     def get_savables(self):
         return {"DQN_model": self.model}

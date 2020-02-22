@@ -1,6 +1,7 @@
 from typing import Union
 
 import numpy as np
+import tensorflow as tf
 
 
 class EpsilonGreedy:
@@ -32,14 +33,14 @@ class EpsilonGreedy:
         self.epsilon = self.initial_epsilon
 
 
-class ContinuousActionSmoother:
+class NumericContinuousActionSmoother:
 
     def __init__(self,
                  sigma: float = 2.,
                  sigma_decay: float = 0.999,
                  sigma_min: float = 0.1,
                  action_minima: Union[float, np.ndarray] = None,
-                 action_maxima: Union[float, np.ndarray] = None):
+                 action_maxima: Union[float, np.ndarray] = None,):
 
         self.initial_sigma = sigma
         self.sigma = sigma
@@ -64,3 +65,13 @@ class ContinuousActionSmoother:
 
     def reset(self):
         self.sigma = self.initial_sigma
+
+
+@tf.function(experimental_relax_shapes=True)
+def add_clipped_noise(action, sigma, noise_clip, action_minima, action_maxima):
+    noise = tf.random.normal(shape=action.shape, mean=0.0, stddev=sigma)
+    noise = tf.clip_by_value(noise, -noise_clip, noise_clip)
+    smoothed_action = action + noise
+    smoothed_action = tf.maximum(smoothed_action, action_minima)
+    smoothed_action = tf.minimum(smoothed_action, action_maxima)
+    return smoothed_action
