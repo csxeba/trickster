@@ -23,21 +23,21 @@ class _LayerStack(tf.keras.Model):
 
 class MLP(_LayerStack):
 
-    def __init__(self, hiddens: tuple):
-        hiddens = [tfl.Dense(h, activation="relu") for h in hiddens]
+    def __init__(self, hiddens: tuple, activation="relu"):
+        hiddens = [tfl.Dense(h, activation=activation) for h in hiddens]
         super().__init__(hiddens)
 
 
 class WideMLP(MLP):
 
-    def __init__(self):
-        super().__init__(hiddens=(300, 400))
+    def __init__(self, activation="tanh"):
+        super().__init__(hiddens=(300, 400), activation=activation)
 
 
 class SlimMLP(MLP):
 
-    def __init__(self):
-        super().__init__(hiddens=(64, 64))
+    def __init__(self, activation="tanh"):
+        super().__init__(hiddens=(64, 64), activation=activation)
 
 
 class CNN(_LayerStack):
@@ -64,15 +64,15 @@ class SimpleCNN(CNN):
         super().__init__(num_blocks=3, block_depth=1, width_base=8)
 
 
-def factory(observation_space: gym.spaces.Space, wide=False):
+def factory(observation_space: gym.spaces.Space, wide=False, activation="tanh"):
 
     if len(observation_space.shape) == 3:
         backbone = SimpleCNN()
     elif len(observation_space.shape) == 1:
         if wide:
-            backbone = WideMLP()
+            backbone = WideMLP(activation)
         else:
-            backbone = SlimMLP()
+            backbone = SlimMLP(activation)
     else:
         raise RuntimeError(f"Weird observation space dimensionality: {observation_space.shape}")
 

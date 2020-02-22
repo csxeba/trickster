@@ -83,9 +83,11 @@ class Rolling(RolloutBase):
         for i, step in enumerate(self._rolling_worker):
             rewards.append(self.reward)
             if verbose:
-                print("Step {} rwd: {:.4f}".format(self.step, self.reward))
+                print("\r Rolling - Step {}/{} rwd: {: .4f}".format(i, steps, self.reward), end="")
             if i >= steps:
                 break
+        if verbose:
+            print()
         self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
         self.random_actions = False

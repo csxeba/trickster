@@ -92,7 +92,7 @@ class TD3(off_policy.OffPolicy):
         return action
 
     # noinspection DuplicatedCode
-    # @tf.function
+    @tf.function
     def update_critic(self, state, action, reward, done, state_next):
 
         action_target = self.actor_target(state_next)

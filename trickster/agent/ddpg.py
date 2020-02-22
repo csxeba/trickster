@@ -70,6 +70,7 @@ class DDPG(td3.TD3):
     @tf.function
     def update_critic(self, state, action, reward, done, state_next):
         action_target = self.actor_target(state_next)
+        action_target = tf.clip_by_value(action_target, self.action_minima, self.action_maxima)
         Q_target = self.critic_target([state_next, action_target])[..., 0]
         bellman_target = reward + self.gamma * (1. - done) * Q_target
         with tf.GradientTape() as tape:

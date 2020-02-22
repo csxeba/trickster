@@ -97,13 +97,15 @@ class Trajectory(RolloutBase):
             if epoch % smoothing_window_size == 0:
                 print()
 
+            if render_every > 0:
+                if epoch % render_every == 0:
+                    print()
+                    self.render(repeats=3)
+
             if epoch % (smoothing_window_size*10) == 0:
                 print()
                 progress_logger.print_header()
 
-            if render_every > 0:
-                if epoch % render_every == 0:
-                    self.render(repeats=3)
 
         if plot_curves:
             visual.plot_history(train_history, smoothing_window_size, skip_first=0, show=True)
