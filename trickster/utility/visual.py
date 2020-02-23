@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def plot_vectors(vectors, names, smoothing_window_size, skip_first=10, show=True, **subplots_kwargs):
+def plot_vectors(vectors, names, smoothing_window_size, skip_first=10, **subplots_kwargs):
     figsize = subplots_kwargs.pop("figsize", (16, 9))
     fig, axes = plt.subplots(len(vectors), sharex="all", figsize=figsize, **subplots_kwargs)
     if not isinstance(axes, np.ndarray):
@@ -16,9 +16,8 @@ def plot_vectors(vectors, names, smoothing_window_size, skip_first=10, show=True
         ax.set_title(name)
         ax.grid()
 
-    if show:
-        plt.tight_layout()
-        plt.show()
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_history(history, smoothing_window_size, skip_first=10, show=True, **subplots_kwargs):
