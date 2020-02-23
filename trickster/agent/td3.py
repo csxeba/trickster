@@ -1,139 +1,149 @@
-from typing import List
+from typing import Union
 
+import gym
 import numpy as np
-import keras
+import tensorflow as tf
 
-from .ddpg import DDPG
-from ..utility import kerasic
+from . import off_policy
+from ..utility import off_policy_utils
+from ..processing import action_processing
 
 
-class TD3(DDPG):
+class TD3(off_policy.OffPolicy):
 
-    """Twin Delayed Deep Deterministic Policy Gradient"""
-
-    history_keys = ["actor_loss", "actor_preds", "Qs", "critic1_loss", "critic2_loss", "critic_diff"]
+    history_keys = ["actor_loss", "action", "t_action", "Q1_loss", "Q1", "Q2_loss", "Q2", "Q_y", "sigma"]
 
     def __init__(self,
-                 actor: keras.Model,
-                 critics: List[keras.Model],
-                 action_space,
-                 memory=None,
-                 discount_factor_gamma=0.99,
-                 state_preprocessor=None,
-                 actor_update_delay=2,
-                 action_noise_sigma=0.1,
-                 action_noise_sigma_decay=1.,
-                 min_action_noise_sigma=0.1,
-                 target_noise_sigma=0.2,
-                 target_noise_clip=0.5,
-                 action_minima=-np.inf,
-                 action_maxima=np.inf,
-                 polyak_rate=0.01):
+                 actor: tf.keras.Model,
+                 actor_target: tf.keras.Model,
+                 critic1: tf.keras.Model,
+                 critic1_target: tf.keras.Model,
+                 critic2: Union[tf.keras.Model, None],
+                 critic2_target: Union[tf.keras.Model, None],
+                 discount_gamma: float = 0.99,
+                 memory_buffer_size: int = int(1e4),
+                 polyak_tau: float = 0.005,
+                 action_noise_sigma: float = 0.1,
+                 action_noise_sigma_decay: float = 1.,
+                 action_noise_sigma_min: float = 0.1,
+                 action_minima: np.ndarray = None,
+                 action_maxima: np.ndarray = None,
+                 target_action_noise_sigma: float = 0.2,
+                 target_action_noise_clip: float = 0.5,
+                 update_actor_every: int = 2):
 
-        self.critic_dupe = critics[1]
-        self.critic_dupe_target = kerasic.copy_model(self.critic_dupe)
-        self.target_noise_sigma = target_noise_sigma
-        self.target_noise_clip = target_noise_clip
+        super().__init__(actor, actor_target, critic1, critic1_target, critic2, critic2_target,
+                         memory_buffer_size, discount_gamma, polyak_tau)
 
-        super().__init__(actor, critics[0], action_space, memory, discount_factor_gamma, state_preprocessor,
-                         action_noise_sigma, action_noise_sigma_decay, min_action_noise_sigma, action_minima,
-                         action_maxima, polyak_rate)
-        self.actor_update_delay = actor_update_delay
-        self.update_counter = 1
+        self.action_smoother = action_processing.NumericContinuousActionSmoother(
+            action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min, action_minima, action_maxima)
+        self.target_noise_sigma = target_action_noise_sigma
+        self.target_noise_clip = target_action_noise_clip
+        if not isinstance(action_minima, np.ndarray):
+            action_minima = np.array([action_minima])
+        if not isinstance(action_maxima, np.ndarray):
+            action_maxima = np.array([action_maxima])
+        self.action_minima = tf.convert_to_tensor(action_minima[None, ...], dtype=tf.float32)
+        self.action_maxima = tf.convert_to_tensor(action_maxima[None, ...], dtype=tf.float32)
+        self.update_actor_every = update_actor_every
+        self.td3 = self.critic2 is not None
+        self.update_step = 0
 
-    def _add_noise(self, x):
-        K = keras.backend
-        # shape = tf.shape(x)
-        noise = K.random_normal(shape=K.shape(x), mean=0., stddev=1.)
-        noise = noise * self.target_noise_sigma
-        noise = K.clip(noise, -self.target_noise_clip, self.target_noise_clip)
-        return K.clip(x + noise, -self.action_minima, self.action_maxima)
+    @classmethod
+    def from_environment(cls,
+                         env: gym.Env,
+                         actor: tf.keras.Model = "default",
+                         actor_target: tf.keras.Model = "default",
+                         critic1: tf.keras.Model = "default",
+                         critic1_target: tf.keras.Model = "default",
+                         critic2: tf.keras.Model = "default",
+                         critic2_target: tf.keras.Model = "default",
+                         discount_gamma: float = 0.99,
+                         memory_buffer_size: int = 10000,
+                         polyak_tau: float = 0.01,
+                         action_noise_sigma: float = 0.1,
+                         action_noise_sigma_decay: float = 1.,
+                         action_noise_sigma_min: float = 0.1,
+                         target_action_noise_sigma: float = 0.2,
+                         target_action_noise_clip: float = 0.5,
+                         update_actor_every: int = 2):
 
-    def _build_model_combination(self):
-        input_tensor = keras.Input(self.actor.input_shape[-1:])
-        actor_out = self.actor(input_tensor)
-        noisy = keras.layers.Lambda(self._add_noise)(actor_out)
-        critic_out = self.critic([input_tensor, noisy])
-        self._combo_model = keras.Model(input_tensor, critic_out)
-        self.critic.trainable = False
-        self._combo_model.compile(self.actor.optimizer.from_config(self.actor.optimizer.get_config()),
-                                  loss=lambda _, y_pred: -y_pred)
-        self.critic.trainable = True
+        action_minima = env.action_space.low
+        action_maxima = env.action_space.high
 
-    def update_actor(self, *, batch_size=None, data=None):
-        if data is None and batch_size is None:
-            raise ValueError("Please either supply learning data or a batch size for sampling!")
-        if batch_size is not None:
-            data = self.memory_sampler.sample(batch_size)
-        S, *_ = data
-        self.critic.trainable = False
-        actor_loss = self._combo_model.train_on_batch(S, S)
-        actions = self.actor.predict(S)
-        self.critic.trainable = True
-        if self.polyak_rate:
-            self.update_actor_target()
-        return actor_loss, actions.mean()
+        actor, actor_target, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
+            env, actor, actor_target, critic1, critic1_target, critic2, critic2_target, stochastic_actor=False
+        )
 
-    def update_critic(self, *, batch_size=None, data=None):
-        if data is None and batch_size is None:
-            raise ValueError("Please either supply learning data or a batch size for sampling!")
-        if batch_size is not None:
-            data = self.memory_sampler.sample(batch_size)
-        S, S_, A, R, F = data
-        A_ = self.actor_target.predict(S_)
-        target_Qs = self.critic_target.predict([S_, A_])[..., 0]
-        dupe_target_Qs = self.critic_dupe_target.predict([S_, A_])[..., 0]
-        critic_diffs = np.abs(target_Qs - dupe_target_Qs)
-        bellman_target = R + self.gamma * np.minimum(target_Qs, dupe_target_Qs)
-        bellman_target[F] = R[F]
-        critic_loss = self.critic.train_on_batch([S, A], bellman_target)
-        critic_dupe_loss = self.critic_dupe.train_on_batch([S, A], bellman_target)
-        if self.polyak_rate:
-            self.update_critic_target()
-        return critic_loss, critic_dupe_loss, target_Qs.mean(), critic_diffs.mean()
+        assert all(abs(mini) == abs(maxi) for mini, maxi in zip(action_minima, action_maxima))
 
-    def fit(self, updates=2, batch_size=32, fit_actor=True, fit_critic=True, update_target_tau=0.01):
-        if updates % self.actor_update_delay != 0:
-            raise ValueError("updates_per_episode must be divisible by actor_update_delay (={}) in TD3"
-                             .format(self.actor_update_delay))
+        return cls(actor, actor_target, critic1, critic1_target, critic2, critic2_target,
+                   discount_gamma, memory_buffer_size, polyak_tau,
+                   action_noise_sigma, action_noise_sigma_decay, action_noise_sigma_min,
+                   action_minima, action_maxima, target_action_noise_sigma, target_action_noise_clip,
+                   update_actor_every)
 
-        actor_losses = []
-        critic_losses = []
-        critic_dupe_losses = []
-        critic_diffs = []
-        actor_preds = []
-        Qs = []
+    def sample(self, state, reward, done):
+        action = self.actor(state[None, ...])
+        action = np.clip(action, self.action_minima, self.action_maxima)[0]
+        if self.learning:
+            action = self.action_smoother.sample(action, do_update=False)
+            self._set_transition(state, action, reward, done)
+        return action
 
-        for i in range(1, updates+1):
-            fit_actor = self.update_counter % self.actor_update_delay == 0
-            if fit_critic:
-                critic_loss, critic_dupe_loss, Q, critic_diff = self.update_critic(
-                    data=self.memory_sampler.sample(batch_size))
-                critic_losses.append(critic_loss)
-                critic_dupe_losses.append(critic_dupe_loss)
-                critic_diffs.append(critic_diff)
-                Qs.append(Q)
-            if fit_actor:
-                actor_loss, actor_pred = self.update_actor(data=self.memory_sampler.sample(batch_size))
-                actor_losses.append(actor_loss)
-                actor_preds.append(actor_pred)
-            self.update_counter += 1
+    # noinspection DuplicatedCode
+    @tf.function
+    def update_critic(self, state, action, reward, done, state_next):
 
-        result = {}
-        if fit_actor:
-            result["actor_loss"] = np.mean(actor_losses)
-            result["actor_preds"] = np.mean(actor_preds)
-        if fit_critic:
-            result["critic1_loss"] = np.mean(critic_losses)
-            result["critic2_loss"] = np.mean(critic_dupe_losses)
-            result["Qs"] = np.mean(Qs)
-            result["critic_diff"] = np.mean(critic_diffs)
+        action_target = self.actor_target(state_next)
+        if self.target_noise_sigma > 0.:
+            action_target = action_processing.add_clipped_noise(
+                action_target, self.target_noise_sigma, self.target_noise_clip, self.action_minima, self.action_maxima)
 
-        return result
+        Q1_t = self.critic_target([state_next, action_target])[..., 0]
+        Q2_t = self.critic2_target([state_next, action_target])[..., 0]
+        target_Q = tf.minimum(Q1_t, Q2_t)
 
-    def update_critic_target(self):
-        super().update_actor_target()
-        kerasic.meld_weights(self.critic_dupe_target, self.critic_dupe, self.polyak_rate)
+        bellman_target = reward + self.gamma * target_Q * (1 - done)
 
-    def get_savables(self) -> dict:
-        return {"TD3_actor": self.actor, "TD3_critic": self.critic, "TD3_critic2": self.critic_dupe}
+        with tf.GradientTape() as tape:
+            Q1 = self.critic([state, action])[..., 0]
+            Q2 = self.critic2([state, action])[..., 0]
+            loss1 = tf.reduce_mean(tf.keras.losses.mean_squared_error(bellman_target, Q1))
+            loss2 = tf.reduce_mean(tf.keras.losses.mean_squared_error(bellman_target, Q2))
+            loss = loss1 + loss2
+
+        grads = tape.gradient(
+            loss, self.critic.trainable_weights + self.critic2.trainable_weights)
+        self.critic.optimizer.apply_gradients(
+            zip(grads, self.critic.trainable_weights + self.critic2.trainable_weights))
+
+        return {"Q1_loss": loss1, "Q1": tf.reduce_mean(Q1), "Q2_loss": loss2, "Q2": tf.reduce_mean(Q2),
+                "Q_y": tf.reduce_mean(bellman_target), "t_action": tf.reduce_mean(action_target)}
+
+    @tf.function
+    def update_actor(self, state):
+        with tf.GradientTape() as tape:
+            actions = self.actor(state)
+            actions = tf.clip_by_value(actions, self.action_minima, self.action_maxima)
+            Q = self.critic([state, actions])
+            loss = -tf.reduce_mean(Q)
+        grads = tape.gradient(loss, self.actor.trainable_weights)
+        self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
+        return {"actor_loss": loss, "action": tf.reduce_mean(actions)}
+
+    def fit(self, batch_size=32):
+
+        data = self.memory_sampler.sample(batch_size)
+        data = {key: tf.convert_to_tensor(value, dtype=tf.float32) for key, value in data.items()}
+
+        history = self.update_critic(data["state"], data["action"], data["reward"], data["done"], data["state_next"])
+
+        if self.update_step % self.update_actor_every == 0:
+            actor_history = self.update_actor(data["state"])
+            history.update(actor_history)
+            self.action_smoother.update()
+
+        history["sigma"] = self.action_smoother.sigma
+        self.update_targets()
+        return history

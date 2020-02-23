@@ -1,0 +1,5 @@
+TODO 2020.02.10.
+- Refactor Stochastic heads, so they don't output distributions, but distribution parameters
+- Overfit a Value network. It must be possible.
+- Implement SAC
+- Fix RewardShaper so it can handle end-of-trajectory better

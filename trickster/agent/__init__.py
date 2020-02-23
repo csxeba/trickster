@@ -5,3 +5,7 @@ from .a2c import A2C
 from .ppo import PPO
 from .ddpg import DDPG
 from .td3 import TD3
+from .sac import SAC
+from .policy_gradient import PolicyGradient
+
+from . import abstract
