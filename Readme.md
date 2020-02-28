@@ -5,7 +5,8 @@
 
 Deep Reinforcement Learning mini-library with the aim of clear implementation of some algorithms.
 
-Currently Keras is supported and tested as a deep learning engine. The library is not yet parallelized.
+The supported Deep Learning engine is **TensorFlow > 2.0**. An older version of the library, which supported
+the Multi-Backend Keras is available through the mb-keras branch.
 
 ## Installation
 
@@ -35,43 +36,13 @@ The environments used with *Trickster* must present an OpenAI Gym-like interface
 
 Available through *trickster.agent*
 
-The agent is a wrapper around a Keras Model, which handles the learning and experience collection from the environment. Agents are written
-so that they are maximizing the expected reward of the environment they are interacting with.
+The agent is a wrapper around one or more **tf.keras Models**. This handles the learning and experience collection from the environment.
+Agents are written so that they are maximizing the expected reward of the environment they are interacting with.
 
-*Agents* have the following constructor parameters in common:
+All agent classes present the .from_environment() factory method, which inspects the action and observation spaces of
+an environment and automatically selects (relatively small) Neural Networks for running on the given environment.
 
-- **action_space**: action space, integer or an iterable holding possible actions to be taken
-- **memory**: optional, an instance of Experience which is used as a buffer for learning
-- **discount_factor_gamma**: I like long variable names
-- **state_preprocessor**: callable, not quite stable yet. It is called on singe states and batches as well
- (this will change)
- 
-*Agents* present the following public methods:
-
-- **model** or **actor** and **critic**: Keras Model instances
-- **sample(state, reward, done)**: sample an action to be taken, given state. Also rewards and done flags.
-- **push_experience(state, reward, done)**: direct experience is saved in an internal buffer. This method pushes
- it into the Experience buffer. Also handles the last reward and last done flag and for instance computes GAE.
-- **fit(\*args, \*\*kwargs)**: updates the network parameters and optionally resets the memory buffer.
- returns a history dictionary holding losses. Specific algorithms have their own argument lists
- for *fit*.
-
-### Exeprience
-
-Generic *NumPy* ndarray-based buffer to store trajectories.
-
-Constructor parameters:
-- **max_length**
-
-Public properties:
-- **N**: number of samples currently in the buffer
-
-Public methods:
-- **reset()**: empties all arrays
-- **remember(states, \*args)**: stores any number of arrays. The number only has to be consistent with the
-number of arrays in the first call.
-- **sample(size)**: samples a given number of trajectories. Returs (state, state_next, *)
-- **stream(size, infinite)**: streams batches of <size>. Optionally streams infinitelly.
+These hardcoded architectures can be overriden by passing an architecture to the factory method 
 
 ### Rollouts
 
@@ -81,7 +52,7 @@ Rollout is the concept of combining an agent with an environment.
 There are two types of rollouts in *Trickster*:
 - **Trajectory**: a complete trajectory from start to the 'done' flag. It can be used for testing an agent
 or for *Monte Carlo* learning.
-- **Rolling**: this type of rollout is for ie. *Time Difference* and bootstrap learning. A fixed number of steps
+- **Rolling**: this type of rollout is for *Time Difference* learning. A fixed number of steps
 are executed in the environment. The environment is reset whenever a *done* flag is received.
 
 Both **Trajectory** and **Rolling** are available in a multi-environment configuration for parallel execution
@@ -109,8 +80,4 @@ functionality. See the docstrings for documentation and argument list.
 ## Working Examples
 
 Working examples are available in the repo under the *examples* folder.
-Not all algorithms converge on all environments. This might be due to
-incorrect implementation, or incorrect hyperparameters or both...
-
-One major takeaway for me regarding Deep Reinforcement Learning is the fact
-of how unstable and unreliable it is.
+Not all algorithms converge on all environments. Please note that hyperparameters are not optimized for these runs.
