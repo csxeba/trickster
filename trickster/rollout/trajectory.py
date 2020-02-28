@@ -44,8 +44,7 @@ class Trajectory(RolloutBase):
             step += 1
         if verbose:
             print()
-        if not done:
-            self.worker.end_trajectory()
+        self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
 
         return {"reward_sum": reward_sum, "steps": step}

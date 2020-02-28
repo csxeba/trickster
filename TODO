@@ -1,5 +1,10 @@
 TODO 2020.02.10.
-- Refactor Stochastic heads, so they don't output distributions, but distribution parameters
++ Refactor Stochastic heads
 - Overfit a Value network. It must be possible.
-- Implement SAC
++ Implement SAC
 - Fix RewardShaper so it can handle end-of-trajectory better
+
+TODO 2020.02.23.
+- Implement TD-learning for A2C and PPO
+- Add some parallelism
+- Add more flexibility for NNs

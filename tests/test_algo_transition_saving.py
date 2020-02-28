@@ -4,7 +4,7 @@ import gym
 import numpy as np
 import tensorflow as tf
 
-from trickster.agent import REINFORCE, DQN, TD3
+from trickster.agent import REINFORCE, A2C, DQN, TD3
 from trickster.rollout import Rolling, Trajectory
 from trickster.model import arch
 
@@ -47,6 +47,22 @@ class TestTransitionValidity(unittest.TestCase):
 
         env = DummyEnv()
         agent = REINFORCE.from_environment(env, discount_gamma=0.)
+        rollout = Rolling(agent, env)
+
+        rollout.roll(STEPS, verbose=0, learning=True)
+
+        data = agent.memory_sampler.sample(-1)
+
+        self.assertEqual(agent.episodes, 3)
+        np.testing.assert_array_less(data["state"], 10)
+        self.assertEqual(len(data["state"]), STEPS - 4)
+
+    def test_a2c_doesnt_store_invalid_transitions_in_td_setting(self):
+
+        STEPS = 35
+
+        env = DummyEnv()
+        agent = A2C.from_environment(env, discount_gamma=0.)
         rollout = Rolling(agent, env)
 
         rollout.roll(STEPS, verbose=0, learning=True)

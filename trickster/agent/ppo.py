@@ -105,7 +105,7 @@ class PPO(PolicyGradient):
         critic_ds.shuffle(num_samples).repeat()
         critic_ds = critic_ds.batch(self.batch_size).prefetch(min(3, self.critic_updates))
         for update, data in enumerate(critic_ds, start=1):
-            logs = self.train_step_critic(*data)
+            logs = self.train_step_critic_monte_carlo(*data)
             local_history.buffer(**logs)
             if update == self.critic_updates:
                 break

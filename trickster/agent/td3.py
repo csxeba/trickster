@@ -26,8 +26,8 @@ class TD3(off_policy.OffPolicy):
                  action_noise_sigma: float = 0.1,
                  action_noise_sigma_decay: float = 1.,
                  action_noise_sigma_min: float = 0.1,
-                 action_minima: np.ndarray = None,
-                 action_maxima: np.ndarray = None,
+                 action_minima: Union[np.ndarray, float] = None,
+                 action_maxima: Union[np.ndarray, float] = None,
                  target_action_noise_sigma: float = 0.2,
                  target_action_noise_clip: float = 0.5,
                  update_actor_every: int = 2):
@@ -88,7 +88,7 @@ class TD3(off_policy.OffPolicy):
         action = np.clip(action, self.action_minima, self.action_maxima)[0]
         if self.learning:
             action = self.action_smoother.sample(action, do_update=False)
-            self._set_transition(state, action, reward, done)
+            self._set_transition(state=state, action=action, reward=reward, done=done)
         return action
 
     # noinspection DuplicatedCode

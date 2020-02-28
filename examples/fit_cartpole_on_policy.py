@@ -3,8 +3,8 @@ import gym
 from trickster.agent import REINFORCE, A2C, PPO
 from trickster.rollout import Trajectory, RolloutConfig
 
-ENV_NAME = "Pong-v0"
-ALGO = "PPO"
+ENV_NAME = "CartPole-v1"
+ALGO = "A2C"
 TRAJECTORY_MAX_STEPS = 300
 EPOCHS = 1000
 ROLLOUTS_PER_EPOCH = 8

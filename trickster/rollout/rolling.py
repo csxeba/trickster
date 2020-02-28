@@ -37,7 +37,7 @@ class Rolling(RolloutBase):
         self._rolling_worker = None
 
     def _sample_action(self):
-        return self.worker.sample(self.state, self.reward, self.done)
+        return self.worker.sample(self.state.astype("float32"), self.reward, self.done)
 
     def _random_action(self):
         return self.env.action_space.sample()

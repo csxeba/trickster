@@ -66,7 +66,7 @@ class DQN(OffPolicy):
         Q = self.model(state[None, ...])[0]
         if self.learning:
             action = self.epsilon_greedy.sample(Q, do_update=False)
-            self._set_transition(state, action, reward, done)
+            self._set_transition(state=state, action=action, reward=reward, done=done)
         else:
             action = np.argmax(Q)
         return action

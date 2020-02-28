@@ -62,7 +62,21 @@ class RLAgentBase:
         return self
 
     def end_trajectory(self):
-        raise NotImplementedError
+        pass
+
+    def _set_transition(self, state, action, reward, done, **kwargs):
+        assert self.learning
+        if self.timestep > 0:
+            self.transition.set(state_next=state, reward=reward, done=done)
+            assert self.transition.ready
+            self.transition_memory.store(self.transition)
+
+        self.timestep += 1
+        if done:
+            self.timestep = 0
+            self.episodes += 1
+        else:
+            self.transition.set(state=state, action=action, **kwargs)
 
     def fit(self, batch_size=None):
         raise NotImplementedError

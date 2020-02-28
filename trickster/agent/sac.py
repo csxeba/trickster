@@ -49,7 +49,7 @@ class SAC(OffPolicy):
     def sample(self, state, reward, done):
         action = self.actor(state[None, ...])[0]
         if self.learning:
-            self._set_transition(state, action, reward, done)
+            self._set_transition(state=state, action=action, reward=reward, done=done)
         return action
 
     @tf.function

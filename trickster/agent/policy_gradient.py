@@ -8,7 +8,7 @@ from .abstract import RLAgentBase
 
 class PolicyGradient(RLAgentBase):
 
-    transition_memory_keys = ["state", "action", "log_prob", "reward", "done"]
+    transition_memory_keys = ["state", "state_next", "action", "log_prob", "reward", "done"]
     training_memory_keys = ["state", "action", "returns", "advantages", "log_prob"]
     critic_history_keys = ["critic_loss", "value"]
     actor_history_keys = ["actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld"]
@@ -23,6 +23,27 @@ class PolicyGradient(RLAgentBase):
                  memory_buffer_size: int = 10000,
                  update_actor: int = 1,
                  update_critic: int = 1):
+
+        """
+        :param actor:
+            Stochastic policy, represented by a neural network.
+        :param critic:
+            Value network, predicting the total expected future return, given the current state.
+        :param discount_gamma:
+            Reward discount factor, used to compute trajectory returns.
+        :param gae_lambda:
+            TD-delta discount factor, used to estimate advantages in Generalized Advantage Estimation.
+        :param normalize_advantages:
+            Whether to normalize advantages prior to updating the actor with them.
+        :param entropy_beta:
+            Coefficient for (approximate) entropy regularization. Positive encourages higher entropy.
+        :param memory_buffer_size:
+            Max size of the memory buffer. None corresponds to no size limit.
+        :param update_actor:
+            How many iterations to update the actor on a sigle batch of data.
+        :param update_critic:
+            How many iterations to update the critic on a sigle batch of data.
+        """
 
         super().__init__(memory_buffer_size, separate_training_memory=True)
 
@@ -40,21 +61,37 @@ class PolicyGradient(RLAgentBase):
         self.update_actor = update_actor
         self.update_critic = update_critic
 
-    def _finalize_trajectory(self, final_state=None):
+    def sample(self, state, reward, done):
+        result = self.actor(state[None, ...], training=self.learning)
+        if self.learning:
+            action, log_prob = map(lambda ar: ar[0].numpy(), result)
+            if np.issubdtype(action.dtype, np.integer):
+                action = np.squeeze(action)
+            log_prob = np.squeeze(log_prob)
+            self._set_transition(state=state, reward=reward, done=done, action=action, log_prob=log_prob)
+        else:
+            action = result[0].numpy()
+            if isinstance(action.dtype, np.integer):
+                action = np.squeeze(action)
+        return action
+
+    def end_trajectory(self):
+        if not self.learning or self.transition_memory.N == 0:
+            return
+
         data = self.transition_memory.as_dict()
+        final_state = self.transition.data["state"]
+
         self.transition_memory.reset()
 
         if self.do_gae:
-            critic_input = data["state"]
-            if final_state is not None:
-                critic_input = tf.concat([critic_input, final_state[None, ...]], axis=0)
-            values = self.critic(critic_input)[..., 0].numpy()  # tangling dimension due to Dense(1)
-            if final_state is None:
-                values = np.concatenate([values, [0.]], axis=0)
+            critic_input = tf.concat([data["state"], final_state[None, ...]], axis=0)
+            values = self.critic(critic_input)[..., 0].numpy()
             advantages, returns = self.reward_shaper.compute_gae(data["reward"], values[:-1], values[1:], data["done"])
         else:
             returns = self.reward_shaper.discount(data["reward"], data["done"])
             advantages = returns.copy()
+
         if self.normalize_advantages:
             advantages = numeric_utils.safe_normalize(advantages)
 
@@ -63,38 +100,8 @@ class PolicyGradient(RLAgentBase):
 
         self.training_memory.store(training_data)
 
-    def _set_transition(self, state, reward, done, log_prob, action):
-        if self.timestep > 0:
-            self.transition.set(reward=reward, done=done)
-            self.transition_memory.store(self.transition)
-        self.timestep += 1
-        if not done:
-            self.transition.set(state=state, log_prob=log_prob, action=action)
-        else:
-            self.timestep = 0
-            self.episodes += 1
-            self._finalize_trajectory(final_state=state)
-
-    def sample(self, state, reward, done):
-        result = self.actor(state[None, ...], training=self.learning)
-        if self.learning:
-            action, log_prob = map(lambda ar: ar[0].numpy(), result)
-            if np.issubdtype(action.dtype, np.integer):
-                action = np.squeeze(action)
-            log_prob = np.squeeze(log_prob)
-            self._set_transition(state, reward, done, log_prob, action)
-        else:
-            action = result[0].numpy()
-            if isinstance(action.dtype, np.integer):
-                action = np.squeeze(action)
-        return action
-
-    def end_trajectory(self):
-        if self.learning:
-            self._finalize_trajectory(final_state=None)
-
     @tf.function(experimental_relax_shapes=True)
-    def train_step_critic(self, state: tf.Tensor, target: tf.Tensor):
+    def train_step_critic_monte_carlo(self, state: tf.Tensor, target: tf.Tensor):
         with tf.GradientTape() as tape:
             value = self.critic(state)[..., 0]
             loss = tf.reduce_mean(tf.square(value - target))
@@ -139,7 +146,7 @@ class PolicyGradient(RLAgentBase):
 
         history = {}
         if self.critic is not None and self.update_critic:
-            critic_history = self.train_step_critic(data["state"], data["returns"])
+            critic_history = self.train_step_critic_monte_carlo(data["state"], data["returns"])
             history.update(critic_history)
         if self.update_actor:
             actor_history = self.train_step_actor(data["state"], data["action"], data["advantages"], data["log_prob"])
