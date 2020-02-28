@@ -62,13 +62,13 @@ class StochasticContinuous(tf.keras.Model):
 
         if squash:
             self.bijector = tfp.bijectors.Tanh()
-            print(" [Trickster] - Creating Bijector")
+            print(" [Trickster] - Creating Tanh bijector")
         else:
             self.bijector = None
 
         if scaler is None:
             scaler = 1.
-        print(" [Trickster] - Creating Scaler")
+        print(f" [Trickster] - Scaler set to {scaler:.4f}")
         self.scaler = tfp.bijectors.Scale(scaler)
 
         self.sigma_predicted = sigma_predicted

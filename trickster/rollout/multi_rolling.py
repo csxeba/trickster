@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 from .abstract import MultiRolloutBase
@@ -14,25 +16,36 @@ class MultiRolling(MultiRolloutBase):
         self.rollouts = [Rolling(agent, env, config) for env, config in
                          zip(envs, self.rollout_configs)]
 
-    def roll(self, steps, verbose=0, learning=True):
-        rewards = np.empty(self.num_rollouts)
+    def roll(self,
+             steps: int,
+             verbose: int = 0,
+             learning: bool = True):
 
-        for i, rolling in enumerate(self.rollouts):
-            roll_history = rolling.roll(steps, verbose=0, learning=learning)
-            rewards[i] = roll_history["mean_reward"]
+        for i, rolling in enumerate(self.rollouts, start=1):
             if verbose:
-                print("Rolled in env #{}, got total reward of {:.4f}".format(i, rewards[i]))
+                print(f"Rolling in rollout #{i}:")
+            rolling.roll(steps, verbose=verbose, learning=learning)
 
-        return {"mean_reward": rewards.mean(), "rewards": rewards}
+    def fit(self,
+            epochs: int,
+            updates_per_epoch: int = 32,
+            steps_per_update: int = 32,
+            update_batch_size: int = -1,
+            testing_rollout: Trajectory = None,
+            plot_curves: bool = True,
+            render_every: int = 0,
+            warmup_buffer: Union[bool, int] = False):
 
-    def fit(self, epochs, updates_per_epoch=32, steps_per_update=32, update_batch_size=-1,
-            testing_rollout: Trajectory=None, plot_curves=True, render_every=0):
+        if warmup_buffer is True:
+            self.roll(steps=update_batch_size // self.num_rollouts)
+        else:
+            self.roll(steps=warmup_buffer // self.num_rollouts)
 
-            training_ops.fit(self,
-                             episodes=epochs,
-                             updates_per_episode=updates_per_epoch,
-                             steps_per_update=steps_per_update,
-                             update_batch_size=update_batch_size,
-                             testing_rollout=testing_rollout,
-                             plot_curves=plot_curves,
-                             render_every=render_every)
+        training_ops.fit(self,
+                         episodes=epochs,
+                         updates_per_episode=updates_per_epoch,
+                         steps_per_update=steps_per_update,
+                         update_batch_size=update_batch_size,
+                         testing_rollout=testing_rollout,
+                         plot_curves=plot_curves,
+                         render_every=render_every)

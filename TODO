@@ -8,3 +8,8 @@ TODO 2020.02.23.
 - Implement TD-learning for A2C and PPO
 - Add some parallelism
 - Add more flexibility for NNs
+
+TODO 2020.02.28
+- Implement automatic entropy tuning
+- Implement constant sigma
+- Eliminate superfluous classes: MultiTrajectory and RolloutConfig
