@@ -9,7 +9,7 @@ from ..processing import action_processing
 
 class DQN(OffPolicy):
 
-    history_keys = ["loss", "Q", "epsilon"]
+    history_keys = ["Q/loss", "Q/Q", "epsilon"]
 
     def __init__(self,
                  model: tf.keras.Model,
@@ -93,7 +93,7 @@ class DQN(OffPolicy):
             loss = tf.reduce_mean(tf.square(target - Q))
         grads = tape.gradient(loss, self.model.trainable_weights)
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-        return {"loss": loss, "Q": tf.reduce_mean(tf.reduce_max(Q, axis=1))}
+        return {"Q/loss": loss, "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1))}
 
     def fit(self, batch_size=32):
         data = self.memory_sampler.sample(batch_size)

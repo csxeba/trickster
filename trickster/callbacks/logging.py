@@ -1,9 +1,11 @@
+import os
 from typing import List, Dict, Any
 
+import tensorflow as tf
 import numpy as np
 
 from .abstract import Callback
-from ..utility import visual
+from ..utility import visual, path_utils
 from ..utility.history import History
 
 __all__ = ["ProgressPrinter", "HistoryPlotter"]
@@ -32,14 +34,9 @@ class ProgressPrinter(Callback):
         self.average_last = average_last
 
     def on_train_begin(self):
+        print()
         print(self.header)
         print(self.separator)
-
-    def on_epoch_begin(self, epoch: int, history: History = None):
-        if epoch % (self.average_last*10) == 0:
-            print()
-            print(self.header)
-            print(self.separator)
 
     def on_epoch_end(self, epoch: int, history: History = None):
 
@@ -67,6 +64,11 @@ class ProgressPrinter(Callback):
         if epoch % self.average_last == 0:
             print()
 
+        if epoch % (self.average_last*10) == 0:
+            print()
+            print(self.header)
+            print(self.separator)
+
 
 class HistoryPlotter(Callback):
 
@@ -76,3 +78,26 @@ class HistoryPlotter(Callback):
 
     def on_train_end(self, history: History):
         visual.plot_history(history, smoothing_window_size=self.smoothing_window_size)
+
+
+class CSVLogger(Callback):
+
+    def __init__(self, path="default"):
+        super().__init__()
+        if path == "default":
+            path = os.path.join(path_utils.defaults.logdir, "log.csv")
+        self.path = path
+        self.initialized = False
+        print(" [Trickster.CSVLogger] - Logging to", self.path)
+
+    def on_epoch_end(self, epoch: int, history: History = None):
+        data = {k: v.numpy() if isinstance(v, tf.Tensor) else v for k, v in history.last().items()}
+        if not self.initialized:
+            line = ",".join(history.keys)
+            self.initialized = True
+        else:
+            line = ""
+        line = line + "\n"
+        line = line + ",".join(str(data[key]) for key in history.keys)
+        with open(self.path, "a") as handle:
+            handle.write(line)

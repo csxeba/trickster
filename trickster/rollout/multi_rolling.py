@@ -42,7 +42,7 @@ class MultiRolling(MultiRolloutBase):
             warmup_buffer: Union[bool, int] = True,
             callbacks: list = "default",
             testing_rollout: Trajectory = None,
-            smoothing_window_size: int = 10):
+            log_tensorboard: bool = False):
 
         """
         Orchestrates a basic learning scheme.
@@ -61,8 +61,8 @@ class MultiRolling(MultiRolloutBase):
             A list of callbacks or "default".
         :param testing_rollout: Trajectory
             This should be used to test the agent in. Must only be set if callbacks == "default"
-        :param smoothing_window_size: int
-            Size of the window used for mean and std calculations. Must only be set if callbacks == "default"
+        :param log_tensorboard: bool
+            Whether to create a TensorBoard log.
         :return: None
         """
 
@@ -72,4 +72,11 @@ class MultiRolling(MultiRolloutBase):
             self.roll(steps=warmup_buffer // self.num_rollouts)
 
         training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                           testing_rollout, smoothing_window_size, callbacks)
+                           testing_rollout, log_tensorboard, callbacks)
+
+    def summary(self):
+        pfx = " [Trickster.MultiRolling] -"
+        print(pfx, "Summary:")
+        print(pfx, "Num rollouts:", self.num_rollouts)
+        print(pfx, "Environment:", self.rollouts[0].env.unwrapped.spec.id)
+        print(pfx, "Agent:", self.agent.__class__.__name__)

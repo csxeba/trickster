@@ -8,21 +8,21 @@ from .policy_gradient import PolicyGradient
 
 class PPO(PolicyGradient):
 
-    actor_history_keys = PolicyGradient.actor_history_keys + ["clip_rate"]
+    actor_history_keys = PolicyGradient.actor_history_keys + ["actor/cliprate"]
 
     def __init__(self,
                  actor: tf.keras.Model,
                  critic: tf.keras.Model,
-                 update_batch_size=32,
-                 discount_gamma=0.99,
-                 gae_lambda=0.97,
-                 entropy_beta=0.0,
-                 clip_epsilon=0.2,
-                 target_kl_divergence=0.01,
-                 normalize_advantages=True,
-                 memory_buffer_size=10000,
-                 actor_updates=10,
-                 critic_updates=10):
+                 update_batch_size: int = 32,
+                 discount_gamma: float = 0.99,
+                 gae_lambda: float = 0.97,
+                 entropy_beta: float = 0.0,
+                 clip_epsilon: float = 0.2,
+                 target_kl_divergence: float = 0.01,
+                 normalize_advantages: bool = True,
+                 memory_buffer_size: int = 10000,
+                 actor_updates: int = 10,
+                 critic_updates: int = 10):
 
         super().__init__(actor, critic, discount_gamma, gae_lambda, normalize_advantages, entropy_beta,
                          memory_buffer_size)
@@ -38,16 +38,16 @@ class PPO(PolicyGradient):
                          env: gym.Env,
                          actor: tf.keras.Model = "default",
                          critic: tf.keras.Model = "default",
-                         update_batch_size=32,
-                         discount_gamma=0.99,
-                         gae_lambda=0.97,
-                         normalize_advantages=True,
-                         entropy_beta=0.0,
-                         clip_epsilon=0.2,
-                         target_kl_divergence=0.01,
-                         memory_buffer_size=10000,
-                         actor_updates=10,
-                         critic_updates=10):
+                         update_batch_size: int = 32,
+                         discount_gamma: float = 0.99,
+                         gae_lambda: float = 0.97,
+                         entropy_beta: float = 0.0,
+                         clip_epsilon: float = 0.2,
+                         target_kl_divergence: float = 0.01,
+                         normalize_advantages: bool = True,
+                         memory_buffer_size: int = 10000,
+                         actor_updates: int = 10,
+                         critic_updates: int = 10):
 
         if actor == "default":
             actor = policy.factory(env, stochastic=True, squash=True, wide=False,
@@ -81,15 +81,14 @@ class PPO(PolicyGradient):
         self.actor.optimizer.apply_gradients(zip(gradients, self.actor.trainable_weights))
 
         kld = tf.reduce_mean(old_log_prob - new_log_prob)
-        utility_std = tf.math.reduce_std(utilities)
         clip_rate = tf.reduce_mean(tf.cast(-utilities == min_adv, tf.float32))
 
-        return {"actor_loss": loss,
-                "actor_utility": utility,
-                "actor_utility_std": utility_std,
-                "actor_entropy": entropy,
-                "actor_kld": kld,
-                "clip_rate": clip_rate}
+        return {"actor/loss": utility,
+                "actor/entropy": entropy,
+                "actor/kld": kld,
+                "actor/cliprate": clip_rate,
+                "actor/a": tf.reduce_mean(action),
+                "actor/a_s": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=None) -> dict:
         # states, actions, returns, advantages, old_log_prob
@@ -120,7 +119,7 @@ class PPO(PolicyGradient):
             local_history.buffer(**logs)
             if update == self.actor_updates:
                 break
-            if logs["actor_kld"] > self.target_kl:
+            if logs["actor/kld"] > self.target_kl:
                 break
 
         local_history.push_buffer()

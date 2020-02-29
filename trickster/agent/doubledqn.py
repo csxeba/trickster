@@ -61,4 +61,4 @@ class DoubleDQN(DQN):
         grads = tape.gradient(loss, self.model.trainable_weights)
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        return {"loss": loss, "Q": tf.reduce_mean(Q_model)}
+        return {"Q/loss": loss, "Q/Q": tf.reduce_mean(Q_model)}

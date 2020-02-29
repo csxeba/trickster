@@ -66,7 +66,7 @@ class Trajectory(RolloutBase):
             rollouts_per_epoch: int = 1,
             update_batch_size: int = -1,
             callbacks: list = "default",
-            smoothing_window_size: int = 10):
+            log_tensorboard: bool = False):
 
         """
         Orchestrates a basic learning scheme.
@@ -78,8 +78,8 @@ class Trajectory(RolloutBase):
             If set to -1, the complete experience buffer will be used in a single parameter update.
         :param callbacks: List[Callback]
             A list of callbacks or "default".
-        :param smoothing_window_size: int
-            Metric smoothing for console output readability. Defined in epochs.
+        :param log_tensorboard: bool
+            Whether to log to TensorBoard
         :return: History
             A History object aggregating the learning metrics
         """
@@ -89,7 +89,7 @@ class Trajectory(RolloutBase):
         if callbacks is None:
             callbacks = []
         if callbacks == "default":
-            callbacks = _cbs.get_defaults(testing_rollout=self, smoothing_window_size=smoothing_window_size)
+            callbacks = _cbs.get_defaults(self, log_tensorboard)
 
         callbacks = _cbs.abstract.CallbackList(callbacks)
         callbacks.on_train_begin()
@@ -122,3 +122,8 @@ class Trajectory(RolloutBase):
             self.rollout(verbose, push_experience=False, render=True)
             if verbose:
                 print()
+
+    def summary(self):
+        pfx = " [Trickster.Trajectory] -"
+        print(pfx, "Environment:", self.env.unwrapped.spec.id)
+        print(pfx, "Agent:", self.agent.__class__.__name__)

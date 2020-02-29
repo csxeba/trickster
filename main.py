@@ -70,9 +70,7 @@ if arg.algo in on_policy:
     batch_size = arg.batch_size if arg.algo.lower() == "ppo" else -1
     rollout.fit(arg.train_epochs,
                 rollouts_per_epoch=arg.parallel_envs,
-                update_batch_size=batch_size,
-                render_every=arg.render_frequency,
-                plot_curves=arg.do_plot)
+                update_batch_size=batch_size)
     if arg.render_final:
         rollout.render(repeats=100)
 else:
@@ -84,8 +82,12 @@ else:
     else:
         rollout = T.rollout.MultiRolling(algo, [gym.make(arg.env) for _ in range(arg.parallel_envs)], arg.max_steps)
 
-    rollout.fit(arg.train_epochs, updates_per_epoch=32, steps_per_update=1, update_batch_size=arg.batch_size,
-                testing_rollout=test_rollout, render_every=arg.render_frequency, warmup_buffer=True,
-                plot_curves=arg.do_plot)
+    rollout.fit(arg.train_epochs,
+                updates_per_epoch=32,
+                steps_per_update=1,
+                update_batch_size=arg.batch_size,
+                testing_rollout=test_rollout,
+                warmup_buffer=True)
+
     if arg.render_final:
         test_rollout.render(repeats=100)

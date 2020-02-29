@@ -11,7 +11,9 @@ from ..processing import action_processing
 
 class TD3(off_policy.OffPolicy):
 
-    history_keys = ["actor_loss", "action", "t_action", "Q1_loss", "Q1", "Q2_loss", "Q2", "Q_y", "sigma"]
+    history_keys = ["actor/loss", "actor/a", "actor/a_s",
+                    "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2", "critic/Q_y",
+                    "sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -118,8 +120,11 @@ class TD3(off_policy.OffPolicy):
         self.critic.optimizer.apply_gradients(
             zip(grads, self.critic.trainable_weights + self.critic2.trainable_weights))
 
-        return {"Q1_loss": loss1, "Q1": tf.reduce_mean(Q1), "Q2_loss": loss2, "Q2": tf.reduce_mean(Q2),
-                "Q_y": tf.reduce_mean(bellman_target), "t_action": tf.reduce_mean(action_target)}
+        return {"critic/loss1": loss1,
+                "critic/Q1": tf.reduce_mean(Q1),
+                "critic/loss2": loss2,
+                "critic/Q2": tf.reduce_mean(Q2),
+                "critic/Q_y": tf.reduce_mean(bellman_target)}
 
     @tf.function
     def update_actor(self, state):
@@ -130,7 +135,9 @@ class TD3(off_policy.OffPolicy):
             loss = -tf.reduce_mean(Q)
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
-        return {"actor_loss": loss, "action": tf.reduce_mean(actions)}
+        return {"actor/loss": loss,
+                "actor/a": tf.reduce_mean(actions),
+                "actor/a_s": tf.math.reduce_std(actions)}
 
     def fit(self, batch_size=32):
 

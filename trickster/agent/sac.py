@@ -10,7 +10,8 @@ class SAC(OffPolicy):
 
     """Soft Actor-Critic"""
 
-    history_keys = ["actor_loss", "action", "action_s", "alpha", "alpha_loss", "Q1_loss", "Q1", "Q2_loss", "Q2", "entropy"]
+    history_keys = ["actor/loss", "actor/a", "actor/alpha", "actor/alpha_loss", "actor/entropy",
+                    "critic/loss1", "critic/Q1", "critic/loss2", "critic/Q2"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -20,7 +21,7 @@ class SAC(OffPolicy):
                  critic2_target: tf.keras.Model,
                  discount_gamma: float = 0.99,
                  entropy_alpha: float = 0.1,
-                 entropy_target: float = -2.,
+                 entropy_target: float = None,
                  polyak_tau: float = 0.01,
                  memory_buffer_size: int = int(1e4)):
 
@@ -29,6 +30,8 @@ class SAC(OffPolicy):
         self.entropy_target = entropy_target
         self.log_alpha = tf.Variable(tf.math.log(entropy_alpha))
         self.optimize_alpha_switch = float(entropy_target is not None)
+        if self.entropy_target is None:
+            self.entropy_target = 0.
 
     @classmethod
     def from_environment(cls,
@@ -40,7 +43,7 @@ class SAC(OffPolicy):
                          critic2_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
                          entropy_alpha: float = 0.1,
-                         entropy_target: float = "default",
+                         entropy_target: float = None,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = int(1e4)):
 
@@ -62,7 +65,7 @@ class SAC(OffPolicy):
                 action = np.squeeze(action)
             self._set_transition(state=state, reward=reward, done=done, action=action)
         else:
-            action = result[0].numpy()
+            action = result[0][0].numpy()
             if isinstance(action.dtype, np.integer):
                 action = np.squeeze(action)
         return action
@@ -93,9 +96,9 @@ class SAC(OffPolicy):
         self.critic.optimizer.apply_gradients(
             zip(grads, self.critic.trainable_weights + self.critic2.trainable_weights))
 
-        return {"Q1": tf.reduce_mean(Q1), "Q2": tf.reduce_mean(Q2),
-                "Q1_loss": loss1, "Q2_loss": loss2,
-                "entropy": -tf.reduce_mean(log_prob)}
+        return {"critic/Q1": tf.reduce_mean(Q1), "critic/Q2": tf.reduce_mean(Q2),
+                "critic/loss1": loss1, "critic/loss2": loss2,
+                "actor/entropy": -tf.reduce_mean(log_prob)}
 
     @tf.function
     def update_actor(self, state):
@@ -120,11 +123,10 @@ class SAC(OffPolicy):
         grads = tape.gradient(loss, self.actor.trainable_weights + [self.log_alpha])
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights + [self.log_alpha]))
 
-        return {"actor_loss": policy_loss,
-                "alpha": alpha,
-                "alpha_loss": alpha_loss,
-                "action": tf.reduce_mean(action),
-                "action_s": tf.math.reduce_std(action)}
+        return {"actor/loss": policy_loss,
+                "actor/alpha": alpha,
+                "actor/alpha_loss": alpha_loss,
+                "actor/a": tf.reduce_mean(action)}
 
     def fit(self, batch_size=None):
         data = self._get_sample(batch_size)

@@ -6,10 +6,11 @@ from ..rollout import Trajectory
 
 
 def fit(rolling, epochs: int, updates_per_epoch: int = 32, steps_per_update: int = 32, update_batch_size: int = -1,
-        testing_rollout: Trajectory = None, smoothing_window_size: int = None, callbacks: list = "default"):
+        testing_rollout: Trajectory = None, log_tensorboard: bool = False,
+        callbacks: list = "default"):
 
     if callbacks == "default":
-        callbacks = _cbs.get_defaults(testing_rollout, smoothing_window_size)
+        callbacks = _cbs.get_defaults(testing_rollout, log_tensorboard)
     if callbacks is None:
         callbacks = []
 

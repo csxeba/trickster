@@ -10,8 +10,8 @@ class PolicyGradient(RLAgentBase):
 
     transition_memory_keys = ["state", "state_next", "action", "log_prob", "reward", "done"]
     training_memory_keys = ["state", "action", "returns", "advantages", "log_prob"]
-    critic_history_keys = ["critic_loss", "value"]
-    actor_history_keys = ["actor_loss", "actor_utility", "actor_utility_std", "actor_entropy", "actor_kld"]
+    critic_history_keys = ["critic/loss", "critic/value"]
+    actor_history_keys = ["actor/loss", "actor/entropy", "actor/kld", "actor/a", "actor/a_s"]
 
     def __init__(self,
                  actor: tf.keras.Model = "default",
@@ -62,7 +62,7 @@ class PolicyGradient(RLAgentBase):
         self.update_critic = update_critic
 
     def sample(self, state, reward, done):
-        result = self.actor(state[None, ...], training=self.learning)
+        result = self.actor(tf.convert_to_tensor(state[None, ...]), training=tf.convert_to_tensor(self.learning))
         if self.learning:
             action, log_prob = map(lambda ar: ar[0].numpy(), result)
             if np.issubdtype(action.dtype, np.integer):
@@ -70,7 +70,7 @@ class PolicyGradient(RLAgentBase):
             log_prob = np.squeeze(log_prob)
             self._set_transition(state=state, reward=reward, done=done, action=action, log_prob=log_prob)
         else:
-            action = result[0].numpy()
+            action = result[0][0].numpy()
             if isinstance(action.dtype, np.integer):
                 action = np.squeeze(action)
         return action
@@ -107,8 +107,8 @@ class PolicyGradient(RLAgentBase):
             loss = tf.reduce_mean(tf.square(value - target))
         grads = tape.gradient(loss, self.critic.trainable_weights)
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
-        return {"critic_loss": loss,
-                "value": tf.reduce_mean(value)}
+        return {"critic/loss": loss,
+                "critic/value": tf.reduce_mean(value)}
 
     @tf.function(experimental_relax_shapes=True)
     def train_step_actor(self, state, action, advantages, old_log_prob):
@@ -128,14 +128,13 @@ class PolicyGradient(RLAgentBase):
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
 
-        utility_std = tf.math.reduce_std(utilities)
         kld = tf.reduce_mean(old_log_prob - log_prob)
 
-        return {"actor_loss": loss,
-                "actor_utility": utility,
-                "actor_utility_std": utility_std,
-                "actor_entropy": entropy,
-                "actor_kld": kld}
+        return {"actor/loss": utility,
+                "actor/entropy": entropy,
+                "actor/kld": kld,
+                "actor/a": tf.reduce_mean(action),
+                "actor/a_s": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=None) -> dict:
 

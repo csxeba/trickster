@@ -114,11 +114,11 @@ class StochasticContinuous(StochasticPolicyBase):
         elif sigma_mode == SigmaMode.STATE_INDEPENDENT:
             print(" [Trickster] - Sigma is optimized directly")
             self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
-                tf.Variable(initial_value=tf.ones(action_space.shape[0]))
+                tf.Variable(initial_value=tf.math.log(tf.ones(action_space.shape[0], tf.float32)))
         elif sigma_mode == SigmaMode.FIXED:
             print(" [Trickster] - Sigma is not optimized")
             self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
-                tf.Variable(initial_value=tf.ones(action_space.shape[0]), trainable=False)
+                tf.Variable(initial_value=tf.math.log(tf.ones(action_space.shape[0], tf.float32)), trainable=False)
         else:
             raise NotImplementedError(f"Unknown sigma_mode: {sigma_mode}")
 
@@ -144,7 +144,9 @@ class StochasticContinuous(StochasticPolicyBase):
         if self.sigma_predicted:
             sigma = tf.exp(self.log_sigma(x))
         else:
-            sigma = tf.stack([tf.exp(self.log_sigma)]*len(x), axis=0)
+            sigma = tf.repeat(tf.exp(self.log_sigma), len(x))
+            sigma = tf.reshape(sigma, (-1, len(x)))
+            sigma = tf.transpose(sigma)
         return sigma
 
     @tf.function(experimental_relax_shapes=True)
@@ -167,7 +169,7 @@ class StochasticContinuous(StochasticPolicyBase):
             mean = self.bijector(mean)
 
         mean = self.scaler(mean)
-        return mean
+        return mean, tf.zeros(len(mean), dtype=tf.float32)
 
     @tf.function(experimental_relax_shapes=True)
     def log_prob(self, inputs, action):
@@ -209,7 +211,9 @@ class StochasticDiscreete(StochasticPolicyBase):
             log_prob = distribution.log_prob(sample)
             return sample, log_prob
 
-        return tf.argmax(logits)
+        actions = tf.argmax(logits, output_type=tf.int32)
+
+        return actions, tf.zeros(len(actions), dtype=tf.float32)
 
     @tf.function(experimental_relax_shapes=True)
     def log_prob(self, inputs, action):

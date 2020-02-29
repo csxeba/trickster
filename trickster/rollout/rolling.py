@@ -109,7 +109,7 @@ class Rolling(RolloutBase):
             warmup_buffer: Union[bool, int] = True,
             callbacks: list = "default",
             testing_rollout: Trajectory = None,
-            smoothing_window_size: int = 10):
+            log_tensorboard: bool = False):
 
         """
         Orchestrates a basic learning scheme.
@@ -128,9 +128,8 @@ class Rolling(RolloutBase):
             A list of callbacks or "default".
         :param testing_rollout: Trajectory
             This should be used to test the agent in. Must only be set if callbacks == "default"
-        :param smoothing_window_size: int
-            Size of the window used for mean and std calculations. Must only be set if callbacks == "default"
-        :return: None
+        :param log_tensorboard: bool
+            Whether to create a TensorBoard log.
         """
 
         if warmup_buffer is True and update_batch_size > 0:
@@ -139,4 +138,4 @@ class Rolling(RolloutBase):
             self.roll(steps=warmup_buffer, verbose=0, push_experience=True, random_actions=False)
 
         training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                           testing_rollout, smoothing_window_size, callbacks)
+                           testing_rollout, log_tensorboard, callbacks)

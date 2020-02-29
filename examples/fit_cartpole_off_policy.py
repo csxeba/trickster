@@ -1,7 +1,7 @@
 import gym
 
 from trickster.agent import DQN, DoubleDQN
-from trickster.rollout import Trajectory, RolloutConfig, MultiRolling
+from trickster.rollout import Trajectory, MultiRolling
 
 ENV_NAME = "CartPole-v1"
 ALGO = "DoubleDQN"
@@ -20,13 +20,14 @@ algo = {"DQN": DQN,
 
 agent = algo.from_environment(envs[0])
 
-cfg = RolloutConfig(max_steps=TRAJECTORY_MAX_STEPS)
+rollout = MultiRolling(agent, envs, TRAJECTORY_MAX_STEPS)
+test_rollout = Trajectory(agent, test_env, TRAJECTORY_MAX_STEPS)
 
-rollout = MultiRolling(agent, envs, rollout_configs=cfg)
-test_rollout = Trajectory(agent, test_env, config=cfg)
-
-rollout.fit(epochs=EPOCHS, updates_per_epoch=UPDATES_PER_EPOCH, steps_per_update=STEPS_PER_UPDATE,
+rollout.fit(epochs=EPOCHS,
+            updates_per_epoch=UPDATES_PER_EPOCH,
+            steps_per_update=STEPS_PER_UPDATE,
             update_batch_size=UPDATE_BATCH_SIZE,
-            testing_rollout=test_rollout, plot_curves=True, render_every=0, warmup_buffer=True)
+            testing_rollout=test_rollout,
+            warmup_buffer=True)
 
 test_rollout.render(repeats=10)
