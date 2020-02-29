@@ -1,11 +1,9 @@
 from typing import Union
 
-import numpy as np
-
 from .trajectory import Trajectory
-from .abstract import RolloutBase, RolloutConfig
+from .abstract import RolloutBase
 from ..agent.abstract import RLAgentBase
-from ..utility import training_ops
+from ..utility import training_utils
 
 
 __all__ = ["Rolling"]
@@ -15,15 +13,18 @@ class Rolling(RolloutBase):
 
     """Generate n-step trajectories for Time-Difference learning"""
 
-    def __init__(self, agent: RLAgentBase, env, config: RolloutConfig = None):
+    def __init__(self, agent: RLAgentBase, env, max_steps: int = None):
 
         """
-        :param agent: A reinforcement learning agent
-        :param env: An environment supporting the Gym interface
-        :param config: configurations
+        :param agent:
+            A reinforcement learning agent.
+        :param env:
+            An environment supporting the Gym interface.
+        :param max_steps:
+            Max number of steps before termination of an episode.
         """
 
-        super().__init__(agent, env, config)
+        super().__init__(agent, env, max_steps)
 
         self.step = 0
         self.episodes = 0
@@ -51,21 +52,21 @@ class Rolling(RolloutBase):
                     self.action = self._random_action()
                 else:
                     self.action = self._sample_action()
-                if self._finished():
+                if self._finished(self.done, self.step):
                     break
                 assert not self.done
 
                 self.state, self.reward, self.done, self.info = self.env.step(self.action)
                 self.step += 1
 
-    def roll(self, steps, verbose=0, learning=True, random_actions=False):
+    def roll(self, steps, verbose=0, push_experience=True, random_actions=False):
         """
         Executes a given number of steps in the environment.
         :param steps: int
             How many steps to execute.
         :param verbose: int
             How much info to print.
-        :param learning: bool
+        :param push_experience: bool
             Whether to save the experience for future learning.
         :param random_actions: bool
             Whether to take random actions or use the policy.
@@ -79,7 +80,7 @@ class Rolling(RolloutBase):
 
         rewards = []
 
-        self.worker.set_learning_mode(learning)
+        self.worker.set_learning_mode(push_experience)
         for i, step in enumerate(self._rolling_worker):
             rewards.append(self.reward)
             if verbose:
@@ -93,28 +94,21 @@ class Rolling(RolloutBase):
         self.random_actions = False
 
     def _reset(self):
-        self.reward = self.cfg.initial_reward
+        self.reward = 0.
         self.info = {}
         self.done = False
         self.state = self.env.reset()
         self.step = 0
         self.episodes += 1
 
-    def _finished(self):
-        done = self.done
-        if self.cfg.max_steps is not None:
-            done = done or self.step >= self.cfg.max_steps
-        return done
-
     def fit(self,
             epochs: int,
             updates_per_epoch: int = 32,
-            steps_per_update: int = 1,
-            update_batch_size: int = 32,
+            steps_per_update: int = 32,
+            update_batch_size: int = -1,
+            warmup_buffer: Union[bool, int] = True,
+            callbacks: list = "default",
             testing_rollout: Trajectory = None,
-            plot_curves: bool = True,
-            render_every: int = 0,
-            warmup_buffer: Union[bool, int] = False,
             smoothing_window_size: int = 10):
 
         """
@@ -128,23 +122,21 @@ class Rolling(RolloutBase):
             How many steps to run the agent for in the environment before updating
         :param update_batch_size: int
             If set to -1, the complete experience buffer will be used as a single batch
-        :param testing_rollout: Trajectory
-            This should be used to test the agent in
-        :param plot_curves: bool
-            Whether to plot the agent's metrics
-        :param render_every: int
-            Frequency of rendering, measured in epochs.
         :param warmup_buffer: int
-            Whether to fill the memory buffer with data from full-epsilon.
+            Whether to run some steps so the learning buffer is not empty. True means run for "update_batch_size" steps.
+        :param callbacks: List[Callback]
+            A list of callbacks or "default".
+        :param testing_rollout: Trajectory
+            This should be used to test the agent in. Must only be set if callbacks == "default"
         :param smoothing_window_size: int
-            Size of the window used for mean and std calculations.
+            Size of the window used for mean and std calculations. Must only be set if callbacks == "default"
         :return: None
         """
 
-        if warmup_buffer is True:
-            self.roll(steps=update_batch_size, verbose=0, learning=True, random_actions=False)
-        elif warmup_buffer:
-            self.roll(steps=warmup_buffer, verbose=0, learning=True, random_actions=False)
+        if warmup_buffer is True and update_batch_size > 0:
+            self.roll(steps=update_batch_size, verbose=0, push_experience=True, random_actions=False)
+        elif warmup_buffer > 0:
+            self.roll(steps=warmup_buffer, verbose=0, push_experience=True, random_actions=False)
 
-        training_ops.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                         testing_rollout, plot_curves, render_every, smoothing_window_size)
+        training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
+                           testing_rollout, smoothing_window_size, callbacks)

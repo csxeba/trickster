@@ -3,45 +3,42 @@ from typing import List
 from trickster.agent.abstract import RLAgentBase
 
 
-class RolloutConfig:
+class RolloutInterface:
 
-    def __init__(self,
-                 max_steps=None,
-                 initial_reward=None):
-
-        self.max_steps = max_steps
-        self.initial_reward = initial_reward or 0.
+    def reset_memory(self):
+        raise NotImplementedError
 
 
-class RolloutBase:
+class RolloutBase(RolloutInterface):
 
-    def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
+    def __init__(self, agent: RLAgentBase, env, max_steps: int = None):
         self.agent = agent
         self.env = env
-        self.cfg = config or RolloutConfig()
+        self.max_steps = max_steps
 
     def reset_memory(self):
         self.agent.transition_memory.reset()
 
+    def _finished(self, current_done_value, current_step):
+        done = current_done_value
+        if self.max_steps is not None:
+            done = done or current_step >= self.max_steps
+        return done
 
-class MultiRolloutBase:
+
+class MultiRolloutBase(RolloutInterface):
 
     def __init__(self,
                  agent: RLAgentBase,
                  envs: list,
-                 rollout_configs=None):
+                 max_steps: int = None):
 
         self.agent = agent
         self.num_rollouts = len(envs)
         if self.num_rollouts <= 1:
             raise ValueError("At least 2 environments are required for a MultiRollout!")
-        if rollout_configs is None:
-            rollout_configs = [RolloutConfig() for _ in range(self.num_rollouts)]
-        if isinstance(rollout_configs, RolloutConfig):
-            rollout_configs = [rollout_configs] * self.num_rollouts
-
-        self.rollout_configs = rollout_configs
         self.rollouts = None  # type: List[RolloutBase]
+        self.max_steps = max_steps
 
     def reset_memory(self):
         for rollout in self.rollouts:

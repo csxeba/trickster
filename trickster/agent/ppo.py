@@ -50,7 +50,8 @@ class PPO(PolicyGradient):
                          critic_updates=10):
 
         if actor == "default":
-            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False,
+                                   sigma_mode=policy.SigmaMode.STATE_INDEPENDENT)
         if critic == "default":
             critic = value.ValueCritic(env.observation_space, wide=True)
 

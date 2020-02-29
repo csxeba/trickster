@@ -1,3 +1,4 @@
+import numpy as np
 import gym
 import tensorflow as tf
 
@@ -9,7 +10,7 @@ class SAC(OffPolicy):
 
     """Soft Actor-Critic"""
 
-    history_keys = ["actor_loss", "action", "action_s", "Q1_loss", "Q1", "Q2_loss", "Q2", "entropy"]
+    history_keys = ["actor_loss", "action", "action_s", "alpha", "alpha_loss", "Q1_loss", "Q1", "Q2_loss", "Q2", "entropy"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -18,13 +19,16 @@ class SAC(OffPolicy):
                  critic_target: tf.keras.Model,
                  critic2_target: tf.keras.Model,
                  discount_gamma: float = 0.99,
-                 entropy_beta: float = 0.1,
+                 entropy_alpha: float = 0.1,
+                 entropy_target: float = -2.,
                  polyak_tau: float = 0.01,
                  memory_buffer_size: int = int(1e4)):
 
         super().__init__(actor, None, critic, critic_target, critic2, critic2_target,
                          memory_buffer_size, discount_gamma, polyak_tau)
-        self.beta = entropy_beta
+        self.entropy_target = entropy_target
+        self.log_alpha = tf.Variable(tf.math.log(entropy_alpha))
+        self.optimize_alpha_switch = float(entropy_target is not None)
 
     @classmethod
     def from_environment(cls,
@@ -35,21 +39,32 @@ class SAC(OffPolicy):
                          critic2: tf.keras.Model = "default",
                          critic2_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
-                         entropy_beta: float = 0.1,
+                         entropy_alpha: float = 0.1,
+                         entropy_target: float = "default",
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = int(1e4)):
 
         actor, _, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
             env, actor, None, critic1, critic1_target, critic2, critic2_target,
-            stochastic_actor=True, squash_actions=True, sigma_predicted=True
+            stochastic_actor=True, squash_actions=True
         )
-        return cls(actor, critic1, critic1_target, critic2, critic2_target, discount_gamma, entropy_beta, polyak_tau,
-                   memory_buffer_size)
+        if entropy_target == "default":
+            entropy_target = -np.prod(env.action_space.shape)
+            print(f" [Trickster.SAC] - Target entropy set to {entropy_target:.2f}")
+        return cls(actor, critic1, critic1_target, critic2, critic2_target, discount_gamma,
+                   entropy_alpha, entropy_target, polyak_tau, memory_buffer_size)
 
     def sample(self, state, reward, done):
-        action = self.actor(state[None, ...])[0]
+        result = self.actor(state[None, ...], training=self.learning)
         if self.learning:
-            self._set_transition(state=state, action=action, reward=reward, done=done)
+            action, log_prob = map(lambda ar: ar[0].numpy(), result)
+            if np.issubdtype(action.dtype, np.integer):
+                action = np.squeeze(action)
+            self._set_transition(state=state, reward=reward, done=done, action=action)
+        else:
+            action = result[0].numpy()
+            if isinstance(action.dtype, np.integer):
+                action = np.squeeze(action)
         return action
 
     @tf.function
@@ -64,7 +79,7 @@ class SAC(OffPolicy):
         Q_target = tf.minimum(Q1_target, Q2_target)
 
         # Bellman target for critic Q-networks
-        critic_target = reward + self.gamma * (1 - done) * (Q_target - self.beta * log_prob)
+        critic_target = reward + self.gamma * (1 - done) * (Q_target - tf.exp(self.log_alpha) * log_prob)
 
         with tf.GradientTape() as tape:
             Q1 = self.critic([state, action])[..., 0]
@@ -84,15 +99,30 @@ class SAC(OffPolicy):
 
     @tf.function
     def update_actor(self, state):
+        # Get the actual value of the entropy coefficient
+        alpha = tf.exp(self.log_alpha)
+
         with tf.GradientTape() as tape:
             action, log_prob = self.actor(state, training=True)
             Q = tf.minimum(self.critic([state, action]), self.critic2([state, action]))[..., 0]
-            loss = tf.reduce_mean(self.beta * log_prob - Q)
 
-        grads = tape.gradient(loss, self.actor.trainable_weights)
-        self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
+            # Actor is jointly maximizing Q and per-sample entropy
+            policy_loss = tf.reduce_mean(
+                tf.stop_gradient(alpha) * log_prob - Q)
 
-        return {"actor_loss": tf.reduce_mean(loss),
+            # Dual problem of alpha is optimized. optimize_alpha_switch is 0. if we don't optimize alpha
+            alpha_loss = -self.optimize_alpha_switch * self.log_alpha * tf.stop_gradient(
+                tf.reduce_mean(log_prob) + self.entropy_target)
+
+            loss = policy_loss + alpha_loss
+
+        # Actor optimizer is used to jointly optimize the actor weights and log_alpha
+        grads = tape.gradient(loss, self.actor.trainable_weights + [self.log_alpha])
+        self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights + [self.log_alpha]))
+
+        return {"actor_loss": policy_loss,
+                "alpha": alpha,
+                "alpha_loss": alpha_loss,
                 "action": tf.reduce_mean(action),
                 "action_s": tf.math.reduce_std(action)}
 

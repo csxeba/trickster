@@ -10,6 +10,8 @@ parser.add_argument("--env", "-e", help="Environment name from Gym, eg. CartPole
 parser.add_argument("--algo", "-a", help=algo_help, required=True)
 parser.add_argument("--max-steps", "-s", type=int, default=300,
                     help="Maximum number of steps in a rollout. Default: 300")
+parser.add_argument("--parallel-envs", type=int, default=1,
+                    help="How many environments to run in parallel during training. Default: 1")
 parser.add_argument("--train-epochs", type=int, default=500,
                     help="Number of epochs to train for. Default: 500")
 parser.add_argument("--batch-size", type=int, default=32,
@@ -63,20 +65,26 @@ if isinstance(env.action_space, gym.spaces.Discrete):
 
 algo = available_algos[arg.algo].from_environment(env)
 
-cfg = T.rollout.RolloutConfig(max_steps=arg.max_steps)
-
 if arg.algo in on_policy:
-    rollout = T.rollout.Trajectory(algo, env, cfg)
+    rollout = T.rollout.Trajectory(algo, env, arg.max_steps)
     batch_size = arg.batch_size if arg.algo.lower() == "ppo" else -1
-    rollout.fit(arg.train_epochs, rollouts_per_epoch=1, update_batch_size=batch_size, render_every=arg.render_frequency,
+    rollout.fit(arg.train_epochs,
+                rollouts_per_epoch=arg.parallel_envs,
+                update_batch_size=batch_size,
+                render_every=arg.render_frequency,
                 plot_curves=arg.do_plot)
     if arg.render_final:
         rollout.render(repeats=100)
 else:
     test_env = gym.make(arg.env)
-    test_rollout = T.rollout.Trajectory(algo, test_env, cfg)
-    rollout = T.rollout.Rolling(algo, env, cfg)
-    rollout.fit(arg.train_epochs, updates_per_epoch=64, steps_per_update=1, update_batch_size=arg.batch_size,
+    test_rollout = T.rollout.Trajectory(algo, test_env, arg.max_steps)
+
+    if arg.parallel_envs == 1:
+        rollout = T.rollout.Rolling(algo, env, arg.max_steps)
+    else:
+        rollout = T.rollout.MultiRolling(algo, [gym.make(arg.env) for _ in range(arg.parallel_envs)], arg.max_steps)
+
+    rollout.fit(arg.train_epochs, updates_per_epoch=32, steps_per_update=1, update_batch_size=arg.batch_size,
                 testing_rollout=test_rollout, render_every=arg.render_frequency, warmup_buffer=True,
                 plot_curves=arg.do_plot)
     if arg.render_final:

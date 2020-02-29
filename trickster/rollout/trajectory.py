@@ -1,31 +1,43 @@
-from trickster.agent.abstract import RLAgentBase
-from .abstract import RolloutBase, RolloutConfig
-from ..utility import history, visual, progress_utils
+from .abstract import RolloutBase
+from ..agent.abstract import RLAgentBase
+from ..utility import history
+from .. import callbacks as _cbs
 
 
 class Trajectory(RolloutBase):
 
     """Generate complete trajectories for Monte Carlo learning or testing purposes"""
 
-    def __init__(self, agent: RLAgentBase, env, config: RolloutConfig=None):
-        super().__init__(agent, env, config)
+    def __init__(self, agent: RLAgentBase, env, max_steps: int = None):
+
+        """
+        :param agent:
+            A reinforcement learning agent.
+        :param env:
+            An environment supporting the Gym interface.
+        :param max_steps:
+            Max number of steps before termination of an episode.
+        """
+
+        super().__init__(agent, env, max_steps)
         self.episodes = 0
         self.worker = agent.create_worker()
 
     def rollout(self, verbose=1, push_experience=True, render=False):
         """
-        Execute a complete rollout, eg. until a 'done' flag is received
+        Execute a complete rollout, until a 'done' flag is received or max_steps is reached.
 
-        :param verbose: how much info to print
-        :param push_experience: whether to save the experience for training
-        :param render: whether to display the rollout visually
-        :return: dict
-            With keys: "reward_sum" and "steps".
+        :param verbose:
+            How much info to print.
+        :param push_experience:
+            Whether to save the experience for training.
+        :param render:
+            Whether to display the rollout visually.
         """
 
         self.worker.set_learning_mode(push_experience)
         state = self.env.reset()
-        reward = self.cfg.initial_reward
+        reward = 0.
         done = False
         reward_sum = 0.
         step = 1
@@ -40,7 +52,7 @@ class Trajectory(RolloutBase):
                 reward = float(reward)
             reward_sum += reward
             if verbose:
-                print("\rStep: {} total reward: {:.4f}".format(step, reward_sum), end="")
+                print(f"\rStep: {step} total reward: {reward_sum:.4f} action: {action}", end="")
             step += 1
         if verbose:
             print()
@@ -49,14 +61,12 @@ class Trajectory(RolloutBase):
 
         return {"reward_sum": reward_sum, "steps": step}
 
-    def _finished(self, current_done_value, current_step):
-        done = current_done_value
-        if self.cfg.max_steps is not None:
-            done = done or current_step >= self.cfg.max_steps
-        return done
-
-    def fit(self, epochs, rollouts_per_epoch=1, update_batch_size=-1, smoothing_window_size=10, plot_curves=True,
-            render_every=100):
+    def fit(self,
+            epochs: int,
+            rollouts_per_epoch: int = 1,
+            update_batch_size: int = -1,
+            callbacks: list = "default",
+            smoothing_window_size: int = 10):
 
         """
         Orchestrates a basic learning scheme.
@@ -66,55 +76,49 @@ class Trajectory(RolloutBase):
             How many rollouts (or episodes) an epoch consits of.
         :param update_batch_size: int
             If set to -1, the complete experience buffer will be used in a single parameter update.
+        :param callbacks: List[Callback]
+            A list of callbacks or "default".
         :param smoothing_window_size: int
             Metric smoothing for console output readability. Defined in epochs.
-        :param plot_curves: bool
-            Whether to plot the agent's metrics. smoothing_window_size will also be applied.
-        :param render_every: int
-            Frequency of rendering a trajectory. Defined in epochs.
         :return: History
             A History object aggregating the learning metrics
         """
 
         train_history = history.History("reward_sum", *self.agent.history_keys)
 
-        print()
-        progress_logger = progress_utils.ProgressPrinter(keys=train_history.keys)
-        progress_logger.print_header()
+        if callbacks is None:
+            callbacks = []
+        if callbacks == "default":
+            callbacks = _cbs.get_defaults(testing_rollout=self, smoothing_window_size=smoothing_window_size)
+
+        callbacks = _cbs.abstract.CallbackList(callbacks)
+        callbacks.on_train_begin()
 
         for epoch in range(1, epochs+1):
+
+            callbacks.on_epoch_begin(epoch, train_history)
+
             for roll in range(rollouts_per_epoch):
+                callbacks.on_batch_begin()
                 rollout_history = self.rollout(verbose=0, push_experience=True)
                 train_history.buffer(reward_sum=rollout_history["reward_sum"])
+                callbacks.on_batch_end()
 
             agent_history = self.agent.fit(batch_size=update_batch_size)
 
             train_history.push_buffer()
             train_history.append(**agent_history)
-            progress_logger.print(train_history, average_last=smoothing_window_size, return_carriege=True)
 
-            if epoch % smoothing_window_size == 0:
-                print()
+            callbacks.on_epoch_end(epoch, train_history)
 
-            if render_every > 0:
-                if epoch % render_every == 0:
-                    print()
-                    self.render(repeats=3)
-
-            if epoch % (smoothing_window_size*10) == 0:
-                print()
-                progress_logger.print_header()
-
-
-        if plot_curves:
-            visual.plot_history(train_history, smoothing_window_size, skip_first=0, show=True)
+        callbacks.on_train_end(train_history)
 
         return train_history
 
     def render(self, repeats=1, verbose=1):
-        for r in range(repeats):
+        for r in range(1, repeats+1):
             if verbose:
-                print(f" --- Rendeding {r}/{repeats} runs ---")
+                print(f" --- Rendering {r}/{repeats} runs ---")
             self.rollout(verbose, push_experience=False, render=True)
             if verbose:
                 print()

@@ -49,7 +49,7 @@ class TestTransitionValidity(unittest.TestCase):
         agent = REINFORCE.from_environment(env, discount_gamma=0.)
         rollout = Rolling(agent, env)
 
-        rollout.roll(STEPS, verbose=0, learning=True)
+        rollout.roll(STEPS, verbose=0, push_experience=True)
 
         data = agent.memory_sampler.sample(-1)
 
@@ -65,7 +65,7 @@ class TestTransitionValidity(unittest.TestCase):
         agent = A2C.from_environment(env, discount_gamma=0.)
         rollout = Rolling(agent, env)
 
-        rollout.roll(STEPS, verbose=0, learning=True)
+        rollout.roll(STEPS, verbose=0, push_experience=True)
 
         data = agent.memory_sampler.sample(-1)
 

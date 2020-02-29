@@ -32,7 +32,8 @@ class A2C(PolicyGradient):
                          memory_buffer_size: int = 10000):
 
         if actor == "default":
-            actor = policy.factory(env, stochastic=True, squash=True, wide=False, sigma_predicted=False)
+            actor = policy.factory(env, stochastic=True, squash=True, wide=False,
+                                   sigma_mode=policy.SigmaMode.STATE_INDEPENDENT)
 
         if critic == "default":
             critic = value.ValueCritic(env.observation_space, wide=True)
