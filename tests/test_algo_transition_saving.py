@@ -89,7 +89,7 @@ class TestTransitionValidity(unittest.TestCase):
         test_rollout = Trajectory(agent, test_env)
 
         rollout.fit(epochs=10, updates_per_epoch=12, steps_per_update=STEPS, update_batch_size=8,
-                    testing_rollout=test_rollout, plot_curves=False, render_every=0, warmup_buffer=False)
+                    testing_rollout=test_rollout, warmup_buffer=False)
 
         data = agent.memory_sampler.sample(-1)
 
@@ -125,7 +125,7 @@ class TestTransitionValidity(unittest.TestCase):
         test_rollout = Trajectory(agent, test_env)
 
         rollout.fit(epochs=10, updates_per_epoch=12, steps_per_update=STEPS, update_batch_size=8,
-                    testing_rollout=test_rollout, plot_curves=False, render_every=0, warmup_buffer=False)
+                    testing_rollout=test_rollout, warmup_buffer=False)
 
         data = agent.memory_sampler.sample(-1)
 

@@ -63,7 +63,12 @@ class CNN(_LayerStack):
                 if batch_norm:
                     hiddens.append(tfl.BatchNormalization())
             hiddens.append(tfl.MaxPool2D())
-        hiddens.append(tfl.GlobalAveragePooling2D())
+        hiddens.extend([
+            tfl.GlobalAveragePooling2D(),
+            tfl.Dense(64, activation="tanh")
+        ])
+        if batch_norm:
+            hiddens.append(tfl.BatchNormalization())
         super().__init__(hiddens)
 
 

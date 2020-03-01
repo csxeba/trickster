@@ -10,7 +10,7 @@ setup(
     license='MIT',
     author='csxeba',
     author_email='csxeba@gmail.com',
-    description='Deep Reinforcement Learning with Keras',
+    description='Deep Reinforcement Learning with TensorFlow 2',
     long_description=long_description,
     long_description_content_type='text/markdown'
 )
