@@ -33,10 +33,11 @@ class ProgressPrinter(Callback):
         self.separator = "-" * len(self.header)
         self.average_last = average_last
 
-    def on_train_begin(self):
-        print()
-        print(self.header)
-        print(self.separator)
+    def on_epoch_begin(self, epoch: int, history: History = None):
+        if (epoch-1) % (self.average_last*10) == 0:
+            print()
+            print(self.header)
+            print(self.separator)
 
     def on_epoch_end(self, epoch: int, history: History = None):
 
@@ -63,11 +64,6 @@ class ProgressPrinter(Callback):
         print("\r" + logstr, end="")
         if epoch % self.average_last == 0:
             print()
-
-        if epoch % (self.average_last*10) == 0:
-            print()
-            print(self.header)
-            print(self.separator)
 
 
 class HistoryPlotter(Callback):

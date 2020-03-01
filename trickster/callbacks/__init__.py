@@ -8,8 +8,8 @@ from . import tensorboard
 def get_defaults(testing_rollout, log_tensorboard: bool = False):
     cbs = [
         evaluation.TrajectoryEvaluator(testing_rollout),
-        evaluation.TrajectoryRenderer(testing_rollout),
         logging.ProgressPrinter(testing_rollout.agent.history_keys),
+        evaluation.TrajectoryRenderer(testing_rollout)
     ]
     if log_tensorboard:
         cbs.append(tensorboard.TensorBoard(logdir="default"))

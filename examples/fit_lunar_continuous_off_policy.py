@@ -1,5 +1,4 @@
 import gym
-import tensorflow as tf
 
 from trickster.agent import DDPG, TD3, SAC
 from trickster.rollout import Trajectory, MultiRolling
@@ -21,7 +20,6 @@ algo = {"DDPG": DDPG,
         "SAC": SAC}[ALGO]
 
 agent = algo.from_environment(envs[0])
-agent.actor.optimizer = tf.keras.optimizers.RMSprop(3e-4)
 
 rollout = MultiRolling(agent, envs, TRAJECTORY_MAX_STEPS)
 test_rollout = Trajectory(agent, test_env, TRAJECTORY_MAX_STEPS)
@@ -31,6 +29,6 @@ rollout.fit(epochs=EPOCHS,
             steps_per_update=STEPS_PER_UPDATE,
             update_batch_size=UPDATE_BATCH_SIZE,
             testing_rollout=test_rollout,
-            warmup_buffer=True)
+            warmup_buffer=1000)
 
-test_rollout.render(repeats=10, verbose=0)
+test_rollout.render(repeats=100, verbose=0)

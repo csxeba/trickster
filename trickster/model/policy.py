@@ -64,10 +64,11 @@ class DeterministicContinuous(tf.keras.Model):
                  action_space: gym.spaces.Space,
                  squash: bool = True,
                  scaler: float = None,
-                 wide: bool = False):
+                 wide: bool = False,
+                 batch_norm: bool = True):
 
         super().__init__()
-        self.backbone_model = backbones.factory(observation_space, wide=wide)
+        self.backbone_model = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
         self.head_model = heads.factory(action_space, "tanh" if squash else "linear")
         self.do_scaling = scaler is not None
         self.scaler = scaler
@@ -95,18 +96,19 @@ class StochasticContinuous(StochasticPolicyBase):
                  squash: bool = True,
                  scaler: float = 1.,
                  wide: bool = False,
-                 sigma_mode: str = SigmaMode.STATE_DEPENDENT):
+                 sigma_mode: str = SigmaMode.STATE_DEPENDENT,
+                 batch_norm: bool = True):
 
         super().__init__()
 
-        mean_backbone = backbones.factory(observation_space, wide)
+        mean_backbone = backbones.factory(observation_space, wide, batch_norm=batch_norm)
         mean_head = heads.factory(action_space, activation="linear")
 
         self.mean_model = arch.Architecture(mean_backbone, mean_head)
 
         if sigma_mode == SigmaMode.STATE_DEPENDENT:
             print(" [Trickster] - Sigma is predicted")
-            log_sigma_backbone = backbones.factory(observation_space, wide)
+            log_sigma_backbone = backbones.factory(observation_space, wide, batch_norm=batch_norm)
             log_sigma_head = heads.factory(action_space, activation="linear")
 
             self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
@@ -192,10 +194,11 @@ class StochasticDiscreete(StochasticPolicyBase):
     def __init__(self,
                  observation_space: gym.spaces.Box,
                  action_space: gym.spaces.Discrete,
-                 wide: bool = False):
+                 wide: bool = False,
+                 batch_norm: bool = True):
 
         super().__init__()
-        self.backbone_model = backbones.factory(observation_space, wide)
+        self.backbone_model = backbones.factory(observation_space, wide, batch_norm=batch_norm)
         self.head_model = heads.factory(action_space, activation="linear")
         self.build(input_shape=(None,) + observation_space.shape)
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
@@ -228,7 +231,8 @@ def factory(env,
             stochastic: bool,
             squash: bool = True,
             wide: bool = False,
-            sigma_mode: str = SigmaMode.STATE_DEPENDENT) -> tf.keras.Model:
+            sigma_mode: str = SigmaMode.STATE_DEPENDENT,
+            batch_norm: bool = False) -> tf.keras.Model:
 
     """
     This method generates a small neural network policy for the supplied environment.
@@ -247,6 +251,8 @@ def factory(env,
         STATE_INDEPENDENT: sigma is an independent parameter and optimized directly by the policy optimizer.
         FIXED: sigma is not optimized by the optimizer. It can be changed from the outside though.
         These constants are defined under SigmaMode, but lower case strings can also be used.
+    :param batch_norm:
+        Whether to use batch normalization.
     :return:
         A Neural Network representing a policy.
     """
@@ -257,9 +263,11 @@ def factory(env,
         scaler = env.action_space.high
 
         if stochastic and isinstance(env.action_space, gym.spaces.Box):
-            return StochasticContinuous(env.observation_space, env.action_space, squash, scaler, wide, sigma_mode)
+            return StochasticContinuous(
+                env.observation_space, env.action_space, squash, scaler, wide, sigma_mode, batch_norm)
         elif not stochastic and isinstance(env.action_space, gym.spaces.Box):
-            return DeterministicContinuous(env.observation_space, env.action_space, squash, scaler, wide)
+            return DeterministicContinuous(
+                env.observation_space, env.action_space, squash, scaler, wide, batch_norm)
         else:
             raise NotImplementedError
 
@@ -267,7 +275,7 @@ def factory(env,
 
         if not stochastic:
             raise NotImplementedError
-        return StochasticDiscreete(env.observation_space, env.action_space, wide)
+        return StochasticDiscreete(env.observation_space, env.action_space, wide, batch_norm=batch_norm)
 
     else:
         raise NotImplementedError

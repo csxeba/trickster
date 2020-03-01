@@ -11,11 +11,12 @@ class Q(arch.Architecture):
     def __init__(self,
                  observation_space: gym.spaces.Space,
                  action_space: gym.spaces.Discrete,
-                 wide=True):
+                 wide=True,
+                 batch_norm: bool = False):
 
         if not isinstance(action_space, gym.spaces.Discrete):
             raise RuntimeError("Non-critic Q-network for non-categorical action space")
-        backbone_model = backbones.factory(observation_space, wide=wide)
+        backbone_model = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
         head_model = heads.Head(action_space.n, activation="linear")
         super().__init__(backbone_model, head_model)
         self.build((None,) + observation_space.shape)
@@ -25,10 +26,10 @@ class QCritic(tf.keras.Model):
 
     """Q network - used as a critic in off-policy algos"""
 
-    def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, wide=False):
+    def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, wide=False, batch_norm=False):
         super().__init__()
-        self.state_backbone = backbones.factory(observation_space, wide=wide)
-        self.action_backbone = backbones.factory(action_space, wide=wide)
+        self.state_backbone = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
+        self.action_backbone = backbones.factory(action_space, wide=wide, batch_norm=batch_norm)
         self.head = heads.Head(1, activation="linear")
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
         self.build([(None,) + observation_space.shape, (None,) + action_space.shape])
@@ -47,8 +48,8 @@ class ValueCritic(arch.Architecture):
 
     """Value network - used as a critic in on-policy algos"""
 
-    def __init__(self, observation_space: gym.spaces.Box, wide=True):
-        backbone_model = backbones.factory(observation_space, wide=wide)
+    def __init__(self, observation_space: gym.spaces.Box, wide=True, batch_norm: bool = False):
+        backbone_model = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
         head_model = heads.Head(1, activation="linear")
         super().__init__(backbone_model, head_model)
         self.build((None,) + observation_space.shape)

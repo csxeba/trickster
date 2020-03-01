@@ -58,7 +58,8 @@ class SAC(OffPolicy):
                    entropy_alpha, entropy_target, polyak_tau, memory_buffer_size)
 
     def sample(self, state, reward, done):
-        result = self.actor(state[None, ...], training=self.learning)
+        result = self.actor(tf.convert_to_tensor(state[None, ...]),
+                            training=tf.convert_to_tensor(self.learning))
         if self.learning:
             action, log_prob = map(lambda ar: ar[0].numpy(), result)
             if np.issubdtype(action.dtype, np.integer):

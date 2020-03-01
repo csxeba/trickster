@@ -2,7 +2,7 @@ TODO 2020.02.10.
 + Refactor Stochastic heads
 - Overfit a Value network. It must be possible.
 + Implement SAC
-- Fix RewardShaper so it can handle end-of-trajectory better
++ Fix RewardShaper so it can handle end-of-trajectory better
 
 TODO 2020.02.23.
 + Implement TD-learning for A2C and PPO
@@ -10,6 +10,11 @@ TODO 2020.02.23.
 + Add more flexibility for NNs
 
 TODO 2020.02.28
-- Implement automatic entropy tuning
++ Implement automatic entropy tuning
 + Implement constant sigma
 + Eliminate superfluous classes: MultiTrajectory and RolloutConfig
+
+TODO 2020.02.29
+- Random actions
+- Clever bias init for critics
++ BatchNorm
