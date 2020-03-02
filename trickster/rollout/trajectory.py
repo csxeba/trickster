@@ -89,16 +89,16 @@ class Trajectory(RolloutBase):
         if callbacks is None:
             callbacks = []
         if callbacks == "default":
-            cbs = [
+            callbacks = [
                 _cbs.logging.ProgressPrinter(self.agent.history_keys),
                 _cbs.evaluation.TrajectoryRenderer(self)
             ]
             if log_tensorboard:
                 expname = "_".join([self.agent.__class__.__name__,
                                     self.env.spec.id])
-                cbs.append(_cbs.tensorboard.TensorBoard(logdir="default", experiment_name=expname))
+                callbacks.append(_cbs.tensorboard.TensorBoard(logdir="default", experiment_name=expname))
             print(" [Trickster.Trajectory] - Added default callbacks:")
-            for c in cbs:
+            for c in callbacks:
                 print(" [Trickster.Trajectory] -", c.__class__.__name__)
 
         callbacks = _cbs.abstract.CallbackList(callbacks)
