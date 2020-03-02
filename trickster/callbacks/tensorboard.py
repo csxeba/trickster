@@ -7,10 +7,10 @@ from ..utility.history import History
 
 class TensorBoard(Callback):
 
-    def __init__(self, logdir="default"):
+    def __init__(self, logdir="default", experiment_name=""):
         super().__init__()
         if logdir == "default":
-            logdir = path_utils.defaults.logdir
+            logdir = path_utils.defaults.make_logdir(experiment_name)
         self.writer = tf.summary.create_file_writer(logdir)
         print(" [Trickster.TensorBoard] - Logdir:", logdir)
 

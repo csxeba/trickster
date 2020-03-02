@@ -87,7 +87,7 @@ else:
                 steps_per_update=1,
                 update_batch_size=arg.batch_size,
                 testing_rollout=test_rollout,
-                warmup_buffer=True)
+                buffer_warmup=True)
 
     if arg.render_final:
         test_rollout.render(repeats=100)

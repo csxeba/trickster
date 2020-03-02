@@ -12,7 +12,9 @@ def get_defaults(testing_rollout, log_tensorboard: bool = False):
         evaluation.TrajectoryRenderer(testing_rollout)
     ]
     if log_tensorboard:
-        cbs.append(tensorboard.TensorBoard(logdir="default"))
+        expname = "_".join([testing_rollout.agent.__class__.__name__,
+                           testing_rollout.env.spec.id])
+        cbs.append(tensorboard.TensorBoard(logdir="default", experiment_name=expname))
     print(" [Trickster.callbacks] - Added default callbacks:")
     for c in cbs:
         print(" [Trickster.callbacks] -", c.__class__.__name__)

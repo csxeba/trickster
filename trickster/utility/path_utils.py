@@ -13,17 +13,14 @@ class _DefaultPaths:
     def __init__(self, root="default"):
         if root == "default":
             ensure_workdir()
-            root = os.path.abspath("artifactory/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            root = os.path.abspath("artifactory/")
         self.root = root
+        self.now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    def _build_and_check_path(self, sfx):
-        path = os.path.join(self.root, sfx)
+    def make_logdir(self, experiment_name=""):
+        path = os.path.join(self.root, experiment_name, self.now, "logs")
         os.makedirs(path, exist_ok=True)
         return path
-
-    @property
-    def logdir(self):
-        return self._build_and_check_path("logs")
 
 
 defaults = _DefaultPaths()

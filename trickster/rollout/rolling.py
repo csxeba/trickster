@@ -106,7 +106,7 @@ class Rolling(RolloutBase):
             updates_per_epoch: int = 32,
             steps_per_update: int = 32,
             update_batch_size: int = -1,
-            warmup_buffer: Union[bool, int] = True,
+            buffer_warmup: Union[bool, int] = True,
             callbacks: list = "default",
             testing_rollout: Trajectory = None,
             log_tensorboard: bool = False):
@@ -122,7 +122,7 @@ class Rolling(RolloutBase):
             How many steps to run the agent for in the environment before updating
         :param update_batch_size: int
             If set to -1, the complete experience buffer will be used as a single batch
-        :param warmup_buffer: int
+        :param buffer_warmup: int
             Whether to run some steps so the learning buffer is not empty. True means run for "update_batch_size" steps.
         :param callbacks: List[Callback]
             A list of callbacks or "default".
@@ -132,10 +132,10 @@ class Rolling(RolloutBase):
             Whether to create a TensorBoard log.
         """
 
-        if warmup_buffer is True and update_batch_size > 0:
+        if buffer_warmup is True and update_batch_size > 0:
             self.roll(steps=update_batch_size, verbose=0, push_experience=True, random_actions=False)
-        elif warmup_buffer > 0:
-            self.roll(steps=warmup_buffer, verbose=0, push_experience=True, random_actions=False)
+        elif buffer_warmup > 0:
+            self.roll(steps=buffer_warmup, verbose=0, push_experience=True, random_actions=False)
 
         training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
                            testing_rollout, log_tensorboard, callbacks)
