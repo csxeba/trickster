@@ -8,6 +8,10 @@ class RolloutInterface:
     def reset_memory(self):
         raise NotImplementedError
 
+    @property
+    def experiment_name(self):
+        raise NotImplementedError
+
 
 class RolloutBase(RolloutInterface):
 
@@ -24,6 +28,10 @@ class RolloutBase(RolloutInterface):
         if self.max_steps is not None:
             done = done or current_step >= self.max_steps
         return done
+
+    @property
+    def experiment_name(self):
+        return "_".join([self.agent.__class__.__name__, self.env.spec.id])
 
 
 class MultiRolloutBase(RolloutInterface):
@@ -43,3 +51,7 @@ class MultiRolloutBase(RolloutInterface):
     def reset_memory(self):
         for rollout in self.rollouts:
             rollout.reset_memory()
+
+    @property
+    def experiment_name(self):
+        return "_".join([self.agent.__class__.__name__, self.rollouts[0].env.spec.id])

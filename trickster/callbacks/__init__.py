@@ -5,17 +5,19 @@ from . import optimization
 from . import tensorboard
 
 
-def get_defaults(testing_rollout, log_tensorboard: bool = False):
-    cbs = [
-        evaluation.TrajectoryEvaluator(testing_rollout),
-        logging.ProgressPrinter(testing_rollout.agent.history_keys),
-        evaluation.TrajectoryRenderer(testing_rollout)
-    ]
+def get_defaults(history_keys: list = None,
+                 testing_rollout=None,
+                 log_tensorboard: bool = False,
+                 experiment_name: str = None):
+
+    callbacks = []
+
+    if testing_rollout is not None:
+        callbacks.append(evaluation.TrajectoryEvaluator(testing_rollout))
+    if history_keys is not None:
+        callbacks.append(logging.ProgressPrinter(history_keys))
     if log_tensorboard:
-        expname = "_".join([testing_rollout.agent.__class__.__name__,
-                           testing_rollout.env.spec.id])
-        cbs.append(tensorboard.TensorBoard(logdir="default", experiment_name=expname))
-    print(" [Trickster.callbacks] - Added default callbacks:")
-    for c in cbs:
-        print(" [Trickster.callbacks] -", c.__class__.__name__)
-    return cbs
+        callbacks.append(tensorboard.TensorBoard(logdir="default", experiment_name=experiment_name))
+
+    print(f" [Trickster.callbacks] - Added default callbacks: {', '.join(c.__class__.__name__ for c in callbacks)}")
+    return callbacks

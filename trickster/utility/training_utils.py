@@ -5,8 +5,13 @@ from .. import callbacks as _cbs
 from ..rollout import Trajectory
 
 
-def fit(rolling, epochs: int, updates_per_epoch: int = 32, steps_per_update: int = 32, update_batch_size: int = -1,
-        testing_rollout: Trajectory = None, log_tensorboard: bool = False,
+def fit(rolling,
+        epochs: int,
+        updates_per_epoch: int = 32,
+        steps_per_update: int = 32,
+        update_batch_size: int = -1,
+        testing_rollout: Trajectory = None,
+        log_tensorboard: bool = False,
         callbacks: list = "default"):
 
     if callbacks == "default":
