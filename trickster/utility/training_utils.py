@@ -15,7 +15,10 @@ def fit(rolling,
         callbacks: list = "default"):
 
     if callbacks == "default":
-        callbacks = _cbs.get_defaults(testing_rollout, log_tensorboard)
+        callbacks = _cbs.get_defaults(rolling.agent.history_keys,
+                                      testing_rollout,
+                                      log_tensorboard,
+                                      rolling.experiment_name)
     if callbacks is None:
         callbacks = []
 
