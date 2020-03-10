@@ -19,7 +19,7 @@ class TrajectoryEvaluator(Callback):
         for r in range(self.repeats):
             test_history = self.testing_rollout.rollout(verbose=0, push_experience=False)
             rewards.append(test_history["reward_sum"])
-        history.append(**{"RWD/sum": np.sum(rewards), "RWD/std": np.std(rewards)})
+        history.append(**{"RWD/sum": np.mean(rewards), "RWD/std": np.std(rewards)})
 
 
 class TrajectoryRenderer(Callback):

@@ -113,7 +113,7 @@ class Trajectory(RolloutBase):
                 rewards.append(rollout_history["reward_sum"])
                 callbacks.on_batch_end()
 
-            train_history.append(**{"RWD/sum": np.sum(rewards), "RWD/std": np.std(rewards)})
+            train_history.append(**{"RWD/sum": np.mean(rewards), "RWD/std": np.std(rewards)})
 
             agent_history = self.agent.fit(batch_size=update_batch_size)
 
