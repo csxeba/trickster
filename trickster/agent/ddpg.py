@@ -10,7 +10,7 @@ from ..utility import off_policy_utils
 
 class DDPG(td3.TD3):
 
-    history_keys = ["actor/loss", "actor/a", "actor/a_s", "critic/loss", "critic/Q", "critic/Q_y", "sigma"]
+    history_keys = ["actor/loss", "action/mean", "action/std", "critic/loss", "critic/Q", "actor/sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -78,4 +78,4 @@ class DDPG(td3.TD3):
             loss = tf.keras.losses.mean_squared_error(bellman_target, Q)
         grads = tape.gradient(loss, self.critic.trainable_weights)
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
-        return {"critic/loss": loss, "critic/Q": tf.reduce_mean(Q), "critic/Q_y": tf.reduce_mean(bellman_target)}
+        return {"critic/loss": loss, "critic/Q": tf.reduce_mean(Q)}

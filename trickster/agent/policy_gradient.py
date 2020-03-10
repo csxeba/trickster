@@ -11,7 +11,7 @@ class PolicyGradient(RLAgentBase):
     transition_memory_keys = ["state", "state_next", "action", "log_prob", "reward", "done"]
     training_memory_keys = ["state", "action", "returns", "advantages", "log_prob"]
     critic_history_keys = ["critic/loss", "critic/value"]
-    actor_history_keys = ["actor/loss", "actor/entropy", "actor/kld", "actor/a", "actor/a_s"]
+    actor_history_keys = ["actor/loss", "actor/entropy", "actor/kld", "action/mean", "action/std"]
 
     def __init__(self,
                  actor: tf.keras.Model = "default",
@@ -133,8 +133,8 @@ class PolicyGradient(RLAgentBase):
         return {"actor/loss": utility,
                 "actor/entropy": entropy,
                 "actor/kld": kld,
-                "actor/a": tf.reduce_mean(action),
-                "actor/a_s": tf.math.reduce_std(action)}
+                "action/mean": tf.reduce_mean(action),
+                "action/std": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=None) -> dict:
 

@@ -87,8 +87,8 @@ class PPO(PolicyGradient):
                 "actor/entropy": entropy,
                 "actor/kld": kld,
                 "actor/cliprate": clip_rate,
-                "actor/a": tf.reduce_mean(action),
-                "actor/a_s": tf.math.reduce_std(action)}
+                "action/mean": tf.reduce_mean(action),
+                "action/std": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=None) -> dict:
         # states, actions, returns, advantages, old_log_prob

@@ -1,3 +1,5 @@
+import numpy as np
+
 from .abstract import RolloutBase
 from ..agent.abstract import RLAgentBase
 from ..utility import history
@@ -80,16 +82,18 @@ class Trajectory(RolloutBase):
             A list of callbacks or "default".
         :param log_tensorboard: bool
             Whether to log to TensorBoard
+        :param render_frequency: int
+            How often to render the rollouts during training for a visual evaluation
         :return: History
             A History object aggregating the learning metrics
         """
 
-        train_history = history.History("reward_sum", *self.agent.history_keys)
+        train_history = history.History(*self.history_keys)
 
         if callbacks is None:
             callbacks = []
         elif callbacks == "default":
-            callbacks = _cbs.get_defaults(history_keys=self.agent.history_keys,
+            callbacks = _cbs.get_defaults(history_keys=self.history_keys,
                                           testing_rollout=None,
                                           log_tensorboard=log_tensorboard,
                                           experiment_name=self.experiment_name)
@@ -101,11 +105,15 @@ class Trajectory(RolloutBase):
 
             callbacks.on_epoch_begin(epoch, train_history)
 
+            rewards = []
+
             for roll in range(rollouts_per_epoch):
                 callbacks.on_batch_begin()
                 rollout_history = self.rollout(verbose=0, push_experience=True)
-                train_history.buffer(reward_sum=rollout_history["reward_sum"])
+                rewards.append(rollout_history["reward_sum"])
                 callbacks.on_batch_end()
+
+            train_history.append(**{"RWD/sum": np.sum(rewards), "RWD/std": np.std(rewards)})
 
             agent_history = self.agent.fit(batch_size=update_batch_size)
 

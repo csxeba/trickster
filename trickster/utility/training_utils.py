@@ -15,7 +15,7 @@ def fit(rolling,
         callbacks: list = "default"):
 
     if callbacks == "default":
-        callbacks = _cbs.get_defaults(rolling.agent.history_keys,
+        callbacks = _cbs.get_defaults(rolling.history_keys,
                                       testing_rollout,
                                       log_tensorboard,
                                       rolling.experiment_name)
@@ -25,7 +25,7 @@ def fit(rolling,
     callbacks = _cbs.abstract.CallbackList(list(callbacks))
     callbacks.set_rollout(rolling)
 
-    logger = history.History("reward_sum", *rolling.agent.history_keys)
+    logger = history.History(*rolling.history_keys)
 
     callbacks.on_train_begin()
 

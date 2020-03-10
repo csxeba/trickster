@@ -20,7 +20,6 @@ class ProgressPrinter(Callback):
                  average_last: int = 10):
 
         super().__init__()
-        keys = ["reward_sum"] + keys
         self.keys = keys
         self.prefix = prefix
         self.strwidths = {key: max(len(key) + 2, 11) for key in [prefix] + keys}

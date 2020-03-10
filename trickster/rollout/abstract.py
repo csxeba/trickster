@@ -12,6 +12,10 @@ class RolloutInterface:
     def experiment_name(self):
         raise NotImplementedError
 
+    @property
+    def history_keys(self):
+        raise NotImplementedError
+
 
 class RolloutBase(RolloutInterface):
 
@@ -32,6 +36,10 @@ class RolloutBase(RolloutInterface):
     @property
     def experiment_name(self):
         return "_".join([self.agent.__class__.__name__, self.env.spec.id])
+
+    @property
+    def history_keys(self):
+        return ["RWD/sum", "RWD/std"] + self.agent.history_keys
 
 
 class MultiRolloutBase(RolloutInterface):
@@ -55,3 +63,7 @@ class MultiRolloutBase(RolloutInterface):
     @property
     def experiment_name(self):
         return "_".join([self.agent.__class__.__name__, self.rollouts[0].env.spec.id])
+
+    @property
+    def history_keys(self):
+        return ["RWD/sum", "RWD/std"] + self.agent.history_keys

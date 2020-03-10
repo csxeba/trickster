@@ -9,7 +9,7 @@ from ..processing import action_processing
 
 class DQN(OffPolicy):
 
-    history_keys = ["Q/loss", "Q/Q", "epsilon"]
+    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "Q/action"]
 
     def __init__(self,
                  model: tf.keras.Model,
@@ -93,7 +93,10 @@ class DQN(OffPolicy):
             loss = tf.reduce_mean(tf.square(target - Q))
         grads = tape.gradient(loss, self.model.trainable_weights)
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-        return {"Q/loss": loss, "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1))}
+        return {"Q/loss": loss,
+                "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1)),
+                "action/mean": tf.reduce_mean(action),
+                "action/std": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=32):
         data = self.memory_sampler.sample(batch_size)
@@ -101,7 +104,7 @@ class DQN(OffPolicy):
                 for k in ["state", "state_next", "action", "reward", "done"]}
 
         history = self.update_q(data["state"], data["state_next"], data["action"], data["reward"], data["done"])
-        history["epsilon"] = self.epsilon_greedy.epsilon
+        history["Q/epsilon"] = self.epsilon_greedy.epsilon
 
         if self.has_target_network:
             model_utils.meld_weights(self.target_network, self.model, mix_in_ratio=self.tau)
