@@ -52,6 +52,7 @@ class LearningRateScheduler(Callback):
         self.wrap_around = wrap_around
         self.reset_optimizer = reset_optimizer_on_new_cycle
         self.cycles = 0
+        self.lr = 0
 
     @classmethod
     def make_exponential(cls,
@@ -60,7 +61,9 @@ class LearningRateScheduler(Callback):
                          start_value: float,
                          decay_rate: float,
                          min_value: float = -np.inf,
-                         verbose: int = 1):
+                         verbose: int = 1,
+                         wrap_around: bool = True,
+                         reset_optimizer_on_new_cycle: bool = True):
 
         rates = np.empty(num_epochs, dtype="float32")
         current = start_value
@@ -68,7 +71,7 @@ class LearningRateScheduler(Callback):
             rates[i] = current
             current *= decay_rate
             current = max(min_value, current)
-        return cls(rates, optimizer, verbose)
+        return cls(rates, optimizer, verbose, wrap_around, reset_optimizer_on_new_cycle)
 
     @classmethod
     def make_step(cls,
@@ -76,12 +79,14 @@ class LearningRateScheduler(Callback):
                   num_epochs: int,
                   start_value: float,
                   epoch_steps: Dict[int, float],
-                  verbose: int = 1):
+                  verbose: int = 1,
+                  wrap_around: bool = True,
+                  reset_optimizer_on_new_cycle: bool = True):
 
         rates = np.full(num_epochs, fill_value=start_value, dtype="float32")
         for epoch in sorted(epoch_steps):
             rates[epoch:] = epoch_steps[epoch]
-        return cls(rates, optimizer, verbose)
+        return cls(rates, optimizer, verbose, wrap_around, reset_optimizer_on_new_cycle)
 
     def on_epoch_begin(self, epoch: int, history: History = None):
         if not self.wrap_around and epoch >= len(self.learning_rates):
@@ -93,8 +98,8 @@ class LearningRateScheduler(Callback):
             if self.cycles > 1 and self.reset_optimizer:
                 model_utils.reset_optimizer(self.optimizer)
 
-        new_learning_rate = self.learning_rates[epoch]
-        self.optimizer.learning_rate = new_learning_rate
+        self.lr = self.learning_rates[remainder]
+        self.optimizer.learning_rate = self.lr
         if self.verbose:
             print(f" [Trickster.LearningRateScheduler] -"
-                  f" Cycle {self.cycles} learning rate {new_learning_rate}")
+                  f" Cycle {self.cycles} learning rate {self.lr}")

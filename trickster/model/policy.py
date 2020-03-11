@@ -156,22 +156,15 @@ class StochasticContinuous(StochasticPolicyBase):
 
         mean = self.mean_model(inputs)
 
-        if training:
-            sigma = self.get_sigma(inputs)
-            distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
-            if self.do_squash:
-                distribution = self.bijector(distribution)
-            distribution = self.scaler(distribution)
-            sample = distribution.sample()
-            log_prob = distribution.log_prob(sample)
-
-            return sample, log_prob
-
+        sigma = self.get_sigma(inputs)
+        distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
         if self.do_squash:
-            mean = self.bijector(mean)
+            distribution = self.bijector(distribution)
+        distribution = self.scaler(distribution)
+        sample = distribution.sample()
+        log_prob = distribution.log_prob(sample)
 
-        mean = self.scaler(mean)
-        return mean, tf.zeros(len(mean), dtype=tf.float32)
+        return sample, log_prob
 
     @tf.function(experimental_relax_shapes=True)
     def log_prob(self, inputs, action):
@@ -207,16 +200,10 @@ class StochasticDiscreete(StochasticPolicyBase):
     def call(self, x, training=None, mask=None):
         features = self.backbone_model(x)
         logits = self.head_model(features)
-
-        if training:
-            distribution = tfp.distributions.Categorical(logits=logits)
-            sample = distribution.sample()
-            log_prob = distribution.log_prob(sample)
-            return sample, log_prob
-
-        actions = tf.argmax(logits, output_type=tf.int32)
-
-        return actions, tf.zeros(len(actions), dtype=tf.float32)
+        distribution = tfp.distributions.Categorical(logits=logits)
+        sample = distribution.sample()
+        log_prob = distribution.log_prob(sample)
+        return sample, log_prob
 
     @tf.function(experimental_relax_shapes=True)
     def log_prob(self, inputs, action):
