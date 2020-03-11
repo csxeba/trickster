@@ -25,7 +25,7 @@ def fit(rolling,
     callbacks = _cbs.abstract.CallbackList(list(callbacks))
     callbacks.set_rollout(rolling)
 
-    logger = history.History(*rolling.history_keys)
+    logger = history.History()
 
     callbacks.on_train_begin()
 
@@ -46,11 +46,3 @@ def fit(rolling,
     callbacks.on_train_end(logger)
 
     return logger
-
-
-@tf.function
-def l2(model: tf.keras.Model, lmbda: float):
-    accumulator = 0.
-    for param in model.trainable_weights:
-        accumulator += tf.norm(param)
-    return accumulator * lmbda

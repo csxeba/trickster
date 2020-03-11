@@ -88,7 +88,7 @@ class Trajectory(RolloutBase):
             A History object aggregating the learning metrics
         """
 
-        train_history = history.History(*self.history_keys)
+        train_history = history.History()
 
         if callbacks is None:
             callbacks = []
@@ -113,11 +113,9 @@ class Trajectory(RolloutBase):
                 rewards.append(rollout_history["reward_sum"])
                 callbacks.on_batch_end()
 
-            train_history.append(**{"RWD/sum": np.mean(rewards), "RWD/std": np.std(rewards)})
-
             agent_history = self.agent.fit(batch_size=update_batch_size)
+            agent_history.update({"RWD/sum": np.mean(rewards), "RWD/std": np.std(rewards)})
 
-            train_history.push_buffer()
             train_history.append(**agent_history)
 
             callbacks.on_epoch_end(epoch, train_history)

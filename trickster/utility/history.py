@@ -1,22 +1,23 @@
+from collections import defaultdict
+
 import numpy as np
 
 
 class History:
 
-    def __init__(self, *keys):
-        self.keys = list(keys)
-        self._logs = {key: [] for key in keys}
-        self._buffer = {key: [] for key in keys}
+    def __init__(self):
+        self._logs = defaultdict(list)
+        self._buffer = defaultdict(list)
+        self._a_key = None
 
     def append(self, **kwargs):
         for key, val in kwargs.items():
-            if key in self._logs:
-                self._logs[key].append(val)
+            self._logs[key].append(val)
 
     def extend(self, **kwargs):
+        val = None
         for key, val in kwargs.items():
-            if key in self._logs:
-                self._logs[key].extend(val)
+            self._logs[key].extend(val)
 
     def buffer(self, **kwargs):
         for key, val in kwargs.items():
@@ -28,20 +29,20 @@ class History:
             if len(v):
                 new_record[k] = np.mean(v)
         self.append(**new_record)
-        self._buffer = {k: [] for k in self.keys}
+        self._buffer = defaultdict(list)
 
     def gather(self):
         return self._logs
 
     def last(self):
         result = dict()
-        for k in self.keys:
-            if len(self._logs[k]):
+        for k, v in self._logs.items():
+            if len(v) > 0:
                 result[k] = self._logs[k][-1]
         return result
 
     def reduce(self):
-        return {k: np.mean(v) for k, v in self._logs.items()}
+        return {k: np.mean(v) if len(v) else "?" for k, v in self._logs.items()}
 
     def incorporate(self, other: "History", reduce=True):
         if reduce:
@@ -54,4 +55,6 @@ class History:
         return self._logs[item]
 
     def __len__(self):
-        return len(self._logs[self.keys[0]])
+        if self._a_key is None:
+            self._a_key = list(self._logs.keys())[0]
+        return len(self._logs[0])
