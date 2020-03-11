@@ -55,6 +55,7 @@ class PolicyGradient(RLAgentBase):
             self.history_keys += self.critic_history_keys.copy()
         if gae_lambda is not None and self.critic is None:
             raise RuntimeError("GAE can only be used if a critic network is available")
+        self.gamma = discount_gamma
         self.reward_shaper = RewardShaper(discount_gamma, gae_lambda)
         self.normalize_advantages = normalize_advantages
         self.do_gae = gae_lambda is not None

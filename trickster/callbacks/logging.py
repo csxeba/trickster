@@ -8,7 +8,7 @@ from .abstract import Callback
 from ..utility import visual, path_utils
 from ..utility.history import History
 
-__all__ = ["ProgressPrinter", "HistoryPlotter"]
+__all__ = ["ProgressPrinter", "HistoryPlotter", "CSVLogger"]
 
 
 class ProgressPrinter(Callback):
