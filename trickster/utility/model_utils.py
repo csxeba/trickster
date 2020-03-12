@@ -12,4 +12,4 @@ def meld_weights(target_model: tf.keras.Model, online_model: tf.keras.Model, mix
 @tf.function
 def reset_optimizer(optimizer: tf.keras.optimizers.Optimizer):
     for w in optimizer.weights:
-        w.assign(w * 0.)
+        w.assign(tf.zeros_like(w))

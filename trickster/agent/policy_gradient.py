@@ -110,7 +110,7 @@ class PolicyGradient(RLAgentBase):
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
         return {"critic/loss": loss,
                 "critic/value": tf.reduce_mean(value),
-                "critic/lr": self.critic.optimizer.learning_rate}
+                "learning_rate/critic": self.critic.optimizer.learning_rate}
 
     @tf.function(experimental_relax_shapes=True)
     def train_step_actor(self, state, action, advantages, old_log_prob):
@@ -137,7 +137,7 @@ class PolicyGradient(RLAgentBase):
                 "actor/kld": kld,
                 "action/mean": tf.reduce_mean(action),
                 "action/std": tf.math.reduce_std(action),
-                "actor/lr": self.actor.optimizer.learning_rate}
+                "learning_rate/actor": self.actor.optimizer.learning_rate}
 
     def fit(self, batch_size=None) -> dict:
 

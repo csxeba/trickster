@@ -88,7 +88,8 @@ class PPO(PolicyGradient):
                 "actor/kld": kld,
                 "actor/cliprate": clip_rate,
                 "action/mean": tf.reduce_mean(action),
-                "action/std": tf.math.reduce_std(action)}
+                "action/std": tf.math.reduce_std(action),
+                "learning_rate/actor": self.actor.optimizer.learning_rate}
 
     def fit(self, batch_size=None) -> dict:
         # states, actions, returns, advantages, old_log_prob
@@ -99,7 +100,7 @@ class PPO(PolicyGradient):
 
         datasets = {key: tf.data.Dataset.from_tensor_slices(data[key].astype("float32"))
                     for key in self.training_memory_keys}
-        local_history = history.History(*self.history_keys)
+        local_history = history.History()
 
         critic_ds = tf.data.Dataset.zip((datasets["state"], datasets["returns"]))
         critic_ds.shuffle(num_samples).repeat()
@@ -123,7 +124,7 @@ class PPO(PolicyGradient):
                 break
 
         local_history.push_buffer()
-        logs = local_history.reduce()
+        logs = local_history.last()
 
         self.memory_sampler.reset()
 
