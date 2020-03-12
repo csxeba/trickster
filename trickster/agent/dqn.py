@@ -96,7 +96,7 @@ class DQN(OffPolicy):
         return {"Q/loss": loss,
                 "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1)),
                 "action/mean": tf.reduce_mean(action),
-                "action/std": tf.math.reduce_std(action)}
+                "action/std": tf.math.reduce_std(tf.cast(action, tf.float32))}
 
     def fit(self, batch_size=32):
         data = self.memory_sampler.sample(batch_size)
