@@ -32,12 +32,18 @@ class OffPolicy(RLAgentBase):
         if actor_target is None:
             actor_target = actor
             self.has_actor_target = False
+        else:
+            print(" [Trickster] - Offpolicy has Target Actor")
         if critic_target is None:
             critic_target = critic
             self.has_critic_target = False
+        else:
+            print(" [Trickster] - Offpolicy has Critic 1 Target")
         if critic2_target is None:
             critic2_target = critic2
             self.has_critic2_target = False
+        else:
+            print(" [Trickster] - Offpolicy has Critic 2 Target")
 
         self.actor_target = actor_target
         self.critic_target = critic_target

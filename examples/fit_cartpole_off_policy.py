@@ -4,7 +4,7 @@ from trickster.agent import DQN, DoubleDQN
 from trickster.rollout import Trajectory, MultiRolling
 
 ENV_NAME = "CartPole-v1"
-ALGO = "DoubleDQN"
+ALGO = "DQN"
 NUM_ENVS = 4
 TRAJECTORY_MAX_STEPS = 200
 STEPS_PER_UPDATE = 1

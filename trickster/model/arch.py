@@ -13,7 +13,6 @@ class Architecture(tf.keras.Model):
         self.backbone_model = backbone_model
         self.head_model = head_model
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
-        self.num_outputs = head_model.num_outputs
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):

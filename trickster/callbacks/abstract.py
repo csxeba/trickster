@@ -10,9 +10,9 @@ class Callback:
 
     def __init__(self):
         # noinspection PyTypeChecker
-        self.rollout: abstract.RolloutInterface = None
+        self.rollout: abstract.RolloutBase = None
 
-    def set_rollout(self, rollout: abstract.RolloutInterface):
+    def set_rollout(self, rollout: abstract.RolloutBase):
         self.rollout = rollout
 
     def on_batch_begin(self):

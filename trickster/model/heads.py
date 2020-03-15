@@ -7,7 +7,7 @@ class Head(tf.keras.Model):
 
     def __init__(self, num_outputs: int, activation: str):
         super().__init__()
-        self.num_outputs = num_outputs
+        print(f" [Trickster] - Building Head with {num_outputs} output nodes")
         self.layer = tfl.Dense(num_outputs, activation=activation)
 
     @tf.function(experimental_relax_shapes=True)

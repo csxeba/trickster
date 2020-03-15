@@ -22,19 +22,32 @@ class ProgressPrinter(Callback):
         super().__init__()
         self.keys = keys
         self.prefix = prefix
-        self.strwidths = {key: max(len(key) + 2, 11) for key in [prefix] + keys}
+        self.strwidths = {key: 9 for key in [prefix] + keys}
         if formatters is None:
             keys = [prefix] + keys
-            templates = ["{:>{w}}"] + ["{: ^{w}.4f}"] * len(self.keys)
+            templates = ["{:>{w}}"] + ["{: ^{w}.3f}"] * len(self.keys)
             formatters = {key: template for key, template in zip(keys, templates)}
         self.formatters = formatters
-        self.header = " | ".join("{:^{w}}".format(key, w=self.strwidths[key]) for key in [self.prefix] + self.keys)
-        self.separator = "-" * len(self.header)
+        header_line1_elements = []
+        header_line2_elements = []
+        for key in [self.prefix] + self.keys:
+            w = self.strwidths[key]
+            if "/" not in key:
+                header_line1_elements.append(" "*w)
+                header_line2_elements.append("{:^{w}}".format(key, w=w))
+                continue
+            top, bot = key.split("/")
+            header_line1_elements.append("{:^{w}}".format(top, w=w))
+            header_line2_elements.append("{:^{w}}".format(bot, w=w))
+        header_line1, header_line2 = " | ".join(header_line1_elements), " | ".join(header_line2_elements)
+        self.header = header_line1 + "\n" + header_line2
+        self.separator = "-" * len(header_line1)
         self.average_last = average_last
 
     def on_epoch_begin(self, epoch: int, history: History = None):
         if (epoch-1) % (self.average_last*10) == 0:
             print()
+            print(self.separator)
             print(self.header)
             print(self.separator)
 

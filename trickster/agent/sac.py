@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 import gym
 import tensorflow as tf
@@ -10,8 +12,9 @@ class SAC(OffPolicy):
 
     """Soft Actor-Critic"""
 
-    history_keys = ["actor/loss", "actor/a", "actor/alpha", "actor/alpha_loss", "actor/entropy",
-                    "critic/loss1", "critic/Q1", "critic/loss2", "critic/Q2"]
+    history_keys = ["actor/loss", "actor/entropy", "alpha/alpha", "alpha/loss",
+                    "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2",
+                    "action/mean", "action/std"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -43,9 +46,11 @@ class SAC(OffPolicy):
                          critic2_target: tf.keras.Model = "default",
                          discount_gamma: float = 0.99,
                          entropy_alpha: float = 0.1,
-                         entropy_target: float = None,
+                         entropy_target: Union[float, str] = -2.,
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = int(1e4)):
+
+        print(f" [Trickster] - Building SAC for environment: {env.spec.id}")
 
         actor, _, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
             env, actor, None, critic1, critic1_target, critic2, critic2_target,
@@ -53,7 +58,7 @@ class SAC(OffPolicy):
         )
         if entropy_target == "default":
             entropy_target = -np.prod(env.action_space.shape)
-            print(f" [Trickster.SAC] - Target entropy set to {entropy_target:.2f}")
+            print(f" [Trickster] - SAC target entropy set to {entropy_target:.2f}")
         return cls(actor, critic1, critic1_target, critic2, critic2_target, discount_gamma,
                    entropy_alpha, entropy_target, polyak_tau, memory_buffer_size)
 
@@ -125,9 +130,10 @@ class SAC(OffPolicy):
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights + [self.log_alpha]))
 
         return {"actor/loss": policy_loss,
-                "actor/alpha": alpha,
-                "actor/alpha_loss": alpha_loss,
-                "actor/a": tf.reduce_mean(action)}
+                "alpha/alpha": alpha,
+                "alpha/loss": alpha_loss,
+                "action/mean": tf.reduce_mean(action),
+                "action/std": tf.math.reduce_std(action)}
 
     def fit(self, batch_size=None):
         data = self._get_sample(batch_size)

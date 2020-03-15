@@ -89,4 +89,6 @@ def factory(observation_space: gym.spaces.Space, wide=False, activation="tanh", 
     else:
         raise RuntimeError(f"Weird observation space dimensionality: {observation_space.shape}")
 
+    print(f" [Trickster] - Backbone is {backbone.__class__.__name__}")
+
     return backbone

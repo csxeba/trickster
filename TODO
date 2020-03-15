@@ -18,3 +18,11 @@ TODO 2020.02.29
 - Random actions
 - Clever bias init for critics
 + BatchNorm
+
+TODO 2020.03.13
+- Ray for environment parallelist
+- Infinite Horizon training for A2C and PPO
+- Parallelism for agents during sampling
+
+TODO 2020.03.14
+- Decouple policies, values, Qs from the Neural Networks

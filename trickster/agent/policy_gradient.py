@@ -2,14 +2,14 @@ import numpy as np
 import tensorflow as tf
 
 from ..processing import RewardShaper
-from ..utility import numeric_utils
+from ..processing.reward_shaping import ValueTarget
 from .abstract import RLAgentBase
 
 
 class PolicyGradient(RLAgentBase):
 
     transition_memory_keys = ["state", "state_next", "action", "log_prob", "reward", "done"]
-    training_memory_keys = ["state", "action", "returns", "advantages", "log_prob"]
+    training_memory_keys = ["state", "action", "target_value", "advantages", "log_prob"]
     critic_history_keys = ["critic/loss", "critic/value"]
     actor_history_keys = ["actor/loss", "actor/entropy", "actor/kld", "action/mean", "action/std"]
 
@@ -18,7 +18,8 @@ class PolicyGradient(RLAgentBase):
                  critic: tf.keras.Model = None,
                  discount_gamma: float = 0.99,
                  gae_lambda: float = None,
-                 normalize_advantages=True,
+                 normalize_advantages: bool = True,
+                 value_target: str = ValueTarget.DISCOUNTED,
                  entropy_beta: float = 0.,
                  memory_buffer_size: int = 10000,
                  update_actor: int = 1,
@@ -35,6 +36,8 @@ class PolicyGradient(RLAgentBase):
             TD-delta discount factor, used to estimate advantages in Generalized Advantage Estimation.
         :param normalize_advantages:
             Whether to normalize advantages prior to updating the actor with them.
+        :param value_target:
+            Strategy of Value network target calculation.
         :param entropy_beta:
             Coefficient for (approximate) entropy regularization. Positive encourages higher entropy.
         :param memory_buffer_size:
@@ -53,12 +56,13 @@ class PolicyGradient(RLAgentBase):
         self.history_keys = self.actor_history_keys.copy()
         if self.critic is not None:
             self.history_keys += self.critic_history_keys.copy()
-        if gae_lambda is not None and self.critic is None:
+        if gae_lambda and self.critic is None:
             raise RuntimeError("GAE can only be used if a critic network is available")
-        self.gamma = discount_gamma
-        self.reward_shaper = RewardShaper(discount_gamma, gae_lambda)
-        self.normalize_advantages = normalize_advantages
-        self.do_gae = gae_lambda is not None
+        if not gae_lambda and value_target == ValueTarget.GAE_RETURN:
+            value_target = ValueTarget.DISCOUNTED
+            print(" [Trickster.PolicyGradient] - Warning, value_target reset to DISOUNTED from GAE_RETURN,"
+                  " because gae_lambda was not set.")
+        self.reward_shaper = RewardShaper(discount_gamma, gae_lambda, normalize_advantages, value_target)
         self.update_actor = update_actor
         self.update_critic = update_critic
 
@@ -83,26 +87,25 @@ class PolicyGradient(RLAgentBase):
         data = self.transition_memory.as_dict()
         final_state = self.transition.data["state"]
 
-        self.transition_memory.reset()
-
-        if self.do_gae:
+        reward_shaper_kwargs = dict(rewards=data["reward"], dones=data["done"])
+        if self.critic is not None:
             critic_input = tf.concat([data["state"], final_state[None, ...]], axis=0)
             values = self.critic(critic_input)[..., 0].numpy()
-            advantages, returns = self.reward_shaper.compute_gae(data["reward"], values[:-1], values[1:], data["done"])
-        else:
-            returns = self.reward_shaper.discount(data["reward"], data["done"])
-            advantages = returns.copy()
+            reward_shaper_kwargs["values"] = values[:-1]
+            reward_shaper_kwargs["values_next"] = values[1:]
 
-        if self.normalize_advantages:
-            advantages = numeric_utils.safe_normalize(advantages)
+        shaped_rewards = self.reward_shaper.shape_rewards(**reward_shaper_kwargs)
+
+        self.transition_memory.reset()
 
         training_data = dict(state=data["state"], action=data["action"], log_prob=data["log_prob"],
-                             returns=returns, advantages=advantages)
+                             target_value=shaped_rewards.target_values,
+                             advantages=shaped_rewards.advantages)
 
         self.training_memory.store(training_data)
 
     @tf.function(experimental_relax_shapes=True)
-    def train_step_critic_monte_carlo(self, state: tf.Tensor, target: tf.Tensor):
+    def train_step_critic(self, state: tf.Tensor, target: tf.Tensor):
         with tf.GradientTape() as tape:
             value = self.critic(state)[..., 0]
             loss = tf.reduce_mean(tf.square(value - target))
@@ -148,7 +151,7 @@ class PolicyGradient(RLAgentBase):
 
         history = {}
         if self.critic is not None and self.update_critic:
-            critic_history = self.train_step_critic_monte_carlo(data["state"], data["returns"])
+            critic_history = self.train_step_critic(data["state"], data["target_value"])
             history.update(critic_history)
         if self.update_actor:
             actor_history = self.train_step_actor(data["state"], data["action"], data["advantages"], data["log_prob"])

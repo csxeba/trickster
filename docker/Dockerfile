@@ -4,10 +4,10 @@ RUN mkdir /workdir
 
 WORKDIR /workdir
 
-RUN git clone https://github.com/csxeba/trickster.git -b dev
+RUN git clone https://github.com/csxeba/trickster.git
 
 ENV PYTHONPATH=/workdir/trickster
 
-WORKDIR /workdir/trickster.git
+WORKDIR /workdir/trickster
 
 CMD ["/bin/bash"]

@@ -11,9 +11,9 @@ from ..processing import action_processing
 
 class TD3(off_policy.OffPolicy):
 
-    history_keys = ["actor/loss", "actor/a", "actor/a_s",
-                    "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2", "critic/Q_y",
-                    "sigma"]
+    history_keys = ["actor/loss", "action/mean", "action/std",
+                    "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2",
+                    "actor/sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -70,14 +70,14 @@ class TD3(off_policy.OffPolicy):
                          target_action_noise_clip: float = 0.5,
                          update_actor_every: int = 2):
 
+        print(f" [Trickster] - Building TD3 for environment: {env.spec.id}")
+
         action_minima = env.action_space.low
         action_maxima = env.action_space.high
 
-        actor, actor_target, critic1, critic1_target, critic2, critic2_target = off_policy_utils.sanitize_models_continuous(
-            env, actor, actor_target, critic1, critic1_target, critic2, critic2_target, stochastic_actor=False
-        )
-
-        assert all(abs(mini) == abs(maxi) for mini, maxi in zip(action_minima, action_maxima))
+        actor, actor_target, critic1, critic1_target, critic2, critic2_target = \
+            off_policy_utils.sanitize_models_continuous(
+                env, actor, actor_target, critic1, critic1_target, critic2, critic2_target, stochastic_actor=False)
 
         return cls(actor, actor_target, critic1, critic1_target, critic2, critic2_target,
                    discount_gamma, memory_buffer_size, polyak_tau,
@@ -93,7 +93,6 @@ class TD3(off_policy.OffPolicy):
             self._set_transition(state=state, action=action, reward=reward, done=done)
         return action
 
-    # noinspection DuplicatedCode
     @tf.function
     def update_critic(self, state, action, reward, done, state_next):
 
@@ -123,8 +122,7 @@ class TD3(off_policy.OffPolicy):
         return {"critic/loss1": loss1,
                 "critic/Q1": tf.reduce_mean(Q1),
                 "critic/loss2": loss2,
-                "critic/Q2": tf.reduce_mean(Q2),
-                "critic/Q_y": tf.reduce_mean(bellman_target)}
+                "critic/Q2": tf.reduce_mean(Q2)}
 
     @tf.function
     def update_actor(self, state):
@@ -136,8 +134,8 @@ class TD3(off_policy.OffPolicy):
         grads = tape.gradient(loss, self.actor.trainable_weights)
         self.actor.optimizer.apply_gradients(zip(grads, self.actor.trainable_weights))
         return {"actor/loss": loss,
-                "actor/a": tf.reduce_mean(actions),
-                "actor/a_s": tf.math.reduce_std(actions)}
+                "action/mean": tf.reduce_mean(actions),
+                "action/std": tf.math.reduce_std(actions)}
 
     def fit(self, batch_size=32):
 
@@ -151,6 +149,6 @@ class TD3(off_policy.OffPolicy):
             history.update(actor_history)
             self.action_smoother.update()
 
-        history["sigma"] = self.action_smoother.sigma
+        history["actor/sigma"] = self.action_smoother.sigma
         self.update_targets()
         return history

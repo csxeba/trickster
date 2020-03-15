@@ -9,7 +9,7 @@ from ..processing import action_processing
 
 class DQN(OffPolicy):
 
-    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "Q/action"]
+    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "action/mean", "action/std"]
 
     def __init__(self,
                  model: tf.keras.Model,
@@ -22,8 +22,11 @@ class DQN(OffPolicy):
                  target_network: tf.keras.Model = None,
                  action_space_n: int = None):
 
-        super().__init__(critic=model, critic_target=target_network, memory_buffer_size=memory_buffer_size,
-                         discount_gamma=discount_gamma, polyak_tau=polyak_tau)
+        super().__init__(critic=model,
+                         critic_target=target_network,
+                         memory_buffer_size=memory_buffer_size,
+                         discount_gamma=discount_gamma,
+                         polyak_tau=polyak_tau)
 
         self.model = model
         self.epsilon_greedy = action_processing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
@@ -48,18 +51,23 @@ class DQN(OffPolicy):
                          polyak_tau: float = 0.01,
                          use_target_network: bool = True,
                          target_network: tf.keras.Model = "default",
-                         memory_buffer_size: int = 10000,
-                         action_space_n: int = None):
+                         memory_buffer_size: int = 10000):
 
         model, target_network = off_policy_utils.sanitize_models_discreete(
-            env, model, target_network, use_target_network
+            env=env, model=model,
+            target_network=target_network,
+            use_target_network=use_target_network
         )
 
-        if action_space_n is None:
-            action_space_n = env.action_space.n
-
-        return cls(model, discount_gamma, epsilon, epsilon_decay, epsilon_min,
-                   polyak_tau, memory_buffer_size, target_network, action_space_n)
+        return cls(model=model,
+                   discount_gamma=discount_gamma,
+                   epsilon=epsilon,
+                   epsilon_decay=epsilon_decay,
+                   epsilon_min=epsilon_min,
+                   polyak_tau=polyak_tau,
+                   memory_buffer_size=memory_buffer_size,
+                   target_network=target_network,
+                   action_space_n=env.action_space.n)
 
     def sample(self, state, reward, done):
         state = state.astype("float32")
@@ -75,7 +83,7 @@ class DQN(OffPolicy):
         if self.learning:
             self.epsilon_greedy.update()
 
-    @tf.function(experimental_relax_shapes=True)
+    @tf.function
     def update_q(self, state, state_next, action, reward, done):
         if self.has_target_network:
             Q_target = self.target_network(state_next)
@@ -95,7 +103,7 @@ class DQN(OffPolicy):
         self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         return {"Q/loss": loss,
                 "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1)),
-                "action/mean": tf.reduce_mean(action),
+                "action/mean": tf.reduce_mean(tf.cast(action, tf.float32)),
                 "action/std": tf.math.reduce_std(tf.cast(action, tf.float32))}
 
     def fit(self, batch_size=32):

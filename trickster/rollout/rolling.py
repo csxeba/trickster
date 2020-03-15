@@ -11,7 +11,7 @@ __all__ = ["Rolling"]
 
 class Rolling(RolloutBase):
 
-    """Generate n-step trajectories for Time-Difference learning"""
+    """Generate n-step trajectories for eg. Time-Difference learning"""
 
     def __init__(self, agent: RLAgentBase, env, max_steps: int = None):
 

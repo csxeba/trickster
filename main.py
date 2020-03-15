@@ -68,9 +68,15 @@ algo = available_algos[arg.algo].from_environment(env)
 if arg.algo in on_policy:
     rollout = T.rollout.Trajectory(algo, env, arg.max_steps)
     batch_size = arg.batch_size if arg.algo.lower() == "ppo" else -1
+
+    callbacks = [T.callbacks.ProgressPrinter(rollout.history_keys)]
+    if arg.render_frequency > 0:
+        callbacks.append(T.callbacks.TrajectoryRenderer(rollout, frequency=arg.render_frequency))
+
     rollout.fit(arg.train_epochs,
                 rollouts_per_epoch=arg.parallel_envs,
-                update_batch_size=batch_size)
+                update_batch_size=batch_size,
+                callbacks=callbacks)
     if arg.render_final:
         rollout.render(repeats=100)
 else:
@@ -81,6 +87,11 @@ else:
         rollout = T.rollout.Rolling(algo, env, arg.max_steps)
     else:
         rollout = T.rollout.MultiRolling(algo, [gym.make(arg.env) for _ in range(arg.parallel_envs)], arg.max_steps)
+
+    callbacks = [T.callbacks.TrajectoryEvaluator(test_rollout, repeats=3),
+                 T.callbacks.ProgressPrinter(rollout.history_keys)]
+    if arg.render_frequency > 0:
+        callbacks.append(T.callbacks.TrajectoryRenderer(test_rollout, frequency=arg.render_frequency))
 
     rollout.fit(arg.train_epochs,
                 updates_per_epoch=32,

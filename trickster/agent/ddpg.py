@@ -56,6 +56,8 @@ class DDPG(td3.TD3):
                          polyak_tau: float = 0.01,
                          memory_buffer_size: int = 10000):
 
+        print(f" [Trickster] - Building DDPG for environment: {env.spec.id}")
+
         action_minima = env.action_space.low
         action_maxima = env.action_space.high
 

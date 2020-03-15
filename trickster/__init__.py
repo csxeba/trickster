@@ -7,6 +7,8 @@ os.environ["KMP_WARNINGS"] = "off"
 from . import utility
 from . import experience
 from . import model
-from .agent import abstract
+from . import callbacks
 from . import agent
 from . import rollout
+
+from .processing.reward_shaping import ValueTarget

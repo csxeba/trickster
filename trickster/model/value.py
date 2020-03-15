@@ -28,8 +28,9 @@ class QCritic(tf.keras.Model):
 
     def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, wide=False, batch_norm=False):
         super().__init__()
+        print(" [Trickster] - Building QCritic")
         self.state_backbone = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
-        self.action_backbone = backbones.factory(action_space, wide=wide, batch_norm=batch_norm)
+        self.action_backbone = backbones.factory(action_space, wide=False, batch_norm=batch_norm)
         self.head = heads.Head(1, activation="linear")
         self.optimizer = tf.keras.optimizers.Adam(1e-3)
         self.build([(None,) + observation_space.shape, (None,) + action_space.shape])

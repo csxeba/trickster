@@ -1,6 +1,7 @@
 import gym
 import tensorflow as tf
 
+from ..processing.reward_shaping import ValueTarget
 from ..utility import history
 from ..model import policy, value
 from .policy_gradient import PolicyGradient
@@ -8,7 +9,8 @@ from .policy_gradient import PolicyGradient
 
 class PPO(PolicyGradient):
 
-    actor_history_keys = PolicyGradient.actor_history_keys + ["actor/cliprate"]
+    actor_history_keys = PolicyGradient.actor_history_keys.copy()
+    actor_history_keys.insert(3, "actor/cliprate")
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -20,12 +22,14 @@ class PPO(PolicyGradient):
                  clip_epsilon: float = 0.2,
                  target_kl_divergence: float = 0.01,
                  normalize_advantages: bool = True,
+                 value_target: str = ValueTarget.GAE_RETURN,
                  memory_buffer_size: int = 10000,
                  actor_updates: int = 10,
                  critic_updates: int = 10):
 
-        super().__init__(actor, critic, discount_gamma, gae_lambda, normalize_advantages, entropy_beta,
-                         memory_buffer_size)
+        super().__init__(actor, critic, discount_gamma, gae_lambda, normalize_advantages, value_target,
+                         entropy_beta, memory_buffer_size)
+
         self.epsilon = clip_epsilon
         self.target_kl = target_kl_divergence
         self.actor_updates = actor_updates
@@ -45,19 +49,24 @@ class PPO(PolicyGradient):
                          clip_epsilon: float = 0.2,
                          target_kl_divergence: float = 0.01,
                          normalize_advantages: bool = True,
+                         value_target: str = ValueTarget.GAE_RETURN,
                          memory_buffer_size: int = 10000,
                          actor_updates: int = 10,
                          critic_updates: int = 10):
 
+        print(f" [Trickster] - Building PPO for environment: {env.spec.id}")
+
         if actor == "default":
+            print(" [Trickster] - Building the Actor:")
             actor = policy.factory(env, stochastic=True, squash=True, wide=False,
                                    sigma_mode=policy.SigmaMode.STATE_INDEPENDENT)
         if critic == "default":
+            print(" [Trickster] - Building the Critic:")
             critic = value.ValueCritic(env.observation_space, wide=True)
 
         return cls(actor, critic, update_batch_size, discount_gamma, gae_lambda,
-                   entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, memory_buffer_size,
-                   actor_updates, critic_updates)
+                   entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, value_target,
+                   memory_buffer_size, actor_updates, critic_updates)
 
     @tf.function(experimental_relax_shapes=True)
     def train_step_actor(self, state, action, advantage, old_log_prob):
@@ -102,11 +111,11 @@ class PPO(PolicyGradient):
                     for key in self.training_memory_keys}
         local_history = history.History()
 
-        critic_ds = tf.data.Dataset.zip((datasets["state"], datasets["returns"]))
+        critic_ds = tf.data.Dataset.zip((datasets["state"], datasets["target_value"]))
         critic_ds.shuffle(num_samples).repeat()
         critic_ds = critic_ds.batch(self.batch_size).prefetch(min(3, self.critic_updates))
         for update, data in enumerate(critic_ds, start=1):
-            logs = self.train_step_critic_monte_carlo(*data)
+            logs = self.train_step_critic(*data)
             local_history.buffer(**logs)
             if update == self.critic_updates:
                 break
