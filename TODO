@@ -26,3 +26,6 @@ TODO 2020.03.13
 
 TODO 2020.03.14
 - Decouple policies, values, Qs from the Neural Networks
+
+TODO 2020.03.15
+- TrajectoryRenderer to be able to write to a video file.
