@@ -80,4 +80,4 @@ class DDPG(td3.TD3):
             loss = tf.keras.losses.mean_squared_error(bellman_target, Q)
         grads = tape.gradient(loss, self.critic.trainable_weights)
         self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
-        return {"critic/loss": loss, "critic/Q": tf.reduce_mean(Q)}
+        return {"critic/loss": loss, "critic/Q": tf.reduce_mean(Q), "lr/critic": self.critic.optimizer.learning_rate}

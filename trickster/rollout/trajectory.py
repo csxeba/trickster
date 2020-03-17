@@ -124,7 +124,7 @@ class Trajectory(RolloutBase):
 
         return train_history
 
-    def render(self, repeats=1, verbose=1):
+    def render(self, repeats=1, verbose=1, mode="human"):
         for r in range(1, repeats+1):
             if verbose:
                 print(f" --- Rendering {r}/{repeats} runs ---")

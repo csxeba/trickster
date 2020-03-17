@@ -138,17 +138,12 @@ class TD3(off_policy.OffPolicy):
                 "action/std": tf.math.reduce_std(actions)}
 
     def fit(self, batch_size=32):
-
-        data = self.memory_sampler.sample(batch_size)
-        data = {key: tf.convert_to_tensor(value, dtype=tf.float32) for key, value in data.items()}
-
+        data = self._get_sample(batch_size)
         history = self.update_critic(data["state"], data["action"], data["reward"], data["done"], data["state_next"])
-
         if self.update_step % self.update_actor_every == 0:
             actor_history = self.update_actor(data["state"])
             history.update(actor_history)
             self.action_smoother.update()
-
         history["actor/sigma"] = self.action_smoother.sigma
         self.update_targets()
         return history

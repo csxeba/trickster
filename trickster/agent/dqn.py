@@ -9,10 +9,11 @@ from ..processing import action_processing
 
 class DQN(OffPolicy):
 
-    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "action/mean", "action/std"]
+    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "action/mean", "action/std", "lr/Q"]
 
     def __init__(self,
                  model: tf.keras.Model,
+                 num_actions: int,
                  discount_gamma: float = 0.99,
                  epsilon: float = 0.99,
                  epsilon_decay: float = 1.,
@@ -28,17 +29,10 @@ class DQN(OffPolicy):
                          discount_gamma=discount_gamma,
                          polyak_tau=polyak_tau)
 
-        self.model = model
         self.epsilon_greedy = action_processing.EpsilonGreedy(epsilon, epsilon_decay, epsilon_min)
         self.target_network = target_network
         self.has_target_network = self.target_network is not None
-        if action_space_n is None:
-            if hasattr(self.model, "num_outputs"):
-                self.num_actions = int(self.model.num_outputs)
-            else:
-                raise RuntimeError("Please set 'action_space_n' if using a custom model with DQN")
-        else:
-            self.num_actions = action_space_n
+        self.num_actions = num_actions
 
     @classmethod
     def from_environment(cls,
@@ -53,6 +47,9 @@ class DQN(OffPolicy):
                          target_network: tf.keras.Model = "default",
                          memory_buffer_size: int = 10000):
 
+        if not isinstance(env.action_space, gym.spaces.Discrete):
+            raise ValueError("DQN variants can only be used with discreete action spaces.")
+
         model, target_network = off_policy_utils.sanitize_models_discreete(
             env=env, model=model,
             target_network=target_network,
@@ -60,18 +57,18 @@ class DQN(OffPolicy):
         )
 
         return cls(model=model,
+                   num_actions=env.action_space.n,
                    discount_gamma=discount_gamma,
                    epsilon=epsilon,
                    epsilon_decay=epsilon_decay,
                    epsilon_min=epsilon_min,
                    polyak_tau=polyak_tau,
                    memory_buffer_size=memory_buffer_size,
-                   target_network=target_network,
-                   action_space_n=env.action_space.n)
+                   target_network=target_network)
 
     def sample(self, state, reward, done):
         state = state.astype("float32")
-        Q = self.model(state[None, ...])[0]
+        Q = self.critic(state[None, ...])[0]
         if self.learning:
             action = self.epsilon_greedy.sample(Q, do_update=False)
             self._set_transition(state=state, action=action, reward=reward, done=done)
@@ -88,23 +85,26 @@ class DQN(OffPolicy):
         if self.has_target_network:
             Q_target = self.target_network(state_next)
         else:
-            Q_target = self.model(state_next)
+            Q_target = self.critic(state_next)
+
         bellman_target = self.gamma * tf.reduce_max(Q_target, axis=1) * (1 - done) + reward
 
         canvas = tf.one_hot(action, self.num_actions, dtype=tf.float32)
         inverse_canvas = 1 - canvas
 
         with tf.GradientTape() as tape:
-            Q = self.model(state)
+            Q = self.critic(state)
             target = canvas * bellman_target[:, None] + inverse_canvas * Q
             target = tf.stop_gradient(target)
             loss = tf.reduce_mean(tf.square(target - Q))
-        grads = tape.gradient(loss, self.model.trainable_weights)
-        self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        grads = tape.gradient(loss, self.critic.trainable_weights)
+        self.critic.optimizer.apply_gradients(zip(grads, self.critic.trainable_weights))
+
         return {"Q/loss": loss,
                 "Q/Q": tf.reduce_mean(tf.reduce_max(Q, axis=1)),
                 "action/mean": tf.reduce_mean(tf.cast(action, tf.float32)),
-                "action/std": tf.math.reduce_std(tf.cast(action, tf.float32))}
+                "action/std": tf.math.reduce_std(tf.cast(action, tf.float32)),
+                "lr/Q": self.critic.optimizer.learning_rate}
 
     def fit(self, batch_size=32):
         data = self.memory_sampler.sample(batch_size)
@@ -115,9 +115,6 @@ class DQN(OffPolicy):
         history["Q/epsilon"] = self.epsilon_greedy.epsilon
 
         if self.has_target_network:
-            model_utils.meld_weights(self.target_network, self.model, mix_in_ratio=self.tau)
+            model_utils.meld_weights(self.target_network, self.critic, mix_in_ratio=self.tau)
 
         return history
-
-    def get_savables(self):
-        return {"DQN_model": self.model}

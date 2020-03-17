@@ -22,5 +22,10 @@ class _DefaultPaths:
         os.makedirs(path, exist_ok=True)
         return path
 
+    def make_render_dir(self, experiment_name=""):
+        path = os.path.join(self.root, experiment_name, self.now, "renders")
+        os.makedirs(path, exist_ok=True)
+        return path
+
 
 defaults = _DefaultPaths()

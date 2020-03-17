@@ -140,6 +140,5 @@ class SAC(OffPolicy):
         history = self.update_critic(data["state"], data["action"], data["reward"], data["done"], data["state_next"])
         actor_history = self.update_actor(data["state"])
         history.update(actor_history)
-
         self.update_targets()
         return history
