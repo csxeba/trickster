@@ -130,6 +130,8 @@ class Trajectory(RolloutBase):
                                           experiment_name=self.experiment_name)
 
         callbacks = _cbs.abstract.CallbackList(callbacks)
+        callbacks.set_rollout(self)
+
         callbacks.on_train_begin()
 
         for epoch in range(1, epochs+1):

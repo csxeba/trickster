@@ -52,7 +52,7 @@ class TrajectoryRenderer(Callback):
 
     def _make_renderer(self, epoch: int):
         output_file_path = str(self.output_files_directoy / f"render_epoch{epoch:0>7}.mp4")
-        return render_utils.factory(screen_name=self.rollout.experiment_name,
+        return render_utils.factory(screen_name=self.testing_rollout.experiment_name,
                                     output_file_path=output_file_path,
                                     fps=self.fps,
                                     scaling_factor=self.scaling_factor)

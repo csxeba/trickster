@@ -40,7 +40,7 @@ class CallbackList(Callback):
         super().__init__()
         self.callbacks = callbacks
 
-    def set_rollout(self, rollout: abstract.RolloutInterface):
+    def set_rollout(self, rollout: abstract.RolloutBase):
         for cb in self.callbacks:
             cb.set_rollout(rollout)
 
