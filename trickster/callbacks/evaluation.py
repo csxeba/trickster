@@ -51,7 +51,7 @@ class TrajectoryRenderer(Callback):
         self.output_files_directoy = pathlib.Path(output_files_directory)
 
     def _make_renderer(self, epoch: int):
-        output_file_path = str(self.output_files_directoy / f"render_epoch{epoch:0>7}.mp4")
+        output_file_path = str(self.output_files_directoy / f"render_epoch{epoch:0>7}.avi")
         return render_utils.factory(screen_name=self.testing_rollout.experiment_name,
                                     output_file_path=output_file_path,
                                     fps=self.fps,

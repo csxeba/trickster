@@ -1,6 +1,7 @@
 from typing import List
 
 import cv2
+import imageio
 
 
 class Mode:
@@ -24,7 +25,7 @@ class Renderer:
         if self.device is None:
             self._open(frame.shape)
         if self.scale != 1.:
-            frame = cv2.resize(frame, (0, 0), fx=self.scale, fy=self.scale, interpolation=cv2.INTER_NEAREST)
+            frame = cv2.resize(frame, (0, 0), fx=self.scale, fy=self.scale, interpolation=cv2.INTER_LINEAR)
         self._write(frame)
 
     def _open(self, shape):
@@ -50,17 +51,17 @@ class FileRenderer(Renderer):
     def __init__(self, output_path: str, fps: int = 25, scaling_factor: float = 1.):
         super().__init__(fps, scaling_factor)
         self.output_path = output_path
+        self.device = imageio.get_writer(output_path, fps=fps)
 
     def _open(self, shape: tuple):
-        shape = shape[:2][::-1] + (shape[-1],)
-        fcc = cv2.VideoWriter_fourcc(*"MJPG")
-        self.device = cv2.VideoWriter(self.output_path, fcc, self.fps, shape)
+        self.device.__enter__()
 
     def _write(self, frame):
-        self.device.write(frame)
+        self.device.append_data(frame)
 
     def _close(self):
-        self.device.release()
+        self.device.__exit__(None, None, None)
+        self.device = None
 
 
 class ScreenRenderer(Renderer):
@@ -78,6 +79,7 @@ class ScreenRenderer(Renderer):
 
     def _close(self):
         cv2.destroyWindow(self.window_name)
+        self.device = None
 
 
 class MultiRenderer(Renderer):
@@ -115,4 +117,4 @@ def factory(screen_name: str = None,
 
     if len(renderers) == 1:
         return renderers[0]
-    return MultiRenderer(renderers)
+    return MultiRenderer(renderers, fps, scaling_factor)

@@ -86,12 +86,13 @@ class Trajectory(RolloutBase):
             if verbose:
                 print(f" [Trickster] - Rendering to file: {file}")
 
-        for r in range(1, repeats+1):
-            if verbose:
-                print(f" [Trickster] --- Rendering {r}/{repeats} runs ---")
-            self.rollout(verbose, push_experience=False, renderer=renderer)
-            if verbose:
-                print()
+        with renderer:
+            for r in range(1, repeats+1):
+                if verbose:
+                    print(f" [Trickster] --- Rendering {r}/{repeats} runs ---")
+                self.rollout(verbose, push_experience=False, renderer=renderer)
+                if verbose:
+                    print()
 
     def fit(self,
             epochs: int,
