@@ -19,7 +19,7 @@ algo = {"REINFORCE": REINFORCE,
 agent = algo.from_environment(env)
 rollout = Trajectory(agent, env, TRAJECTORY_MAX_STEPS)
 
-cbs = [callbacks.ProgressPrinter(keys=rollout.history_keys),
+cbs = [callbacks.ProgressPrinter(keys=rollout.progress_keys),
        callbacks.TrajectoryRenderer(testing_rollout=rollout),
        callbacks.TensorBoard(experiment_name=rollout.experiment_name)]
 

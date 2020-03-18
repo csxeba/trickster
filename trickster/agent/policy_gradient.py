@@ -10,8 +10,8 @@ class PolicyGradient(RLAgentBase):
 
     transition_memory_keys = ["state", "state_next", "action", "log_prob", "reward", "done"]
     training_memory_keys = ["state", "action", "target_value", "advantages", "log_prob"]
-    critic_history_keys = ["critic/loss", "critic/value"]
-    actor_history_keys = ["actor/loss", "actor/entropy", "actor/kld", "action/mean", "action/std"]
+    critic_progress_keys = ["critic/loss", "critic/value"]
+    actor_progress_keys = ["actor/loss", "actor/entropy", "actor/kld", "action/mean", "action/std"]
 
     def __init__(self,
                  actor: tf.keras.Model = "default",
@@ -53,9 +53,9 @@ class PolicyGradient(RLAgentBase):
         self.actor = actor
         self.critic = critic
         self.beta = entropy_beta
-        self.history_keys = self.actor_history_keys.copy()
+        self.progress_keys = self.actor_progress_keys.copy()
         if self.critic is not None:
-            self.history_keys += self.critic_history_keys.copy()
+            self.progress_keys += self.critic_progress_keys.copy()
         if gae_lambda and self.critic is None:
             raise RuntimeError("GAE can only be used if a critic network is available")
         if not gae_lambda and value_target == ValueTarget.GAE_RETURN:

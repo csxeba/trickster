@@ -10,7 +10,7 @@ class RLAgentBase:
 
     transition_memory_keys = []
     training_memory_keys = []
-    history_keys = []
+    progress_keys = []
 
     def __init__(self,
                  memory_buffer_size: int,

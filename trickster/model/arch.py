@@ -6,18 +6,18 @@ class Architecture(tf.keras.Model):
     """Composes a backbone (ie. hidden layers) and a head (stochastic or deterministic)"""
 
     def __init__(self,
-                 backbone_model: tf.keras.Model,
-                 head_model: tf.keras.Model):
+                 model: tf.keras.Model,
+                 optimizer: tf.keras.optimizers.Optimizer = "default"):
 
         super().__init__()
-        self.backbone_model = backbone_model
-        self.head_model = head_model
-        self.optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.model = model
+        if optimizer == "default":
+            optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.optimizer = optimizer
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):
-        x = self.backbone_model(x)
-        x = self.head_model(x, training)
+        x = self.model(x, training, mask)
         return x
 
 

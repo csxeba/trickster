@@ -9,8 +9,8 @@ from .policy_gradient import PolicyGradient
 
 class PPO(PolicyGradient):
 
-    actor_history_keys = PolicyGradient.actor_history_keys.copy()
-    actor_history_keys.insert(3, "actor/cliprate")
+    actor_progress_keys = PolicyGradient.actor_progress_keys.copy()
+    actor_progress_keys.insert(3, "actor/cliprate")
 
     def __init__(self,
                  actor: tf.keras.Model,
@@ -62,7 +62,7 @@ class PPO(PolicyGradient):
                                    sigma_mode=policy.SigmaMode.STATE_INDEPENDENT)
         if critic == "default":
             print(" [Trickster] - Building the Critic:")
-            critic = value.ValueCritic(env.observation_space, wide=True)
+            critic = value.ValueCritic.factory(env.observation_space, wide=True)
 
         return cls(actor, critic, update_batch_size, discount_gamma, gae_lambda,
                    entropy_beta, clip_epsilon, target_kl_divergence, normalize_advantages, value_target,

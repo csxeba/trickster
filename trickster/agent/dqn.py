@@ -9,7 +9,7 @@ from ..processing import action_processing
 
 class DQN(OffPolicy):
 
-    history_keys = ["Q/loss", "Q/Q", "Q/epsilon", "action/mean", "action/std", "lr/Q"]
+    progress_keys = ["Q/loss", "Q/Q", "Q/epsilon", "action/mean", "action/std", "lr/Q"]
 
     def __init__(self,
                  model: tf.keras.Model,

@@ -13,7 +13,7 @@ class RolloutInterface:
         raise NotImplementedError
 
     @property
-    def history_keys(self):
+    def progress_keys(self):
         raise NotImplementedError
 
 
@@ -38,8 +38,8 @@ class RolloutBase(RolloutInterface):
         return "_".join([self.agent.__class__.__name__, self.env.spec.id])
 
     @property
-    def history_keys(self):
-        return ["RWD/sum", "RWD/std"] + self.agent.history_keys
+    def progress_keys(self):
+        return ["RWD/sum", "RWD/std"] + self.agent.progress_keys
 
 
 class MultiRolloutBase(RolloutInterface):
@@ -65,5 +65,5 @@ class MultiRolloutBase(RolloutInterface):
         return "_".join([self.agent.__class__.__name__, self.rollouts[0].env.spec.id])
 
     @property
-    def history_keys(self):
-        return ["RWD/sum", "RWD/std"] + self.agent.history_keys
+    def progress_keys(self):
+        return ["RWD/sum", "RWD/std"] + self.agent.progress_keys

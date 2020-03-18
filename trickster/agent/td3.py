@@ -11,7 +11,7 @@ from ..processing import action_processing
 
 class TD3(off_policy.OffPolicy):
 
-    history_keys = ["actor/loss", "action/mean", "action/std",
+    progress_keys = ["actor/loss", "action/mean", "action/std",
                     "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2",
                     "actor/sigma"]
 

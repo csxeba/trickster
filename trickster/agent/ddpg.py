@@ -10,7 +10,7 @@ from ..utility import off_policy_utils
 
 class DDPG(td3.TD3):
 
-    history_keys = ["actor/loss", "action/mean", "action/std", "critic/loss", "critic/Q", "actor/sigma"]
+    progress_keys = ["actor/loss", "action/mean", "action/std", "critic/loss", "critic/Q", "actor/sigma"]
 
     def __init__(self,
                  actor: tf.keras.Model,

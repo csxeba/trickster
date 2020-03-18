@@ -51,7 +51,7 @@ class DoubleDQN(DQN):
         Q_next = self.critic(state_next)
         Q_target = self.critic_target(state_next)
 
-        action_indices = tf.stack([tf.range(0, len(action)), action], axis=1)
+        action_indices = tf.stack([tf.range(0, len(action), dtype=tf.int64), action], axis=1)
         target_action_mask = Q_next == tf.reduce_max(Q_next, axis=1, keepdims=True)
 
         bellman_target = Q_target[target_action_mask] * self.gamma * (1 - done) + reward
@@ -69,4 +69,4 @@ class DoubleDQN(DQN):
                 "Q/Q": tf.reduce_mean(Q_model),
                 "action/mean": tf.reduce_mean(tf.cast(action, tf.float32)),
                 "action/std": tf.math.reduce_std(tf.cast(action, tf.float32)),
-                "lr/critic": self.critic.optimizer.learning_rate}
+                "lr/Q": self.critic.optimizer.learning_rate}

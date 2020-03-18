@@ -43,7 +43,7 @@ class A2C(PolicyGradient):
 
         if critic == "default":
             print(" [Trickster] - Building the Critic:")
-            critic = value.ValueCritic(env.observation_space, wide=True)
+            critic = value.ValueCritic.factory(env.observation_space, wide=True)
 
         return cls(actor, critic, discount_gamma, gae_lambda, normalize_advantages, value_target,
                    entropy_beta, memory_buffer_size)

@@ -53,35 +53,27 @@ class StochasticPolicyBase(tf.keras.Model):
         raise NotImplementedError
 
 
-class DeterministicContinuous(tf.keras.Model):
+class DeterministicContinuous(arch.Architecture):
 
     """
     Deterministic policy which outputs an n-element continuous vector as action.
     """
 
-    def __init__(self,
-                 observation_space: gym.spaces.Space,
-                 action_space: gym.spaces.Space,
-                 squash: bool = True,
-                 scaler: float = None,
-                 wide: bool = False,
-                 batch_norm: bool = True):
+    @classmethod
+    def factory(cls,
+                observation_space: gym.spaces.Space,
+                action_space: gym.spaces.Space,
+                squash: bool = True,
+                scaling: float = 1.,
+                wide: bool = False,
+                batch_norm: bool = True,
+                optimizer: tf.keras.optimizers.Optimizer = "default"):
 
-        super().__init__()
-        self.backbone_model = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
-        self.head_model = heads.factory(action_space, "tanh" if squash else "linear")
-        self.do_scaling = scaler is not None
-        self.scaler = scaler
-        self.build(input_shape=(None,) + observation_space.shape)
-        self.optimizer = tf.keras.optimizers.Adam(1e-3)
-
-    @tf.function(experimental_relax_shapes=True)
-    def call(self, x, training=None, mask=None):
-        x = self.backbone_model(x)
-        x = self.head_model(x)
-        if self.do_scaling:
-            x = x * self.scaler
-        return x
+        backbone_model = backbones.factory(observation_space, wide=wide, batch_norm=batch_norm)
+        head_model = heads.factory(action_space, "tanh" if squash else "linear", scaling=scaling)
+        model = tf.keras.models.Sequential([backbone_model, head_model])
+        model.build(input_shape=(None,) + observation_space.shape)
+        return cls(model, optimizer)
 
 
 class StochasticContinuous(StochasticPolicyBase):
@@ -91,55 +83,65 @@ class StochasticContinuous(StochasticPolicyBase):
     """
 
     def __init__(self,
-                 observation_space: gym.spaces.Box,
-                 action_space: gym.spaces.Box,
-                 squash: bool = True,
-                 scaler: float = 1.,
-                 wide: bool = False,
-                 sigma_mode: str = SigmaMode.STATE_DEPENDENT,
-                 batch_norm: bool = True):
+                 mean_model: tf.keras.Model,
+                 log_sigma_representation: Union[tf.keras.Model, tf.Variable],
+                 bijector: tfp.bijectors.Bijector,
+                 optimizer: tf.keras.optimizers.Optimizer = "default"):
 
         super().__init__()
+        self.mean_model = mean_model
+        self.log_sigma = log_sigma_representation
+        self.bijector = bijector
+        if optimizer == "default":
+            optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.optimizer = optimizer
+        self.sigma_predicted = isinstance(log_sigma_representation, tf.keras.Model)
+
+    @classmethod
+    def factory(cls,
+                observation_space: gym.spaces.Box,
+                action_space: gym.spaces.Box,
+                squash: bool = True,
+                scaler: float = 1.,
+                wide: bool = False,
+                sigma_mode: str = SigmaMode.STATE_DEPENDENT,
+                batch_norm: bool = True,
+                optimizer: tf.keras.optimizers.Optimizer = "default"):
 
         mean_backbone = backbones.factory(observation_space, wide, batch_norm=batch_norm)
         mean_head = heads.factory(action_space, activation="linear")
-
-        self.mean_model = arch.Architecture(mean_backbone, mean_head)
+        mean_model = tf.keras.models.Sequential([mean_backbone, mean_head])
 
         if sigma_mode == SigmaMode.STATE_DEPENDENT:
             print(" [Trickster] - Sigma is predicted")
             log_sigma_backbone = backbones.factory(observation_space, wide, batch_norm=batch_norm)
             log_sigma_head = heads.factory(action_space, activation="linear")
+            log_sigma: Union[tf.keras.Model, tf.Variable] = \
+                tf.keras.models.Sequential([log_sigma_backbone, log_sigma_head])
 
-            self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
-                arch.Architecture(log_sigma_backbone, log_sigma_head)
         elif sigma_mode == SigmaMode.STATE_INDEPENDENT:
             print(" [Trickster] - Sigma is optimized directly")
-            self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
+            log_sigma: Union[tf.keras.Model, tf.Variable] = \
                 tf.Variable(initial_value=tf.math.log(tf.ones(action_space.shape[0], tf.float32)))
+
         elif sigma_mode == SigmaMode.FIXED:
             print(" [Trickster] - Sigma is not optimized")
-            self.log_sigma: Union[tf.keras.Model, tf.Variable] = \
+            log_sigma: Union[tf.keras.Model, tf.Variable] = \
                 tf.Variable(initial_value=tf.math.log(tf.ones(action_space.shape[0], tf.float32)), trainable=False)
+
         else:
             raise NotImplementedError(f"Unknown sigma_mode: {sigma_mode}")
 
         if squash:
-            self.bijector = tfp.bijectors.Tanh()
+            bijector = tfp.bijectors.Chain([tfp.bijectors.Tanh(), tfp.bijectors.Scale(scaler)])
             print(" [Trickster] - Creating Tanh bijector")
+            print(f" [Trickster] - Scaler set to {scaler}")
         else:
-            self.bijector = None
+            scaler = scaler or 1.
+            bijector = tfp.bijectors.Scale(scaler)
+            print(f" [Trickster] - Scaler set to {scaler}")
 
-        if scaler is None:
-            scaler = 1.
-        print(f" [Trickster] - Scaler set to {scaler}")
-        self.scaler = tfp.bijectors.Scale(scaler)
-
-        self.sigma_predicted = sigma_mode == SigmaMode.STATE_DEPENDENT
-        self.do_squash = squash
-
-        self.build(input_shape=(None,) + observation_space.shape)
-        self.optimizer = tf.keras.optimizers.Adam(1e-3)
+        return cls(mean_model, log_sigma, bijector, optimizer)
 
     @tf.function(experimental_relax_shapes=True)
     def get_sigma(self, x):
@@ -155,15 +157,11 @@ class StochasticContinuous(StochasticPolicyBase):
     def call(self, inputs, training=None, mask=None):
 
         mean = self.mean_model(inputs)
-
         sigma = self.get_sigma(inputs)
         distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
-        if self.do_squash:
-            distribution = self.bijector(distribution)
-        distribution = self.scaler(distribution)
+        distribution = self.bijector(distribution)
         sample = distribution.sample()
         log_prob = distribution.log_prob(sample)
-
         return sample, log_prob
 
     @tf.function(experimental_relax_shapes=True)
@@ -171,9 +169,7 @@ class StochasticContinuous(StochasticPolicyBase):
         mean = self.mean_model(inputs)
         sigma = self.get_sigma(inputs)
         distribution = tfp.distributions.MultivariateNormalDiag(mean, sigma)
-        if self.do_squash:
-            distribution = self.bijector(distribution)
-        distribution = self.scaler(distribution)
+        distribution = self.bijector(distribution)
         log_prob = distribution.log_prob(action)
         return log_prob
 
@@ -184,22 +180,30 @@ class StochasticDiscreete(StochasticPolicyBase):
     Stochastic policy with Categorical distribution for actions.
     """
 
-    def __init__(self,
-                 observation_space: gym.spaces.Box,
-                 action_space: gym.spaces.Discrete,
-                 wide: bool = False,
-                 batch_norm: bool = True):
-
+    def __init__(self, model: tf.keras.Model, optimizer: tf.keras.optimizers.Optimizer = "default"):
         super().__init__()
-        self.backbone_model = backbones.factory(observation_space, wide, batch_norm=batch_norm)
-        self.head_model = heads.factory(action_space, activation="linear")
-        self.build(input_shape=(None,) + observation_space.shape)
-        self.optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.model = model
+        if optimizer == "default":
+            optimizer = tf.keras.optimizers.Adam(1e-3)
+        self.optimizer = optimizer
+
+    @classmethod
+    def factory(cls,
+                observation_space: gym.spaces.Box,
+                action_space: gym.spaces.Discrete,
+                wide: bool = False,
+                batch_norm: bool = True,
+                optimizer: tf.keras.optimizers.Optimizer = "default"):
+
+        backbone_model = backbones.factory(observation_space, wide, batch_norm=batch_norm)
+        head_model = heads.factory(action_space, activation="linear")
+        model = tf.keras.models.Sequential([backbone_model, head_model])
+        model.build(input_shape=(None,) + observation_space.shape)
+        return cls(model, optimizer)
 
     @tf.function(experimental_relax_shapes=True)
     def call(self, x, training=None, mask=None):
-        features = self.backbone_model(x)
-        logits = self.head_model(features)
+        logits = self.model(x)
         distribution = tfp.distributions.Categorical(logits=logits)
         sample = distribution.sample()
         log_prob = distribution.log_prob(sample)
@@ -207,8 +211,7 @@ class StochasticDiscreete(StochasticPolicyBase):
 
     @tf.function(experimental_relax_shapes=True)
     def log_prob(self, inputs, action):
-        features = self.backbone_model(inputs)
-        logits = self.head_model(features)
+        logits = self.model(inputs)
         distribution = tfp.distributions.Categorical(logits=logits)
         log_prob = distribution.log_prob(action)
         return log_prob
@@ -250,10 +253,10 @@ def factory(env,
         scaler = env.action_space.high
 
         if stochastic and isinstance(env.action_space, gym.spaces.Box):
-            return StochasticContinuous(
+            return StochasticContinuous.factory(
                 env.observation_space, env.action_space, squash, scaler, wide, sigma_mode, batch_norm)
         elif not stochastic and isinstance(env.action_space, gym.spaces.Box):
-            return DeterministicContinuous(
+            return DeterministicContinuous.factory(
                 env.observation_space, env.action_space, squash, scaler, wide, batch_norm)
         else:
             raise NotImplementedError
@@ -262,7 +265,8 @@ def factory(env,
 
         if not stochastic:
             raise NotImplementedError
-        return StochasticDiscreete(env.observation_space, env.action_space, wide, batch_norm=batch_norm)
+        return StochasticDiscreete.factory(
+            env.observation_space, env.action_space, wide, batch_norm=batch_norm)
 
     else:
         raise NotImplementedError

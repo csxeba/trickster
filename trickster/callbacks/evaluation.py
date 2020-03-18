@@ -1,9 +1,12 @@
+import pathlib
+from typing import Union
+
 import numpy as np
 
 from .abstract import Callback
 from ..rollout import Trajectory
 from ..utility.history import History
-from ..utility import path_utils
+from ..utility import path_utils, render_utils
 
 __all__ = ["TrajectoryEvaluator", "TrajectoryRenderer"]
 
@@ -30,18 +33,33 @@ class TrajectoryRenderer(Callback):
                  frequency: int = 100,
                  verbose: int = 1,
                  repeats: int = 5,
-                 output_dir: str = "default"):
+                 output_to_screen: bool = True,
+                 output_files_directory: Union[str, None] = "default",
+                 fps: int = 25,
+                 scaling_factor: float = 1.):
 
         super().__init__()
         self.testing_rollout = testing_rollout
         self.verbose = verbose
         self.repeats = repeats
         self.frequency = frequency
-        if output_dir == "default":
-            output_dir = path_utils.defaults.make_render_dir(experiment_name=testing_rollout.experiment_name)
-        self.output_dir = output_dir
+        self.output_to_screen = output_to_screen
+        self.fps = fps
+        self.scaling_factor = scaling_factor
+        if output_files_directory == "default":
+            output_files_directory = path_utils.defaults.make_render_dir(testing_rollout.experiment_name)
+        self.output_files_directoy = pathlib.Path(output_files_directory)
+
+    def _make_renderer(self, epoch: int):
+        output_file_path = str(self.output_files_directoy / f"render_epoch{epoch:0>7}.mp4")
+        return render_utils.factory(screen_name=self.rollout.experiment_name,
+                                    output_file_path=output_file_path,
+                                    fps=self.fps,
+                                    scaling_factor=self.scaling_factor)
 
     def on_epoch_end(self, epoch: int, history: History = None):
         if epoch % self.frequency == 0:
-            print()
-            self.testing_rollout.render(repeats=self.repeats, verbose=self.verbose)
+            if self.verbose:
+                print()
+            renderer = self._make_renderer(epoch)
+            self.testing_rollout.render(self.repeats, self.verbose, renderer)

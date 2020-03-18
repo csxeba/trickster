@@ -26,7 +26,7 @@ rollout = MultiRolling(agent, envs, TRAJECTORY_MAX_STEPS)
 test_rollout = Trajectory(agent, test_env, TRAJECTORY_MAX_STEPS)
 
 cbs = [callbacks.TrajectoryEvaluator(testing_rollout=test_rollout),
-       callbacks.ProgressPrinter(keys=rollout.history_keys),
+       callbacks.ProgressPrinter(keys=rollout.progress_keys),
        callbacks.TrajectoryRenderer(testing_rollout=test_rollout),
        callbacks.TensorBoard(experiment_name=rollout.experiment_name)]
 

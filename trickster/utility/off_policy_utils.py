@@ -29,17 +29,17 @@ def sanitize_models_continuous(env: gym.Env,
 
     if critic1 == "default":
         print(" [Trickster] - Building the Q1 Critic:")
-        critic1 = value.QCritic(**critic_args)
+        critic1 = value.QCritic.factory(**critic_args)
     if critic1_target == "default":
         print(" [Trickster] - Building the Q1 Critic Target:")
-        critic1_target = value.QCritic(**critic_args)
+        critic1_target = value.QCritic.factory(**critic_args)
 
     if critic2 == "default":
         print(" [Trickster] - Building the Q2 Critic:")
-        critic2 = value.QCritic(**critic_args)
+        critic2 = value.QCritic.factory(**critic_args)
     if critic2_target == "default":
         print(" [Trickster] - Building the Q2 Critic Target:")
-        critic2_target = value.QCritic(**critic_args)
+        critic2_target = value.QCritic.factory(**critic_args)
 
     return actor, actor_target, critic1, critic1_target, critic2, critic2_target
 
@@ -50,12 +50,12 @@ def sanitize_models_discreete(env: gym.Env,
                               use_target_network: bool = True):
     if model == "default":
         print(" [Trickster] - Building the Deep Q Network:")
-        model = value.Q(env.observation_space, env.action_space)
+        model = value.Q.factory(env.observation_space, env.action_space)
 
     if use_target_network:
         if target_network == "default" or target_network is None:
-            print(" [Trickster] - Building the Deep Q Network Critic:")
-            target_network = value.Q(env.observation_space, env.action_space)
+            print(" [Trickster] - Building the Deep Q Network Target:")
+            target_network = value.Q.factory(env.observation_space, env.action_space)
     else:
         target_network = None
     return model, target_network

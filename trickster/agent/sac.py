@@ -12,7 +12,7 @@ class SAC(OffPolicy):
 
     """Soft Actor-Critic"""
 
-    history_keys = ["actor/loss", "actor/entropy", "alpha/alpha", "alpha/loss",
+    progress_keys = ["actor/loss", "actor/entropy", "alpha/alpha", "alpha/loss",
                     "critic/loss1", "critic/loss2", "critic/Q1", "critic/Q2",
                     "action/mean", "action/std"]
 
