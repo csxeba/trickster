@@ -1,9 +1,10 @@
 from typing import Union
 
-from .abstract import MultiRolloutBase
+import numpy as np
+
+from .abstract import RLAgentBase, MultiRolloutBase
 from .rolling import Rolling
 from .trajectory import Trajectory
-from trickster.agent.abstract import RLAgentBase
 from ..utility import training_utils
 
 
@@ -11,7 +12,7 @@ class MultiRolling(MultiRolloutBase):
 
     def __init__(self, agent: RLAgentBase, envs: list, max_steps: int = None):
         super().__init__(agent, envs, max_steps)
-        self.rollouts = [Rolling(agent, env) for env in envs]
+        self.rollouts = [Rolling(agent, env, max_steps) for env in envs]
 
     def roll(self,
              steps: int,
@@ -28,11 +29,14 @@ class MultiRolling(MultiRolloutBase):
         :param push_experience:
             Whether to save the obtained data to the agent's learning memory.
         """
-
+        rewards = []
         for i, rolling in enumerate(self.rollouts, start=1):
             if verbose:
                 print(f" [MultiRolling] - rolling in rollout #{i}:")
-            rolling.roll(steps, verbose=verbose, push_experience=push_experience)
+            local_history = rolling.roll(steps, verbose=verbose, push_experience=push_experience)
+            rewards.append(local_history["RWD/sum"])
+        history = {"RWD/sum": np.mean(rewards), "RWD/std": np.std(rewards)}
+        return history
 
     def fit(self,
             epochs: int,

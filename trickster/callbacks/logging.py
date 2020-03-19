@@ -90,10 +90,10 @@ class HistoryPlotter(Callback):
 
 class CSVLogger(Callback):
 
-    def __init__(self, path="default"):
+    def __init__(self, path="default", experiment_name=""):
         super().__init__()
         if path == "default":
-            path = os.path.join(path_utils.defaults.logdir, "log.csv")
+            path = os.path.join(path_utils.defaults.make_logdir(experiment_name), "log.csv")
         self.path = path
         self.initialized = False
         print(" [Trickster.CSVLogger] - Logging to", self.path)
@@ -101,11 +101,11 @@ class CSVLogger(Callback):
     def on_epoch_end(self, epoch: int, history: History = None):
         data = {k: v.numpy() if isinstance(v, tf.Tensor) else v for k, v in history.last().items()}
         if not self.initialized:
-            line = ",".join(history.keys)
+            line = ",".join(data.keys())
             self.initialized = True
         else:
             line = ""
         line = line + "\n"
-        line = line + ",".join(str(data[key]) for key in history.keys)
+        line = line + ",".join(str(data[key]) for key in data.keys())
         with open(self.path, "a") as handle:
             handle.write(line)

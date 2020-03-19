@@ -1,5 +1,7 @@
 from typing import Union
 
+import numpy as np
+
 from .trajectory import Trajectory
 from .abstract import RolloutBase
 from ..agent.abstract import RLAgentBase
@@ -92,6 +94,7 @@ class Rolling(RolloutBase):
         self.worker.end_trajectory()
         self.worker.set_learning_mode(False)
         self.random_actions = False
+        return {"RWD/sum": np.sum(rewards)}
 
     def _reset(self):
         self.reward = 0.

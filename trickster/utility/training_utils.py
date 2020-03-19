@@ -33,13 +33,17 @@ def fit(rolling,
 
         callbacks.on_epoch_begin(epoch)
 
+        rollout_histories = []
+
         for update in range(1, updates_per_epoch + 1):
 
-            rolling.roll(steps=steps_per_update, verbose=0, push_experience=True)
+            rollout_history = rolling.roll(steps=steps_per_update, verbose=0, push_experience=True)
             agent_history = rolling.agent.fit(batch_size=update_batch_size)
             logger.buffer(**agent_history)
+            rollout_histories.append(rollout_history)
 
         logger.push_buffer()
+        logger.append(**rollout_histories[-1])
 
         callbacks.on_epoch_end(epoch, logger)
 

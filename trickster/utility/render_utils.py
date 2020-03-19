@@ -25,7 +25,7 @@ class Renderer:
         if self.device is None:
             self._open(frame.shape)
         if self.scale != 1.:
-            frame = cv2.resize(frame, (0, 0), fx=self.scale, fy=self.scale, interpolation=cv2.INTER_LINEAR)
+            frame = cv2.resize(frame, (0, 0), fx=self.scale, fy=self.scale, interpolation=cv2.INTER_NEAREST)
         self._write(frame)
 
     def _open(self, shape):
