@@ -1,5 +1,6 @@
-import datetime
 import os
+
+from artifactorium import Artifactorium
 
 
 def ensure_workdir():
@@ -8,24 +9,15 @@ def ensure_workdir():
         os.chdir("..")
 
 
-class _DefaultPaths:
+class Artifactory(Artifactorium):
 
-    def __init__(self, root="default"):
+    __slots__ = "tensorboard", "logs", "render"
+
+    def __init__(self, root="default", experiment_name=None):
         if root == "default":
             ensure_workdir()
             root = os.path.abspath("artifactory/")
-        self.root = root
-        self.now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    def make_logdir(self, experiment_name=""):
-        path = os.path.join(self.root, experiment_name, self.now, "logs")
-        os.makedirs(path, exist_ok=True)
-        return path
-
-    def make_render_dir(self, experiment_name=""):
-        path = os.path.join(self.root, experiment_name, self.now, "renders")
-        os.makedirs(path, exist_ok=True)
-        return path
-
-
-defaults = _DefaultPaths()
+        super().__init__(root, experiment_name)
+        self.register_path("tensorboard", "NOW", "tensorboard")
+        self.register_path("logs", "NOW", "logs")
+        self.register_path("render", "NOW", "renders")
