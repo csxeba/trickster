@@ -4,3 +4,4 @@ matplotlib>=2.0
 gym>=0.16
 imageio>=2.8
 imageio-ffmpeg>=0.4
+git+https://github.com/csxeba/Artifactorium.git

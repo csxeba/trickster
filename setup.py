@@ -12,5 +12,6 @@ setup(
     author_email='csxeba@gmail.com',
     description='Deep Reinforcement Learning with TensorFlow 2',
     long_description=long_description,
-    long_description_content_type='text/markdown'
+    long_description_content_type='text/markdown',
+    install_requires=open("requirements.txt").read().split("\n")
 )
