@@ -44,9 +44,7 @@ class MultiRolling(MultiRolloutBase):
             steps_per_update: int = 32,
             update_batch_size: int = -1,
             warmup_buffer: Union[bool, int] = True,
-            callbacks: list = "default",
-            testing_rollout: Trajectory = None,
-            log_tensorboard: bool = False):
+            callbacks: list = "default"):
 
         """
         Orchestrates a basic learning scheme.
@@ -63,10 +61,6 @@ class MultiRolling(MultiRolloutBase):
             Whether to run some steps so the learning buffer is not empty. True means run for "update_batch_size" steps.
         :param callbacks: List[Callback]
             A list of callbacks or "default".
-        :param testing_rollout: Trajectory
-            This should be used to test the agent in. Must only be set if callbacks == "default"
-        :param log_tensorboard: bool
-            Whether to create a TensorBoard log.
         :return: None
         """
 
@@ -75,8 +69,7 @@ class MultiRolling(MultiRolloutBase):
         else:
             self.roll(steps=warmup_buffer // self.num_rollouts)
 
-        training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                           testing_rollout, log_tensorboard, callbacks)
+        training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size, callbacks)
 
     def summary(self):
         pfx = " [Trickster.MultiRolling] -"

@@ -140,5 +140,4 @@ class Rolling(RolloutBase):
         elif buffer_warmup > 0:
             self.roll(steps=buffer_warmup, verbose=0, push_experience=True, random_actions=False)
 
-        training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size,
-                           testing_rollout, log_tensorboard, callbacks)
+        training_utils.fit(self, epochs, updates_per_epoch, steps_per_update, update_batch_size, callbacks)

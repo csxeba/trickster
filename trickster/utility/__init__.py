@@ -1,3 +1,4 @@
+from . import artifactory
 from . import history
 from . import model_utils
 from . import numeric_utils

@@ -1,18 +1,18 @@
 import tensorflow as tf
 
 from .abstract import Callback
-from ..utility import path_utils
 from ..utility.history import History
+from ..utility.artifactory import Artifactory
 
 
 class TensorBoard(Callback):
 
-    def __init__(self, logdir="default", experiment_name=""):
+    def __init__(self, artifactory: Artifactory = "default"):
         super().__init__()
-        if logdir == "default":
-            logdir = path_utils.defaults.make_logdir(experiment_name)
-        self.writer = tf.summary.create_file_writer(logdir)
-        print(" [Trickster.TensorBoard] - Logdir:", logdir)
+        if artifactory == "default":
+            artifactory = Artifactory.make_default()
+        self.writer = tf.summary.create_file_writer(str(artifactory.tensorboard))
+        print(" [Trickster.TensorBoard] - Logdir:", artifactory.tensorboard)
 
     def on_epoch_end(self, epoch: int, history: History = None):
         last = history.last()

@@ -5,7 +5,8 @@ import tensorflow as tf
 import numpy as np
 
 from .abstract import Callback
-from ..utility import visual, path_utils
+from ..utility import visual
+from ..utility.artifactory import Artifactory
 from ..utility.history import History
 
 __all__ = ["ProgressPrinter", "HistoryPlotter", "CSVLogger"]
@@ -90,11 +91,11 @@ class HistoryPlotter(Callback):
 
 class CSVLogger(Callback):
 
-    def __init__(self, path="default", experiment_name=""):
+    def __init__(self, artifactory: Artifactory = "default"):
         super().__init__()
-        if path == "default":
-            path = os.path.join(path_utils.defaults.make_logdir(experiment_name), "log.csv")
-        self.path = path
+        if artifactory == "default":
+            artifactory = Artifactory.make_default()
+        self.path = artifactory.logs / "runlog.csv"
         self.initialized = False
         print(" [Trickster.CSVLogger] - Logging to", self.path)
 

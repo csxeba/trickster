@@ -27,7 +27,6 @@ rollout.fit(epochs=EPOCHS,
             updates_per_epoch=UPDATES_PER_EPOCH,
             steps_per_update=STEPS_PER_UPDATE,
             update_batch_size=UPDATE_BATCH_SIZE,
-            testing_rollout=test_rollout,
             warmup_buffer=True)
 
 test_rollout.render(repeats=10)

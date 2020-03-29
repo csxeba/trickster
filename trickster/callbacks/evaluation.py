@@ -6,7 +6,8 @@ import numpy as np
 from .abstract import Callback
 from ..rollout import Trajectory
 from ..utility.history import History
-from ..utility import path_utils, render_utils
+from ..utility.artifactory import Artifactory
+from ..utility import render_utils
 
 __all__ = ["TrajectoryEvaluator", "TrajectoryRenderer"]
 
@@ -34,9 +35,9 @@ class TrajectoryRenderer(Callback):
                  verbose: int = 1,
                  repeats: int = 5,
                  output_to_screen: bool = True,
-                 output_files_directory: Union[str, None] = "default",
                  fps: int = 25,
-                 scaling_factor: float = 1.):
+                 scaling_factor: float = 1.,
+                 artifactory: Artifactory = "default"):
 
         super().__init__()
         self.testing_rollout = testing_rollout
@@ -46,9 +47,9 @@ class TrajectoryRenderer(Callback):
         self.output_to_screen = output_to_screen
         self.fps = fps
         self.scaling_factor = scaling_factor
-        if output_files_directory == "default":
-            output_files_directory = path_utils.defaults.make_render_dir(testing_rollout.experiment_name)
-        self.output_files_directoy = pathlib.Path(output_files_directory)
+        if artifactory == "default":
+            artifactory = Artifactory.make_default()
+        self.output_files_directoy = pathlib.Path(artifactory.renders)
 
     def _make_renderer(self, epoch: int):
         output_file_path = str(self.output_files_directoy / f"render_epoch{epoch:0>7}.avi")
