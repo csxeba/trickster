@@ -37,21 +37,6 @@ class RLAgentBase:
     def get_savables(self) -> Dict[str, tf.keras.Model]:
         raise NotImplementedError
 
-    def save(self, output_dir: str, **metadata):
-        path = pathlib.Path(output_dir)
-        for savable_name, savable in self.get_savables().items():
-            meta_suffix = "".join("-{}_{}".format(k, v) for k, v in metadata.items())
-            save_path = os.path.join(save_root, "{}{}.h5".format(savable_name, meta_suffix))
-            savable.save(save_path)
-
-    def load(self, loadables: dict):
-        saveables = self.get_savables()
-        for key, value in loadables.items():
-            if isinstance(value, str):
-                saveables[key].load_weights(value)
-            else:
-                saveables[key].set_weights(value)
-
     def dispatch_workers(self, n=1):
         return [self] * n
 

@@ -61,7 +61,7 @@ class LearningRateScheduler(Callback):
                          start_value: float,
                          decay_rate: float,
                          min_value: float = -np.inf,
-                         verbose: int = 1,
+                         verbose: int = 0,
                          wrap_around: bool = True,
                          reset_optimizer_on_new_cycle: bool = True):
 
