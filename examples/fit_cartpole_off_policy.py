@@ -2,9 +2,10 @@ import gym
 
 from trickster.agent import DQN, DoubleDQN
 from trickster.rollout import Trajectory, MultiRolling
+from trickster import callbacks
 
 ENV_NAME = "CartPole-v1"
-ALGO = "DoubleDQN"
+ALGO = "DQN"
 NUM_ENVS = 4
 TRAJECTORY_MAX_STEPS = 200
 STEPS_PER_UPDATE = 1
@@ -27,6 +28,8 @@ rollout.fit(epochs=EPOCHS,
             updates_per_epoch=UPDATES_PER_EPOCH,
             steps_per_update=STEPS_PER_UPDATE,
             update_batch_size=UPDATE_BATCH_SIZE,
-            warmup_buffer=True)
+            warmup_buffer=True,
+            callbacks=[callbacks.TrajectoryEvaluator(testing_rollout=test_rollout, repeats=4),
+                       callbacks.ProgressPrinter(rollout.progress_keys)])
 
 test_rollout.render(repeats=10)

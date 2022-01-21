@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras import layers as tfl
 
 
-class Head(tf.keras.Model):
+class Head(tfl.Layer):
 
     def __init__(self, num_outputs: int, activation: str, scaling: float = 1.):
         super().__init__()

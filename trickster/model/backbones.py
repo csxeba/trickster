@@ -8,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras import layers as tfl
 
 
-class _LayerStack(tf.keras.Model):
+class _LayerStack(tfl.Layer):
 
     def __init__(self, stack):
         super().__init__()

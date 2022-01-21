@@ -5,7 +5,7 @@ from trickster.rollout import Trajectory
 from trickster import callbacks
 
 ENV_NAME = "LunarLanderContinuous-v2"
-ALGO = "PPO"
+ALGO = "REINFORCE"
 TRAJECTORY_MAX_STEPS = 100
 EPOCHS = 1000
 ROLLOUTS_PER_EPOCH = 4
@@ -19,9 +19,7 @@ algo = {"REINFORCE": REINFORCE,
 agent = algo.from_environment(env)
 rollout = Trajectory(agent, env, TRAJECTORY_MAX_STEPS)
 
-cbs = [callbacks.ProgressPrinter(keys=rollout.progress_keys),
-       callbacks.TrajectoryRenderer(testing_rollout=rollout),
-       callbacks.TensorBoard(experiment_name=rollout.experiment_name)]
+cbs = [callbacks.ProgressPrinter(keys=rollout.progress_keys)]
 
-rollout.fit(epochs=EPOCHS, rollouts_per_epoch=ROLLOUTS_PER_EPOCH, callbacks=cbs)
+rollout.fit(epochs=EPOCHS, updates_per_epoch=1, rollouts_per_update=4, callbacks=cbs)
 rollout.render(repeats=100)
