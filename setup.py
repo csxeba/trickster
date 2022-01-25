@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-long_description = open("Readme.md").read()
+long_description = open('Readme.md').read()
 
 setup(
     name='trickster',
@@ -13,5 +13,5 @@ setup(
     description='Deep Reinforcement Learning with TensorFlow 2',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    install_requires=open("requirements.txt").read().split("\n")
+    install_requires=open("requirements.txt").readline()
 )
